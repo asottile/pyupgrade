@@ -4,8 +4,8 @@ from __future__ import unicode_literals
 import pytest
 import six
 
-from upgrade_format_strings import parse_format
-from upgrade_format_strings import unparse_parsed_string
+from pyupgrade import parse_format
+from pyupgrade import unparse_parsed_string
 
 
 def _test_roundtrip(s):
