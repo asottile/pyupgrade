@@ -40,7 +40,13 @@ def unparse_parsed_string(parsed):
     return j.join(_convert_tup(tup) for tup in parsed)
 
 
-class StringVisitor(ast.NodeVisitor):  # pragma: no cover (EVENTUALLY!)
+SET_REMOVE = {
+    ast.Tuple: ('(', ')'), ast.List: ('[', ']'), ast.ListComp: ('[', ']'),
+}
+SET_TRANSFORM = tuple(SET_REMOVE) + (ast.GeneratorExp,)
+
+
+class Visitor(ast.NodeVisitor):  # pragma: no cover (EVENTUALLY!)
     def visit_Attribute(self, node):
         if node.attr == 'format' and isinstance(node.value, ast.Str):
             s = node.value.s
@@ -52,13 +58,30 @@ class StringVisitor(ast.NodeVisitor):  # pragma: no cover (EVENTUALLY!)
                 if not (type(rt), rt) == (type(s), s):
                     print('{!r} {!r}'.format(s, rt))
 
+        self.generic_visit(node)
+
+    def visit_Call(self, node):
+        if (
+                isinstance(node.func, ast.Name) and
+                node.func.id == 'set' and
+                len(node.args) == 1 and
+                isinstance(node.args[0], SET_TRANSFORM)
+        ):
+            # py2+py3: these are (logical line, *byte* offset)
+            # py2 (tokenze, bytes) => (logical line, *byte* offset)
+            # py2 (tokenize, text) => (logical line, char offset)
+            # py3 (tokenize requires bytes) => (logical line, char offset)
+            print('{}:{}: set'.format(node.func.lineno, node.func.col_offset))
+
+        self.generic_visit(node)
+
 
 def fix_file(filename):  # pragma: no cover (EVENTUALLY!)
     with open(filename, 'rb') as f:
         contents = f.read()
 
     ast_obj = ast.parse(contents, filename=filename)
-    StringVisitor().visit(ast_obj)
+    Visitor().visit(ast_obj)
     return 0
 
 
