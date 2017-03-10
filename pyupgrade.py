@@ -153,9 +153,9 @@ def _process_set_literal(tokens, start, arg):
     i = start + 2
     brace_stack = ['(']
     seen_arg = False
-    victim_start_braces = []
+    victim_starts = []
     victim_start_depths = []
-    victim_end_braces = []
+    victim_ends = []
 
     while brace_stack:
         token = tokens[i].src
@@ -168,12 +168,17 @@ def _process_set_literal(tokens, start, arg):
         # If we haven't seen our token yet, there are potentially victim
         # unnecessary parens to remove
         if is_start_brace and not seen_arg:
-            victim_start_braces.append(i)
+            victim_starts.append(i)
             victim_start_depths.append(len(brace_stack))
         if _is_arg(tokens[i]):
             seen_arg = True
         if is_end_brace and len(brace_stack) in victim_start_depths:
-            victim_end_braces.append(i)
+            if tokens[i - 2].src == ',' and tokens[i - 1].src == ' ':
+                victim_ends.append(i - 2)
+                victim_ends.append(i - 1)
+            elif tokens[i - 1].src == ',':
+                victim_ends.append(i - 1)
+            victim_ends.append(i)
 
         if is_end_brace:
             brace_stack.pop()
@@ -181,7 +186,7 @@ def _process_set_literal(tokens, start, arg):
         i += 1
 
     tokens[i - 1] = Token('OP', '}')
-    for index in reversed(victim_start_braces + victim_end_braces):
+    for index in reversed(victim_starts + victim_ends):
         del tokens[index]
     tokens[start:start + 2] = [Token('OP', '{')]
 

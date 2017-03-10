@@ -121,6 +121,9 @@ def test_roundtrip_tokenize(filename):
             'set((frozenset(set((1, 2))), frozenset(set((3, 4)))))',
             '{frozenset({1, 2}), frozenset({3, 4})}',
         ),
+        # Remove trailing commas on inline things
+        ('set((1,))', '{1}'),
+        ('set((1, ))', '{1}'),
     ),
 )
 def test_set(s, expected):
