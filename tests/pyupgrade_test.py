@@ -249,3 +249,12 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
     assert main((f.strpath,)) == 1
     out, _ = capsys.readouterr()
     assert out == '{} is non-utf-8 (not supported)\n'.format(f.strpath)
+
+
+def test_py3_only_argument_unicode_literals(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('u""')
+    assert main((f.strpath,)) == 0
+    assert f.read() == 'u""'
+    assert main((f.strpath, '--py3-only')) == 1
+    assert f.read() == '""'

@@ -324,7 +324,7 @@ def _fix_unicode_literals(contents_text, py3_only):
     return untokenize_tokens(tokens)
 
 
-def fix_file(filename):
+def fix_file(filename, args):
     with open(filename, 'rb') as f:
         contents_bytes = f.read()
 
@@ -336,6 +336,7 @@ def fix_file(filename):
 
     contents_text = _fix_sets(contents_text)
     contents_text = _fix_format_literals(contents_text)
+    contents_text = _fix_unicode_literals(contents_text, args.py3_only)
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
@@ -349,11 +350,12 @@ def fix_file(filename):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
+    parser.add_argument('--py3-only', action='store_true')
     args = parser.parse_args(argv)
 
     ret = 0
     for filename in args.filenames:
-        ret |= fix_file(filename)
+        ret |= fix_file(filename, args)
     return ret
 
 
