@@ -3,7 +3,10 @@ from __future__ import unicode_literals
 
 import argparse
 import ast
+import collections
+import io
 import string
+import tokenize
 
 
 _stdlib_parse_format = string.Formatter().parse
@@ -38,6 +41,49 @@ def unparse_parsed_string(parsed):
         return ret
 
     return j.join(_convert_tup(tup) for tup in parsed)
+
+
+Token = collections.namedtuple(
+    'Token', ('name', 'src', 'line', 'utf8_byte_offset'),
+)
+Token.__new__.__defaults__ = (None, None,)
+
+
+def tokenize_src(src):
+    tokenize_target = io.StringIO(src)
+    lines = (None,) + tuple(tokenize_target)
+    tokenize_target.seek(0)
+
+    tokens = []
+    last_line = 1
+    last_col = 0
+
+    for (
+            tok_type, tok_text, (sline, scol), (eline, ecol), line,
+    ) in tokenize.generate_tokens(tokenize_target.readline):
+        if sline > last_line or scol > last_col:
+            if sline > last_line:
+                newtok = lines[last_line][last_col:]
+                for lineno in range(last_line + 1, sline):
+                    newtok += lines[lineno]
+                if scol > 0:
+                    newtok += lines[sline][:scol]
+            else:
+                newtok = lines[sline][last_col:scol]
+
+            if newtok:
+                tokens.append(Token('UNIMPORTANT_WS', newtok))
+
+        tok_name = tokenize.tok_name[tok_type]
+        utf8_byte_offset = len(line[:scol].encode('UTF-8'))
+        tokens.append(Token(tok_name, tok_text, sline, utf8_byte_offset))
+        last_line, last_col = eline, ecol
+
+    return tokens
+
+
+def untokenize_tokens(tokens):
+    return ''.join(tok.src for tok in tokens)
 
 
 SET_REMOVE = {
