@@ -9,6 +9,8 @@ import six
 
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_sets
+from pyupgrade import _fix_unicode_literals
+from pyupgrade import _imports_unicode_literals
 from pyupgrade import parse_format
 from pyupgrade import main
 from pyupgrade import Token
@@ -130,7 +132,7 @@ def test_roundtrip_tokenize(filename):
     ),
 )
 def test_sets(s, expected):
-    ret = _fix_sets(s, 'unused_filename')
+    ret = _fix_sets(s)
     assert ret == expected
 
 
@@ -165,6 +167,53 @@ def test_sets(s, expected):
 )
 def test_format_literals(s, expected):
     ret = _fix_format_literals(s)
+    assert ret == expected
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        ('import x', False),
+        ('from foo import bar', False),
+        ('x = 5', False),
+        ('from __future__ import unicode_literals', True),
+        (
+            '"""docstring"""\n'
+            'from __future__ import unicode_literals',
+            True,
+        ),
+        (
+            'from __future__ import absolute_import\n'
+            'from __future__ import unicode_literals\n',
+            True,
+        ),
+    ),
+)
+def test_imports_unicode_literals(s, expected):
+    assert _imports_unicode_literals(s) is expected
+
+
+@pytest.mark.parametrize(
+    ('s', 'py3_only', 'expected'),
+    (
+        # Syntax errors are unchanged
+        ('(', False, '('),
+        # Without py3-only, no replacements
+        ("u''", False, "u''"),
+        # With py3-only, it removes u prefix
+        ("u''", True, "''"),
+        # Importing unicode_literals also cause it to remove it
+        (
+            'from __future__ import unicode_literals\n'
+            'u""\n',
+            False,
+            'from __future__ import unicode_literals\n'
+            '""\n',
+        ),
+    ),
+)
+def test_unicode_literals(s, py3_only, expected):
+    ret = _fix_unicode_literals(s, py3_only=py3_only)
     assert ret == expected
 
 

@@ -25,16 +25,6 @@ set([x for x in y])  # {x for x in y}
 '{0}' '{1}'.format(1, 2)  # '{}' '{}'.format(1, 2)
 ```
 
-
-## Planned features
-
-### Dictionary comprehensions
-
-```python
-dict((a, b) for a, b in y)   # {a: b for a, b in y}
-dict([(a, b) for a, b in y)  # {a: b for a, b in y}
-```
-
 ### Unicode literals
 
 Availability:
@@ -43,10 +33,18 @@ Availability:
 
 ```python
 u'foo'      # 'foo'
-U'foo'      # 'foo'
 u"foo"      # 'foo'
-U"foo"      # 'foo'
 u'''foo'''  # '''foo'''
+```
+
+
+## Planned features
+
+### Dictionary comprehensions
+
+```python
+dict((a, b) for a, b in y)   # {a: b for a, b in y}
+dict([(a, b) for a, b in y)  # {a: b for a, b in y}
 ```
 
 ### f-strings

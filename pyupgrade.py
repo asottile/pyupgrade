@@ -5,6 +5,7 @@ import argparse
 import ast
 import collections
 import io
+import re
 import string
 import tokenize
 
@@ -83,6 +84,10 @@ def tokenize_src(src):
 
 def untokenize_tokens(tokens):
     return ''.join(tok.src for tok in tokens)
+
+
+def ast_parse(contents_text):
+    return ast.parse(contents_text.encode('UTF-8'))
 
 
 def inty(s):
@@ -256,10 +261,9 @@ def _process_set_literal(tokens, start, arg):
     tokens[start:start + 2] = [Token('OP', '{')]
 
 
-def _fix_sets(contents_text, filename):
-    contents_bytes = contents_text.encode('UTF-8')
+def _fix_sets(contents_text):
     try:
-        ast_obj = ast.parse(contents_bytes, filename=filename)
+        ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
     visitor = FindSetsVisitor()
@@ -277,6 +281,49 @@ def _fix_sets(contents_text, filename):
     return untokenize_tokens(tokens)
 
 
+def _imports_unicode_literals(contents_text):
+    try:
+        ast_obj = ast_parse(contents_text)
+    except SyntaxError:
+        return False
+
+    for node in ast_obj.body:
+        # Docstring
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+            continue
+        elif isinstance(node, ast.ImportFrom):
+            if (
+                node.module == '__future__' and
+                any(name.name == 'unicode_literals' for name in node.names)
+            ):
+                return True
+            elif node.module == '__future__':
+                continue
+            else:
+                return False
+        else:
+            return False
+
+
+STRING_PREFIXES_RE = re.compile('^([^\'"]*)(.*)$')
+
+
+def _fix_unicode_literals(contents_text, py3_only):
+    if not py3_only and not _imports_unicode_literals(contents_text):
+        return contents_text
+    tokens = tokenize_src(contents_text)
+    for i, token in enumerate(tokens):
+        if token.name != 'STRING':
+            continue
+
+        match = STRING_PREFIXES_RE.match(token.src)
+        prefix = match.group(1)
+        rest = match.group(2)
+        new_prefix = prefix.replace('u', '').replace('U', '')
+        tokens[i] = Token('STRING', new_prefix + rest)
+    return untokenize_tokens(tokens)
+
+
 def fix_file(filename):
     with open(filename, 'rb') as f:
         contents_bytes = f.read()
@@ -287,7 +334,7 @@ def fix_file(filename):
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
-    contents_text = _fix_sets(contents_text, filename)
+    contents_text = _fix_sets(contents_text)
     contents_text = _fix_format_literals(contents_text)
 
     if contents_text != contents_text_orig:
