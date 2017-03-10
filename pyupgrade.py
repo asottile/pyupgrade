@@ -85,6 +85,55 @@ def untokenize_tokens(tokens):
     return ''.join(tok.src for tok in tokens)
 
 
+def inty(s):
+    try:
+        int(s)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+def _rewrite_string_literal(literal):
+    try:
+        parsed_fmt = parse_format(literal)
+    except ValueError:
+        # Wellp, the format literal was malformed, so skip it
+        return literal
+
+    last_int = -1
+    # The last segment will always be the end of the string and not a format
+    # We slice it off here to avoid a "None" format key
+    for _, fmtkey, _, _ in parsed_fmt[:-1]:
+        if inty(fmtkey) and int(fmtkey) == last_int + 1:
+            last_int += 1
+        else:
+            return literal
+
+    def _remove_fmt(tup):
+        if tup[1] is None:
+            return tup
+        else:
+            return (tup[0], '', tup[2], tup[3])
+
+    removed = [_remove_fmt(tup) for tup in parsed_fmt]
+    return unparse_parsed_string(removed)
+
+
+def _fix_format_literals(contents_text):
+    tokens = tokenize_src(contents_text)
+
+    for i in range(2, len(tokens)):
+        if (
+                tokens[i - 2].name == 'STRING' and
+                tokens[i - 1].src == '.' and
+                tokens[i].src == 'format'
+        ):
+            new_src = _rewrite_string_literal(tokens[i - 2].src)
+            tokens[i - 2] = Token('STRING', new_src)
+
+    return untokenize_tokens(tokens)
+
+
 BRACES = {'(': ')', '[': ']', '{': '}'}
 SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
 Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
@@ -193,7 +242,10 @@ def _process_set_literal(tokens, start, arg):
 
 def _fix_sets(contents_text, filename):
     contents_bytes = contents_text.encode('UTF-8')
-    ast_obj = ast.parse(contents_bytes, filename=filename)
+    try:
+        ast_obj = ast.parse(contents_bytes, filename=filename)
+    except SyntaxError:
+        return contents_text
     visitor = FindSetsVisitor()
     visitor.visit(ast_obj)
     if not visitor.sets and not visitor.set_empty_literals:
@@ -210,10 +262,17 @@ def _fix_sets(contents_text, filename):
 
 
 def fix_file(filename):
-    with io.open(filename, encoding='UTF-8') as f:
-        contents_text_orig = contents_text = f.read()
+    with open(filename, 'rb') as f:
+        contents_bytes = f.read()
+
+    try:
+        contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
+    except UnicodeDecodeError:
+        print('{} is non-utf-8 (not supported)'.format(filename))
+        return 1
 
     contents_text = _fix_sets(contents_text, filename)
+    contents_text = _fix_format_literals(contents_text)
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -6,6 +7,7 @@ import io
 import pytest
 import six
 
+from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_sets
 from pyupgrade import parse_format
 from pyupgrade import main
@@ -127,8 +129,29 @@ def test_roundtrip_tokenize(filename):
         ('set((1, ))', '{1}'),
     ),
 )
-def test_set(s, expected):
+def test_sets(s, expected):
     ret = _fix_sets(s, 'unused_filename')
+    assert ret == expected
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        # Don't touch py27 format strings
+        ("'{}'.format(1)", "'{}'.format(1)"),
+        # Don't touch invalid format strings
+        ("'{'.format(1)", "'{'.format(1)"),
+        ("'}'.format(1)", "'}'.format(1)"),
+        # Don't touch non-format strings
+        ("x = ('{0} {1}',)\n", "x = ('{0} {1}',)\n"),
+        # Simplest case
+        ("'{0}'.format(1)", "'{}'.format(1)"),
+        # Multiline strings
+        ("'''{0}\n{1}\n'''.format(1, 2)", "'''{}\n{}\n'''.format(1, 2)"),
+    ),
+)
+def test_format_literals(s, expected):
+    ret = _fix_format_literals(s)
     assert ret == expected
 
 
@@ -150,3 +173,17 @@ def test_main_changes_a_file(tmpdir, capsys):
     out, _ = capsys.readouterr()
     assert out == 'Rewriting {}\n'.format(f.strpath)
     assert f.read() == 'x = {1, 2, 3}\n'
+
+
+def test_main_syntax_error(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('from __future__ import print_function\nprint 1\n')
+    assert main((f.strpath,)) == 0
+
+
+def test_main_non_utf8_bytes(tmpdir, capsys):
+    f = tmpdir.join('f.py')
+    f.write_binary('# -*- coding: cp1252 -*-\nx = €\n'.encode('cp1252'))
+    assert main((f.strpath,)) == 1
+    out, _ = capsys.readouterr()
+    assert out == '{} is non-utf-8 (not supported)\n'.format(f.strpath)
