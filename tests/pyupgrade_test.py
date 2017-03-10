@@ -8,6 +8,7 @@ import six
 
 from pyupgrade import _fix_sets
 from pyupgrade import parse_format
+from pyupgrade import main
 from pyupgrade import Token
 from pyupgrade import tokenize_src
 from pyupgrade import unparse_parsed_string
@@ -129,3 +130,23 @@ def test_roundtrip_tokenize(filename):
 def test_set(s, expected):
     ret = _fix_sets(s, 'unused_filename')
     assert ret == expected
+
+
+def test_main_trivial():
+    assert main(()) == 0
+
+
+def test_main_noop(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('x = 5\n')
+    assert main((f.strpath,)) == 0
+    assert f.read() == 'x = 5\n'
+
+
+def test_main_changes_a_file(tmpdir, capsys):
+    f = tmpdir.join('f.py')
+    f.write('x = set((1, 2, 3))\n')
+    assert main((f.strpath,)) == 1
+    out, _ = capsys.readouterr()
+    assert out == 'Rewriting {}\n'.format(f.strpath)
+    assert f.read() == 'x = {1, 2, 3}\n'

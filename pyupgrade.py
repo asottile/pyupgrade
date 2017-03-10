@@ -209,13 +209,14 @@ def _fix_sets(contents_text, filename):
     return untokenize_tokens(tokens)
 
 
-def fix_file(filename):  # pragma: no cover (EVENTUALLY!)
+def fix_file(filename):
     with io.open(filename, encoding='UTF-8') as f:
         contents_text_orig = contents_text = f.read()
 
     contents_text = _fix_sets(contents_text, filename)
 
     if contents_text != contents_text_orig:
+        print('Rewriting {}'.format(filename))
         with io.open(filename, 'w', encoding='UTF-8') as f:
             f.write(contents_text)
         return 1
@@ -223,7 +224,7 @@ def fix_file(filename):  # pragma: no cover (EVENTUALLY!)
     return 0
 
 
-def main(argv=None):  # pragma: no cover (EVENTUALLY!)
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     args = parser.parse_args(argv)
