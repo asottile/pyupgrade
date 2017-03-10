@@ -6,6 +6,7 @@ import io
 import pytest
 import six
 
+from pyupgrade import _fix_sets
 from pyupgrade import parse_format
 from pyupgrade import Token
 from pyupgrade import tokenize_src
@@ -84,3 +85,44 @@ def test_roundtrip_tokenize(filename):
         contents = f.read()
     ret = untokenize_tokens(tokenize_src(contents))
     assert ret == contents
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        # Don't touch empty set literals
+        ('set()', 'set()'),
+        # Don't touch set(empty literal) with newlines in them (may create
+        # syntax errors)
+        ('set((\n))', 'set((\n))'),
+        # Don't touch weird looking function calls -- use autopep8 or such
+        # first
+        ('set (())', 'set (())'),
+        ('set ((1, 2))', 'set ((1, 2))'),
+        # Take a set literal with an empty tuple / list and remove the arg
+        ('set(())', 'set()'),
+        ('set([])', 'set()'),
+        # Remove spaces in empty set literals
+        ('set(( ))', 'set()'),
+        # Some "normal" test cases
+        ('set((1, 2))', '{1, 2}'),
+        ('set([1, 2])', '{1, 2}'),
+        ('set(x for x in y)', '{x for x in y}'),
+        ('set([x for x in y])', '{x for x in y}'),
+        # These are strange cases -- the ast doesn't tell us about the parens
+        # here so we have to parse ourselves
+        ('set((x for x in y))', '{x for x in y}'),
+        ('set(((1, 2)))', '{1, 2}'),
+        # Some multiline cases
+        ('set(\n(1, 2))', '{\n1, 2}'),
+        ('set((\n1,\n2,\n))\n', '{\n1,\n2,\n}\n'),
+        # Nested sets
+        (
+            'set((frozenset(set((1, 2))), frozenset(set((3, 4)))))',
+            '{frozenset({1, 2}), frozenset({3, 4})}',
+        ),
+    ),
+)
+def test_set(s, expected):
+    ret = _fix_sets(s, 'unused_filename')
+    assert ret == expected
