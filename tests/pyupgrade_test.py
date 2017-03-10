@@ -148,6 +148,19 @@ def test_sets(s, expected):
         ("'{0}'.format(1)", "'{}'.format(1)"),
         # Multiline strings
         ("'''{0}\n{1}\n'''.format(1, 2)", "'''{}\n{}\n'''.format(1, 2)"),
+        # Multiple implicitly-joined strings
+        ("'{0}' '{1}'.format(1, 2)", "'{}' '{}'.format(1, 2)"),
+        # Multiple implicitly-joined strings over lines
+        (
+            'print(\n'
+            "    'foo{0}'\n"
+            "    'bar{1}'.format(1, 2)\n"
+            ')',
+            'print(\n'
+            "    'foo{}'\n"
+            "    'bar{}'.format(1, 2)\n"
+            ')',
+        ),
     ),
 )
 def test_format_literals(s, expected):

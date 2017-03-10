@@ -21,7 +21,8 @@ set([x for x in y])  # {x for x in y}
 ### Python2.7+ Format Specifiers
 
 ```python
-'{0} {1}'.format(1, 2)  # '{} {}'.format(1, 2)
+'{0} {1}'.format(1, 2)    # '{} {}'.format(1, 2)
+'{0}' '{1}'.format(1, 2)  # '{}' '{}'.format(1, 2)
 ```
 
 
