@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import argparse
 import ast
 import collections
+import copy
 import io
 import re
 import string
@@ -211,16 +212,28 @@ def _process_set_empty_literal(tokens, start):
 
 
 def _get_brace_victims(tokens, start, arg):
-    # Adjust `arg` to be the position of the first element.
-    # listcomps, generators, and tuples already point to the first element
-    if isinstance(arg, ast.List):
-        arg = arg.elts[0]
-
     def _is_arg(token):
         return (
             token.line == arg.lineno and
             token.utf8_byte_offset == arg.col_offset
         )
+
+    # Adjust `arg` to be the position of the first element.
+    # listcomps, generators, and tuples already point to the first element
+    if isinstance(arg, ast.List) and not isinstance(arg.elts[0], ast.Tuple):
+        arg = arg.elts[0]
+    elif isinstance(arg, ast.List):
+        # If the first element is a tuple, the ast lies to us about its col
+        # offset.  We must find the first `(` token after the start of the
+        # list element.
+        i = start + 2
+        while not _is_arg(tokens[i]):
+            i += 1
+        while tokens[i].src != '(':
+            i += 1
+        arg = copy.copy(arg.elts[0])
+        arg.lineno = tokens[i].line
+        arg.col_offset = tokens[i].utf8_byte_offset
 
     i = start + 2
     brace_stack = ['(']

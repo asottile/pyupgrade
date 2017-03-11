@@ -106,6 +106,10 @@ def test_roundtrip_tokenize(filename):
         # The ast also doesn't tell us about the start of the tuple for
         # tuple of tuples
         ('set(((1, 2), (3, 4)))', '{(1, 2), (3, 4)}'),
+        # Lists where the first element is a tuple also gives the ast trouble
+        # The first element lies about the offset of the element
+        ('set([(1, 2), (3, 4)])', '{(1, 2), (3, 4)}'),
+        ('set([((1, 2)), (3, 4)])', '{((1, 2)), (3, 4)}'),
         # And it gets worse
         ('set((((1, 2),),))', '{((1, 2),)}'),
         # Some multiline cases
