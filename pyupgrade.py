@@ -185,12 +185,12 @@ class FindSetsVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _is_wtf_set(tokens, i):
-    return tokens[i].src != 'set' or tokens[i + 1].src != '('
+def _is_wtf(func, tokens, i):
+    return tokens[i].src != func or tokens[i + 1].src != '('
 
 
 def _process_set_empty_literal(tokens, start):
-    if _is_wtf_set(tokens, start):
+    if _is_wtf('set', tokens, start):
         return
 
     i = start + 2
@@ -210,9 +210,13 @@ def _process_set_empty_literal(tokens, start):
     del tokens[start + 2:i - 1]
 
 
-def _process_set_literal(tokens, start, arg):
-    if _is_wtf_set(tokens, start):
-        return
+def _get_brace_victims(tokens, start, arg):
+    # Adjust `arg` to be the position of the first element.  listcomps and
+    # generators already point to the first element
+    if isinstance(arg, ast.List):
+        arg = arg.elts[0]
+    elif isinstance(arg, ast.ListComp):
+        arg = arg.elt
 
     def _is_arg(token):
         return (
@@ -222,10 +226,10 @@ def _process_set_literal(tokens, start, arg):
 
     i = start + 2
     brace_stack = ['(']
-    seen_arg = False
     victim_starts = []
     victim_start_depths = []
     victim_ends = []
+    arg_index = None
 
     while brace_stack:
         token = tokens[i].src
@@ -235,13 +239,14 @@ def _process_set_literal(tokens, start, arg):
         if is_start_brace:
             brace_stack.append(token)
 
-        # If we haven't seen our token yet, there are potentially victim
-        # unnecessary parens to remove
-        if is_start_brace and not seen_arg:
+        if _is_arg(tokens[i]):
+            arg_index = i
+        # We'll remove any braces before the first "element" of the inner
+        # argument.  For all, this may be extraneous parens.  For list / list
+        # comprehensions this will be the [] brackets.
+        if is_start_brace and arg_index is None:
             victim_starts.append(i)
             victim_start_depths.append(len(brace_stack))
-        if _is_arg(tokens[i]):
-            seen_arg = True
         if is_end_brace and len(brace_stack) in victim_start_depths:
             if tokens[i - 2].src == ',' and tokens[i - 1].src == ' ':
                 victim_ends.append(i - 2)
@@ -255,8 +260,17 @@ def _process_set_literal(tokens, start, arg):
 
         i += 1
 
-    tokens[i - 1] = Token('OP', '}')
-    for index in reversed(victim_starts + victim_ends):
+    return victim_starts, victim_ends, i - 1, arg_index
+
+
+def _process_set_literal(tokens, start, arg):
+    if _is_wtf('set', tokens, start):
+        return
+
+    starts, ends, end_index, _ = _get_brace_victims(tokens, start, arg)
+
+    tokens[end_index] = Token('OP', '}')
+    for index in reversed(starts + ends):
         del tokens[index]
     tokens[start:start + 2] = [Token('OP', '{')]
 
@@ -278,6 +292,111 @@ def _fix_sets(contents_text):
             _process_set_empty_literal(tokens, i)
         elif key in visitor.sets:
             _process_set_literal(tokens, i, visitor.sets[key])
+    return untokenize_tokens(tokens)
+
+
+class FindDictsVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.dicts = {}
+
+    def visit_Call(self, node):
+        if (
+                isinstance(node.func, ast.Name) and
+                node.func.id == 'dict' and
+                len(node.args) == 1 and
+                isinstance(node.args[0], (ast.ListComp, ast.GeneratorExp)) and
+                isinstance(node.args[0].elt, (ast.Tuple, ast.List)) and
+                len(node.args[0].elt.elts) == 2
+        ):
+            arg, = node.args
+            key = Offset(node.func.lineno, node.func.col_offset)
+            self.dicts[key] = arg
+
+
+def _get_elt_victims(tokens, arg_index, comp_elt):
+    if isinstance(comp_elt, ast.List):
+        comp_elt = comp_elt.elts[0]
+
+    def _is_comp_elt(token):
+        return (
+            token.line == comp_elt.lineno and
+            token.utf8_byte_offset == comp_elt.col_offset
+        )
+
+    victim_starts = [arg_index]
+    victim_start_depths = [1]
+    victim_ends = []
+    comma = None
+    elt_depth = None
+    brace_stack = [tokens[arg_index].src]
+    i = arg_index + 1
+
+    while brace_stack:
+        token = tokens[i].src
+        is_start_brace = token in BRACES
+        is_end_brace = token == BRACES[brace_stack[-1]]
+
+        if is_start_brace:
+            brace_stack.append(token)
+
+        if _is_comp_elt(tokens[i]):
+            elt_depth = len(brace_stack)
+        # Remove all braces before the first element of the inner
+        # comprehension's target.
+        if is_start_brace and elt_depth is None:
+            victim_starts.append(i)
+            victim_start_depths.append(len(brace_stack))
+
+        if token == ',' and len(brace_stack) == elt_depth and comma is None:
+            comma = i
+
+        if is_end_brace and len(brace_stack) in victim_start_depths:
+            if tokens[i - 2].src == ',' and tokens[i - 1].src == ' ':
+                victim_ends.append(i - 2)
+                victim_ends.append(i - 1)
+            elif tokens[i - 1].src == ',':
+                victim_ends.append(i - 1)
+            victim_ends.append(i)
+
+        if is_end_brace:
+            brace_stack.pop()
+
+        i += 1
+
+    return victim_starts, victim_ends, comma
+
+
+def _process_dict_comp(tokens, start, arg):
+    if _is_wtf('dict', tokens, start):
+        return
+
+    starts, ends, end_index, arg_index = _get_brace_victims(tokens, start, arg)
+    elt_starts, elt_ends, comma = _get_elt_victims(tokens, arg_index, arg.elt)
+
+    tokens[end_index] = Token('OP', '}')
+    for index in reversed(elt_ends + ends):
+        del tokens[index]
+    tokens[comma] = Token('OP', ':')
+    for index in reversed(starts + elt_starts):
+        del tokens[index]
+    tokens[start:start + 2] = [Token('OP', '{')]
+
+
+def _fix_dictcomps(contents_text):
+    try:
+        ast_obj = ast_parse(contents_text)
+    except SyntaxError:
+        return contents_text
+    visitor = FindDictsVisitor()
+    visitor.visit(ast_obj)
+    if not visitor.dicts:
+        return contents_text
+
+    tokens = tokenize_src(contents_text)
+    for i, token in reversed(tuple(enumerate(tokens))):
+        key = (token.line, token.utf8_byte_offset)
+        if key in visitor.dicts:
+            _process_dict_comp(tokens, i, visitor.dicts[key])
     return untokenize_tokens(tokens)
 
 

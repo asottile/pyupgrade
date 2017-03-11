@@ -6,6 +6,7 @@ import io
 
 import pytest
 
+from pyupgrade import _fix_dictcomps
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_sets
 from pyupgrade import _fix_unicode_literals
@@ -99,6 +100,14 @@ def test_roundtrip_tokenize(filename):
         # here so we have to parse ourselves
         ('set((x for x in y))', '{x for x in y}'),
         ('set(((1, 2)))', '{1, 2}'),
+        # The ast also doesn't tell us about the start of the tuple in this
+        # generator expression
+        ('set((a, b) for a, b in y)', '{(a, b) for a, b in y}'),
+        # The ast also doesn't tell us about the start of the tuple for
+        # tuple of tuples
+        ('set(((1, 2), (3, 4)))', '{(1, 2), (3, 4)}'),
+        # And it gets worse
+        ('set((((1, 2),),))', '{((1, 2),)}'),
         # Some multiline cases
         ('set(\n(1, 2))', '{\n1, 2}'),
         ('set((\n1,\n2,\n))\n', '{\n1,\n2,\n}\n'),
@@ -114,6 +123,30 @@ def test_roundtrip_tokenize(filename):
 )
 def test_sets(s, expected):
     ret = _fix_sets(s)
+    assert ret == expected
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        # Don't touch irrelevant code
+        ('x = 5', 'x = 5'),
+        ('dict()', 'dict()'),
+        # Don't touch syntax errors
+        ('(', '('),
+        # Don't touch strange looking calls
+        ('dict ((a, b) for a, b in y)', 'dict ((a, b) for a, b in y)'),
+        # Normal cases
+        ('dict((a, b) for a, b in y)', '{a: b for a, b in y}'),
+        ('dict((a, b,) for a, b in y)', '{a: b for a, b in y}'),
+        ('dict((a, b, ) for a, b in y)', '{a: b for a, b in y}'),
+        ('dict([a, b] for a, b in y)', '{a: b for a, b in y}'),
+        # Parenthesized target
+        ('dict(((a, b)) for a, b in y)', '{a: b for a, b in y}'),
+    ),
+)
+def test_dictcomps(s, expected):
+    ret = _fix_dictcomps(s)
     assert ret == expected
 
 
