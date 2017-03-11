@@ -136,13 +136,15 @@ def test_sets(s, expected):
         ('(', '('),
         # Don't touch strange looking calls
         ('dict ((a, b) for a, b in y)', 'dict ((a, b) for a, b in y)'),
-        # Normal cases
+        # dict of generator expression
         ('dict((a, b) for a, b in y)', '{a: b for a, b in y}'),
         ('dict((a, b,) for a, b in y)', '{a: b for a, b in y}'),
         ('dict((a, b, ) for a, b in y)', '{a: b for a, b in y}'),
         ('dict([a, b] for a, b in y)', '{a: b for a, b in y}'),
         # Parenthesized target
         ('dict(((a, b)) for a, b in y)', '{a: b for a, b in y}'),
+        # dict of list comprehension
+        ('dict([(a, b) for a, b in y])', '{a: b for a, b in y}'),
     ),
 )
 def test_dictcomps(s, expected):

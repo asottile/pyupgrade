@@ -211,12 +211,10 @@ def _process_set_empty_literal(tokens, start):
 
 
 def _get_brace_victims(tokens, start, arg):
-    # Adjust `arg` to be the position of the first element.  listcomps and
-    # generators already point to the first element
+    # Adjust `arg` to be the position of the first element.
+    # listcomps, generators, and tuples already point to the first element
     if isinstance(arg, ast.List):
         arg = arg.elts[0]
-    elif isinstance(arg, ast.ListComp):
-        arg = arg.elt
 
     def _is_arg(token):
         return (
@@ -453,6 +451,7 @@ def fix_file(filename, args):
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
+    contents_text = _fix_dictcomps(contents_text)
     contents_text = _fix_sets(contents_text)
     contents_text = _fix_format_literals(contents_text)
     contents_text = _fix_unicode_literals(contents_text, args.py3_only)
