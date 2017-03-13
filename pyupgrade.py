@@ -46,6 +46,7 @@ def unparse_parsed_string(parsed):
 
 
 UNIMPORTANT_WS = 'UNIMPORTANT_WS'
+NON_CODING_TOKENS = frozenset(('COMMENT', 'NL', UNIMPORTANT_WS))
 Token = collections.namedtuple(
     'Token', ('name', 'src', 'line', 'utf8_byte_offset'),
 )
@@ -145,7 +146,7 @@ def _fix_format_literals(contents_text):
             to_replace.append((string_start, string_end))
             string_start, string_end, seen_dot = None, None, False
         # NL is the non-breaking newline token
-        elif token.name not in ('COMMENT', 'NL', UNIMPORTANT_WS):
+        elif token.name not in NON_CODING_TOKENS:
             string_start, string_end, seen_dot = None, None, False
 
     for start, end in reversed(to_replace):
@@ -290,6 +291,13 @@ def _get_victims(tokens, start, arg):
             brace_stack.pop()
 
         i += 1
+
+    # May need to remove a trailing comma
+    i -= 2
+    while tokens[i].name in NON_CODING_TOKENS:
+        i -= 1
+    if tokens[i].src == ',':
+        ends = sorted(set(ends + [i]))
 
     return Victims(starts, ends, first_comma_index, arg_index)
 

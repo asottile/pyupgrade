@@ -130,6 +130,17 @@ def test_roundtrip_tokenize(filename):
         # Remove trailing commas on inline things
         ('set((1,))', '{1}'),
         ('set((1, ))', '{1}'),
+        # Remove trailing commas after things
+        ('set([1, 2, 3,],)', '{1, 2, 3}'),
+        ('set(x for x in y,)', '{x for x in y}'),
+        (
+            'set(\n'
+            '    x for x in y,\n'
+            ')',
+            '{\n'
+            '    x for x in y\n'
+            '}',
+        ),
     ),
 )
 def test_sets(s, expected):
@@ -167,6 +178,25 @@ def test_sets(s, expected):
         ),
         # This doesn't get fixed by autopep8 and can cause a syntax error
         ('dict((a, b)for a, b in y)', '{a: b for a, b in y}'),
+        # Need to remove trailing commas on the element
+        (
+            'dict(\n'
+            '    (\n'
+            '        a,\n'
+            '        b,\n'
+            '    )\n'
+            '    for a, b in y\n'
+            ')',
+            # Ideally, this'll go through some other formatting tool before
+            # being committed.  Shrugs!
+            '{\n'
+            '    \n'
+            '        a:\n'
+            '        b\n'
+            '    \n'
+            '    for a, b in y\n'
+            '}',
+        ),
     ),
 )
 def test_dictcomps(s, expected):
