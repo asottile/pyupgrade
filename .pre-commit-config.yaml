@@ -1,0 +1,16 @@
+-   repo: https://github.com/pre-commit/pre-commit-hooks.git
+    sha: v0.7.1
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: autopep8-wrapper
+    -   id: check-docstring-first
+    -   id: check-yaml
+    -   id: debug-statements
+    -   id: name-tests-test
+    -   id: requirements-txt-fixer
+    -   id: flake8
+-   repo: https://github.com/asottile/reorder_python_imports.git
+    sha: v0.3.1
+    hooks:
+    -   id: reorder-python-imports

@@ -11,8 +11,8 @@ from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_sets
 from pyupgrade import _fix_unicode_literals
 from pyupgrade import _imports_unicode_literals
-from pyupgrade import parse_format
 from pyupgrade import main
+from pyupgrade import parse_format
 from pyupgrade import Token
 from pyupgrade import tokenize_src
 from pyupgrade import unparse_parsed_string
@@ -63,7 +63,6 @@ def test_tokenize_src_simple():
     (
         'testing/resources/empty.py',
         'testing/resources/unicode_snowman.py',
-        'testing/resources/docstring.py',
         'testing/resources/backslash_continuation.py',
     ),
 )
