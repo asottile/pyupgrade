@@ -211,13 +211,13 @@ def _process_set_empty_literal(tokens, start):
     del tokens[start + 2:i - 1]
 
 
-def _get_brace_victims(tokens, start, arg):
-    def _is_arg(token):
-        return (
-            token.line == arg.lineno and
-            token.utf8_byte_offset == arg.col_offset
-        )
+def _is_arg(token, arg):
+    return (
+        token.line == arg.lineno and token.utf8_byte_offset == arg.col_offset
+    )
 
+
+def _adjust_arg(tokens, i, arg):
     # Adjust `arg` to be the position of the first element.
     # listcomps, generators, and tuples already point to the first element
     if isinstance(arg, ast.List) and not isinstance(arg.elts[0], ast.Tuple):
@@ -226,14 +226,18 @@ def _get_brace_victims(tokens, start, arg):
         # If the first element is a tuple, the ast lies to us about its col
         # offset.  We must find the first `(` token after the start of the
         # list element.
-        i = start + 2
-        while not _is_arg(tokens[i]):
+        while not _is_arg(tokens[i], arg):
             i += 1
         while tokens[i].src != '(':
             i += 1
         arg = copy.copy(arg.elts[0])
         arg.lineno = tokens[i].line
         arg.col_offset = tokens[i].utf8_byte_offset
+    return arg
+
+
+def _get_brace_victims(tokens, start, arg):
+    arg = _adjust_arg(tokens, start + 2, arg)
 
     i = start + 2
     brace_stack = ['(']
@@ -250,7 +254,7 @@ def _get_brace_victims(tokens, start, arg):
         if is_start_brace:
             brace_stack.append(token)
 
-        if _is_arg(tokens[i]):
+        if _is_arg(tokens[i], arg):
             arg_index = i
         # We'll remove any braces before the first "element" of the inner
         # argument.  For all, this may be extraneous parens.  For list / list
@@ -325,14 +329,7 @@ class FindDictsVisitor(ast.NodeVisitor):
 
 
 def _get_elt_victims(tokens, arg_index, comp_elt):
-    if isinstance(comp_elt, ast.List):
-        comp_elt = comp_elt.elts[0]
-
-    def _is_comp_elt(token):
-        return (
-            token.line == comp_elt.lineno and
-            token.utf8_byte_offset == comp_elt.col_offset
-        )
+    comp_elt = _adjust_arg(tokens, arg_index, comp_elt)
 
     victim_starts = [arg_index]
     victim_start_depths = [1]
@@ -347,11 +344,12 @@ def _get_elt_victims(tokens, arg_index, comp_elt):
         is_start_brace = token in BRACES
         is_end_brace = token == BRACES[brace_stack[-1]]
 
+        if _is_arg(tokens[i], comp_elt):
+            elt_depth = len(brace_stack)
+
         if is_start_brace:
             brace_stack.append(token)
 
-        if _is_comp_elt(tokens[i]):
-            elt_depth = len(brace_stack)
         # Remove all braces before the first element of the inner
         # comprehension's target.
         if is_start_brace and elt_depth is None:

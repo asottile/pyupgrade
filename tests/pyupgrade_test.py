@@ -156,6 +156,10 @@ def test_sets(s, expected):
         ('dict(((a, b)) for a, b in y)', '{a: b for a, b in y}'),
         # dict of list comprehension
         ('dict([(a, b) for a, b in y])', '{a: b for a, b in y}'),
+        # ast doesn't tell us about the tuple in the list
+        ('dict([(a, b), c] for a, b, c in y)', '{(a, b): c for a, b, c in y}'),
+        # ast doesn't tell us about parenthesized keys
+        ('dict(((a), b) for a, b in y)', '{(a): b for a, b in y}'),
     ),
 )
 def test_dictcomps(s, expected):
