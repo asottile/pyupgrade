@@ -17,4 +17,5 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
     py_modules=['pyupgrade'],
+    entry_points={'console_scripts': ['pyupgrade = pyupgrade:main']},
 )

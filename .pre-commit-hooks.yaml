@@ -1,0 +1,6 @@
+-   id: pyupgrade
+    name: pyupgrade
+    description: Automatically upgrade syntax for newer versions.
+    entry: pyupgrade
+    language: python
+    files: '\.py$'

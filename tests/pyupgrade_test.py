@@ -237,6 +237,8 @@ def test_imports_unicode_literals(s, expected):
             'from __future__ import unicode_literals\n'
             '""\n',
         ),
+        # Regression: string containing newline
+        ('"""with newline\n"""', True, '"""with newline\n"""'),
     ),
 )
 def test_unicode_literals(s, py3_only, expected):

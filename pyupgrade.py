@@ -435,7 +435,7 @@ def _imports_unicode_literals(contents_text):
             return False
 
 
-STRING_PREFIXES_RE = re.compile('^([^\'"]*)(.*)$')
+STRING_PREFIXES_RE = re.compile('^([^\'"]*)(.*)$', re.DOTALL)
 
 
 def _fix_unicode_literals(contents_text, py3_only):
