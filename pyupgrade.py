@@ -157,6 +157,10 @@ def _fix_format_literals(contents_text):
     return untokenize_tokens(tokens)
 
 
+def _has_kwargs(call):
+    return bool(call.keywords) or bool(getattr(call, 'kwargs', None))
+
+
 BRACES = {'(': ')', '[': ']', '{': '}'}
 SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
 Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
@@ -172,6 +176,7 @@ class FindSetsVisitor(ast.NodeVisitor):
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'set' and
                 len(node.args) == 1 and
+                not _has_kwargs(node) and
                 isinstance(node.args[0], SET_TRANSFORM)
         ):
             arg, = node.args
@@ -346,6 +351,7 @@ class FindDictsVisitor(ast.NodeVisitor):
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'dict' and
                 len(node.args) == 1 and
+                not _has_kwargs(node) and
                 isinstance(node.args[0], (ast.ListComp, ast.GeneratorExp)) and
                 isinstance(node.args[0].elt, (ast.Tuple, ast.List)) and
                 len(node.args[0].elt.elts) == 2
