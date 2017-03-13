@@ -165,6 +165,8 @@ def test_sets(s, expected):
             'dict((k, dict((k2, v2) for k2, v2 in y2)) for k, y2 in y)',
             '{k: {k2: v2 for k2, v2 in y2} for k, y2 in y}',
         ),
+        # This doesn't get fixed by autopep8 and can cause a syntax error
+        ('dict((a, b)for a, b in y)', '{a: b for a, b in y}'),
     ),
 )
 def test_dictcomps(s, expected):

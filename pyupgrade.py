@@ -359,7 +359,12 @@ def _process_dict_comp(tokens, start, arg):
     end_index = dict_victims.ends.pop()
 
     tokens[end_index] = Token('OP', '}')
-    for index in reversed(elt_victims.ends + dict_victims.ends):
+    for index in reversed(dict_victims.ends):
+        del tokens[index]
+    # See #6, Fix SyntaxError from rewriting dict((a, b)for a, b in y)
+    if tokens[elt_victims.ends[-1] + 1].src == 'for':
+        tokens.insert(elt_victims.ends[-1] + 1, Token(UNIMPORTANT_WS, ' '))
+    for index in reversed(elt_victims.ends):
         del tokens[index]
     tokens[elt_victims.first_comma_index] = Token('OP', ':')
     for index in reversed(dict_victims.starts + elt_victims.starts):
