@@ -201,6 +201,17 @@ def test_dictcomps(s, expected):
             "    'bar{}'.format(1, 2)\n"
             ')',
         ),
+        # Multiple implicitly-joind strings over lines with comments
+        (
+            'print(\n'
+            "    'foo{0}'  # ohai\n"
+            "    'bar{1}'.format(1, 2)\n"
+            ')',
+            'print(\n'
+            "    'foo{}'  # ohai\n"
+            "    'bar{}'.format(1, 2)\n"
+            ')',
+        ),
     ),
 )
 def test_format_literals(s, expected):

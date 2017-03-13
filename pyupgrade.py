@@ -145,7 +145,7 @@ def _fix_format_literals(contents_text):
             to_replace.append((string_start, string_end))
             string_start, string_end, seen_dot = None, None, False
         # NL is the non-breaking newline token
-        elif token.name not in ('UNIMPORTANT_WS', 'NL'):
+        elif token.name not in ('COMMENT', 'NL', UNIMPORTANT_WS):
             string_start, string_end, seen_dot = None, None, False
 
     for start, end in reversed(to_replace):
