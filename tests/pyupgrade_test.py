@@ -160,6 +160,11 @@ def test_sets(s, expected):
         ('dict([(a, b), c] for a, b, c in y)', '{(a, b): c for a, b, c in y}'),
         # ast doesn't tell us about parenthesized keys
         ('dict(((a), b) for a, b in y)', '{(a): b for a, b in y}'),
+        # Nested dictcomps
+        (
+            'dict((k, dict((k2, v2) for k2, v2 in y2)) for k, y2 in y)',
+            '{k: {k2: v2 for k2, v2 in y2} for k, y2 in y}',
+        ),
     ),
 )
 def test_dictcomps(s, expected):

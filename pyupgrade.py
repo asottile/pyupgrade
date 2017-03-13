@@ -326,6 +326,7 @@ class FindDictsVisitor(ast.NodeVisitor):
             arg, = node.args
             key = Offset(node.func.lineno, node.func.col_offset)
             self.dicts[key] = arg
+        self.generic_visit(node)
 
 
 def _get_elt_victims(tokens, arg_index, comp_elt):
