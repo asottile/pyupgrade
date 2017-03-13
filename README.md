@@ -1,8 +1,15 @@
+[![Build Status](https://travis-ci.org/asottile/pyupgrade.svg?branch=master)](https://travis-ci.org/asottile/pyupgrade)
+[![Coverage Status](https://coveralls.io/repos/github/asottile/pyupgrade/badge.svg?branch=master)](https://coveralls.io/github/asottile/pyupgrade?branch=master)
+
 pyupgrade
 =========
 
 A tool (and pre-commit hook) to automatically upgrade syntax for newer
 versions of the language.
+
+## Installation
+
+`pip install pyupgrade`
 
 ## Implemented features
 
