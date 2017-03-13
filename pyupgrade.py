@@ -236,56 +236,75 @@ def _adjust_arg(tokens, i, arg):
     return arg
 
 
-def _get_brace_victims(tokens, start, arg):
-    arg = _adjust_arg(tokens, start + 2, arg)
+Victims = collections.namedtuple(
+    'Victims', ('starts', 'ends', 'first_comma_index', 'arg_index'),
+)
 
-    i = start + 2
-    brace_stack = ['(']
-    victim_starts = []
-    victim_start_depths = []
-    victim_ends = []
+
+def _get_victims(tokens, start, arg):
+    arg = _adjust_arg(tokens, start, arg)
+
+    starts = [start]
+    start_depths = [1]
+    ends = []
+    first_comma_index = None
+    arg_depth = None
     arg_index = None
+    brace_stack = [tokens[start].src]
+    i = start + 1
 
     while brace_stack:
         token = tokens[i].src
         is_start_brace = token in BRACES
         is_end_brace = token == BRACES[brace_stack[-1]]
 
+        if _is_arg(tokens[i], arg):
+            arg_depth = len(brace_stack)
+            arg_index = i
+
         if is_start_brace:
             brace_stack.append(token)
 
-        if _is_arg(tokens[i], arg):
-            arg_index = i
-        # We'll remove any braces before the first "element" of the inner
-        # argument.  For all, this may be extraneous parens.  For list / list
-        # comprehensions this will be the [] brackets.
-        if is_start_brace and arg_index is None:
-            victim_starts.append(i)
-            victim_start_depths.append(len(brace_stack))
-        if is_end_brace and len(brace_stack) in victim_start_depths:
+        # Remove all braces before the first element of the inner
+        # comprehension's target.
+        if is_start_brace and arg_depth is None:
+            starts.append(i)
+            start_depths.append(len(brace_stack))
+
+        if (
+                token == ',' and
+                len(brace_stack) == arg_depth and
+                first_comma_index is None
+        ):
+            first_comma_index = i
+
+        if is_end_brace and len(brace_stack) in start_depths:
             if tokens[i - 2].src == ',' and tokens[i - 1].src == ' ':
-                victim_ends.append(i - 2)
-                victim_ends.append(i - 1)
+                ends.append(i - 2)
+                ends.append(i - 1)
             elif tokens[i - 1].src == ',':
-                victim_ends.append(i - 1)
-            victim_ends.append(i)
+                ends.append(i - 1)
+            ends.append(i)
 
         if is_end_brace:
             brace_stack.pop()
 
         i += 1
 
-    return victim_starts, victim_ends, i - 1, arg_index
+    return Victims(starts, ends, first_comma_index, arg_index)
 
 
 def _process_set_literal(tokens, start, arg):
     if _is_wtf('set', tokens, start):
         return
 
-    starts, ends, end_index, _ = _get_brace_victims(tokens, start, arg)
+    set_victims = _get_victims(tokens, start + 1, arg)
+
+    del set_victims.starts[0]
+    end_index = set_victims.ends.pop()
 
     tokens[end_index] = Token('OP', '}')
-    for index in reversed(starts + ends):
+    for index in reversed(set_victims.starts + set_victims.ends):
         del tokens[index]
     tokens[start:start + 2] = [Token('OP', '{')]
 
@@ -329,65 +348,21 @@ class FindDictsVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _get_elt_victims(tokens, arg_index, comp_elt):
-    comp_elt = _adjust_arg(tokens, arg_index, comp_elt)
-
-    victim_starts = [arg_index]
-    victim_start_depths = [1]
-    victim_ends = []
-    comma = None
-    elt_depth = None
-    brace_stack = [tokens[arg_index].src]
-    i = arg_index + 1
-
-    while brace_stack:
-        token = tokens[i].src
-        is_start_brace = token in BRACES
-        is_end_brace = token == BRACES[brace_stack[-1]]
-
-        if _is_arg(tokens[i], comp_elt):
-            elt_depth = len(brace_stack)
-
-        if is_start_brace:
-            brace_stack.append(token)
-
-        # Remove all braces before the first element of the inner
-        # comprehension's target.
-        if is_start_brace and elt_depth is None:
-            victim_starts.append(i)
-            victim_start_depths.append(len(brace_stack))
-
-        if token == ',' and len(brace_stack) == elt_depth and comma is None:
-            comma = i
-
-        if is_end_brace and len(brace_stack) in victim_start_depths:
-            if tokens[i - 2].src == ',' and tokens[i - 1].src == ' ':
-                victim_ends.append(i - 2)
-                victim_ends.append(i - 1)
-            elif tokens[i - 1].src == ',':
-                victim_ends.append(i - 1)
-            victim_ends.append(i)
-
-        if is_end_brace:
-            brace_stack.pop()
-
-        i += 1
-
-    return victim_starts, victim_ends, comma
-
-
 def _process_dict_comp(tokens, start, arg):
     if _is_wtf('dict', tokens, start):
         return
 
-    starts, ends, end_index, arg_index = _get_brace_victims(tokens, start, arg)
-    elt_starts, elt_ends, comma = _get_elt_victims(tokens, arg_index, arg.elt)
+    dict_victims = _get_victims(tokens, start + 1, arg)
+    elt_victims = _get_victims(tokens, dict_victims.arg_index, arg.elt)
+
+    del dict_victims.starts[0]
+    end_index = dict_victims.ends.pop()
 
     tokens[end_index] = Token('OP', '}')
-    for index in reversed(elt_ends + ends):
+    for index in reversed(elt_victims.ends + dict_victims.ends):
         del tokens[index]
-    tokens[comma] = Token('OP', ':')
-    for index in reversed(starts + elt_starts):
+    tokens[elt_victims.first_comma_index] = Token('OP', ':')
+    for index in reversed(dict_victims.starts + elt_victims.starts):
         del tokens[index]
     tokens[start:start + 2] = [Token('OP', '{')]
 
