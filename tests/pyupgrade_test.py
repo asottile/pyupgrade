@@ -197,6 +197,15 @@ def test_sets(s, expected):
             '    for a, b in y\n'
             '}',
         ),
+        # Don't rewrite kwargd dicts
+        (
+            'dict(((a, b) for a, b in y), x=1)',
+            'dict(((a, b) for a, b in y), x=1)',
+        ),
+        (
+            'dict(((a, b) for a, b in y), **kwargs)',
+            'dict(((a, b) for a, b in y), **kwargs)',
+        ),
     ),
 )
 def test_dictcomps(s, expected):
