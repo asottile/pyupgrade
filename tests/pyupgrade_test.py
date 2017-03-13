@@ -109,6 +109,14 @@ def test_roundtrip_tokenize(filename):
         # Lists where the first element is a tuple also gives the ast trouble
         # The first element lies about the offset of the element
         ('set([(1, 2), (3, 4)])', '{(1, 2), (3, 4)}'),
+        (
+            'set(\n'
+            '    [(1, 2)]\n'
+            ')',
+            '{\n'
+            '    (1, 2)\n'
+            '}',
+        ),
         ('set([((1, 2)), (3, 4)])', '{((1, 2)), (3, 4)}'),
         # And it gets worse
         ('set((((1, 2),),))', '{((1, 2),)}'),
