@@ -190,10 +190,8 @@ def test_sets(s, expected):
             # Ideally, this'll go through some other formatting tool before
             # being committed.  Shrugs!
             '{\n'
-            '    \n'
             '        a:\n'
             '        b\n'
-            '    \n'
             '    for a, b in y\n'
             '}',
         ),
