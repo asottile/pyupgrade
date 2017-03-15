@@ -247,10 +247,26 @@ Victims = collections.namedtuple(
 )
 
 
+def _is_on_a_line_by_self(tokens, i):
+    return (
+        tokens[i - 2].name == 'NL' and
+        tokens[i - 1].name == UNIMPORTANT_WS and
+        tokens[i - 1].src.isspace() and
+        tokens[i + 1].name == 'NL'
+    )
+
+
+def _remove_brace(tokens, i):
+    if _is_on_a_line_by_self(tokens, i):
+        return [i - 1, i, i + 1]
+    else:
+        return [i]
+
+
 def _get_victims(tokens, start, arg):
     arg = _adjust_arg(tokens, start, arg)
 
-    starts = [start]
+    starts = _remove_brace(tokens, start)
     start_depths = [1]
     ends = []
     first_comma_index = None
@@ -274,8 +290,8 @@ def _get_victims(tokens, start, arg):
         # Remove all braces before the first element of the inner
         # comprehension's target.
         if is_start_brace and arg_depth is None:
-            starts.append(i)
             start_depths.append(len(brace_stack))
+            starts.extend(_remove_brace(tokens, i))
 
         if (
                 token == ',' and
@@ -286,11 +302,11 @@ def _get_victims(tokens, start, arg):
 
         if is_end_brace and len(brace_stack) in start_depths:
             if tokens[i - 2].src == ',' and tokens[i - 1].src == ' ':
-                ends.append(i - 2)
-                ends.append(i - 1)
+                ends.extend((i - 2, i - 1, i))
             elif tokens[i - 1].src == ',':
-                ends.append(i - 1)
-            ends.append(i)
+                ends.extend((i - 1, i))
+            else:
+                ends.extend(_remove_brace(tokens, i))
 
         if is_end_brace:
             brace_stack.pop()
