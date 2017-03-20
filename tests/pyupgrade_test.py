@@ -284,9 +284,9 @@ def test_imports_unicode_literals(s, expected):
     (
         # Syntax errors are unchanged
         ('(', False, '('),
-        # Without py3-only, no replacements
+        # Without py3-plus, no replacements
         ("u''", False, "u''"),
-        # With py3-only, it removes u prefix
+        # With py3-plus, it removes u prefix
         ("u''", True, "''"),
         # Importing unicode_literals also cause it to remove it
         (
@@ -344,5 +344,5 @@ def test_py3_only_argument_unicode_literals(tmpdir):
     f.write('u""')
     assert main((f.strpath,)) == 0
     assert f.read() == 'u""'
-    assert main((f.strpath, '--py3-only')) == 1
+    assert main((f.strpath, '--py3-plus')) == 1
     assert f.read() == '""'

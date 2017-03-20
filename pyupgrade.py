@@ -490,7 +490,7 @@ def fix_file(filename, args):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
-    parser.add_argument('--py3-only', action='store_true')
+    parser.add_argument('--py3-only', '--py3-plus', action='store_true')
     args = parser.parse_args(argv)
 
     ret = 0
