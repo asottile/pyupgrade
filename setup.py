@@ -4,7 +4,7 @@ setup(
     name='pyupgrade',
     description='A tool to automatically upgrade syntax for newer versions.',
     url='https://github.com/asottile/pyupgrade',
-    version='1.0.5',
+    version='1.0.6',
     author='Anthony Sottile',
     author_email='asottile@umich.edu',
     classifiers=[
