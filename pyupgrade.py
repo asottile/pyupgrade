@@ -247,26 +247,10 @@ Victims = collections.namedtuple(
 )
 
 
-def _is_on_a_line_by_self(tokens, i):
-    return (
-        tokens[i - 2].name == 'NL' and
-        tokens[i - 1].name == UNIMPORTANT_WS and
-        tokens[i - 1].src.isspace() and
-        tokens[i + 1].name == 'NL'
-    )
-
-
-def _remove_brace(tokens, i):
-    if _is_on_a_line_by_self(tokens, i):
-        return [i - 1, i, i + 1]
-    else:
-        return [i]
-
-
 def _get_victims(tokens, start, arg):
     arg = _adjust_arg(tokens, start, arg)
 
-    starts = _remove_brace(tokens, start)
+    starts = [start]
     start_depths = [1]
     ends = []
     first_comma_index = None
@@ -291,7 +275,7 @@ def _get_victims(tokens, start, arg):
         # comprehension's target.
         if is_start_brace and arg_depth is None:
             start_depths.append(len(brace_stack))
-            starts.extend(_remove_brace(tokens, i))
+            starts.append(i)
 
         if (
                 token == ',' and
@@ -306,7 +290,7 @@ def _get_victims(tokens, start, arg):
             elif tokens[i - 1].src == ',':
                 ends.extend((i - 1, i))
             else:
-                ends.extend(_remove_brace(tokens, i))
+                ends.append(i)
 
         if is_end_brace:
             brace_stack.pop()
@@ -323,6 +307,22 @@ def _get_victims(tokens, start, arg):
     return Victims(starts, ends, first_comma_index, arg_index)
 
 
+def _is_on_a_line_by_self(tokens, i):
+    return (
+        tokens[i - 2].name == 'NL' and
+        tokens[i - 1].name == UNIMPORTANT_WS and
+        tokens[i - 1].src.isspace() and
+        tokens[i + 1].name == 'NL'
+    )
+
+
+def _remove_brace(tokens, i):
+    if _is_on_a_line_by_self(tokens, i):
+        del tokens[i - 1:i + 2]
+    else:
+        del tokens[i]
+
+
 def _process_set_literal(tokens, start, arg):
     if _is_wtf('set', tokens, start):
         return
@@ -334,7 +334,7 @@ def _process_set_literal(tokens, start, arg):
 
     tokens[end_index] = Token('OP', '}')
     for index in reversed(set_victims.starts + set_victims.ends):
-        del tokens[index]
+        _remove_brace(tokens, index)
     tokens[start:start + 2] = [Token('OP', '{')]
 
 
@@ -390,15 +390,15 @@ def _process_dict_comp(tokens, start, arg):
 
     tokens[end_index] = Token('OP', '}')
     for index in reversed(dict_victims.ends):
-        del tokens[index]
+        _remove_brace(tokens, index)
     # See #6, Fix SyntaxError from rewriting dict((a, b)for a, b in y)
     if tokens[elt_victims.ends[-1] + 1].src == 'for':
         tokens.insert(elt_victims.ends[-1] + 1, Token(UNIMPORTANT_WS, ' '))
     for index in reversed(elt_victims.ends):
-        del tokens[index]
+        _remove_brace(tokens, index)
     tokens[elt_victims.first_comma_index] = Token('OP', ':')
     for index in reversed(dict_victims.starts + elt_victims.starts):
-        del tokens[index]
+        _remove_brace(tokens, index)
     tokens[start:start + 2] = [Token('OP', '{')]
 
 
