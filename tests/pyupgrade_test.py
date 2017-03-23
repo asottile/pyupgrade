@@ -204,6 +204,19 @@ def test_sets(s, expected):
             'dict(((a, b) for a, b in y), **kwargs)',
             'dict(((a, b) for a, b in y), **kwargs)',
         ),
+        # Don't gobble the last paren in a dictcomp
+        (
+            'x(\n'
+            '    dict(\n'
+            '        (a, b) for a, b in y\n'
+            '    )\n'
+            ')',
+            'x(\n'
+            '    {\n'
+            '        a: b for a, b in y\n'
+            '    }\n'
+            ')',
+        )
     ),
 )
 def test_dictcomps(s, expected):
