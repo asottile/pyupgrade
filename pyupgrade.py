@@ -463,6 +463,14 @@ def _fix_unicode_literals(contents_text, py3_only):
     return untokenize_tokens(tokens)
 
 
+def _fix_long_literals(contents_text):
+    tokens = tokenize_src(contents_text)
+    for i, token in enumerate(tokens):
+        if token.name == 'NUMBER':
+            tokens[i] = token._replace(src=token.src.rstrip('lL'))
+    return untokenize_tokens(tokens)
+
+
 def fix_file(filename, args):
     with open(filename, 'rb') as f:
         contents_bytes = f.read()
@@ -477,6 +485,7 @@ def fix_file(filename, args):
     contents_text = _fix_sets(contents_text)
     contents_text = _fix_format_literals(contents_text)
     contents_text = _fix_unicode_literals(contents_text, args.py3_only)
+    contents_text = _fix_long_literals(contents_text)
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
