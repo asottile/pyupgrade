@@ -65,6 +65,17 @@ u"foo"      # 'foo'
 u'''foo'''  # '''foo'''
 ```
 
+### Long literals
+
+Availability:
+- If `pyupgrade` is running in python 2.
+
+```python
+5L                            # 5
+5l                            # 5
+123456789123456789123456789L  # 123456789123456789123456789
+```
+
 
 ## Planned features
 

@@ -3,11 +3,13 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import io
+import sys
 
 import pytest
 
 from pyupgrade import _fix_dictcomps
 from pyupgrade import _fix_format_literals
+from pyupgrade import _fix_long_literals
 from pyupgrade import _fix_sets
 from pyupgrade import _fix_unicode_literals
 from pyupgrade import _imports_unicode_literals
@@ -316,6 +318,19 @@ def test_imports_unicode_literals(s, expected):
 def test_unicode_literals(s, py3_only, expected):
     ret = _fix_unicode_literals(s, py3_only=py3_only)
     assert ret == expected
+
+
+@pytest.mark.xfail(sys.version_info >= (3,), reason='python2 "feature"')
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        ('5L', '5'),
+        ('5l', '5'),
+        ('123456789123456789123456789L', '123456789123456789123456789'),
+    ),
+)
+def test_long_literals(s, expected):
+    assert _fix_long_literals(s) == expected
 
 
 def test_main_trivial():
