@@ -16,6 +16,7 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
+    install_requires=['tokenize-rt'],
     py_modules=['pyupgrade'],
     entry_points={'console_scripts': ['pyupgrade = pyupgrade:main']},
 )
