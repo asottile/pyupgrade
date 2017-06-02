@@ -8,7 +8,11 @@ import copy
 import io
 import re
 import string
-import tokenize
+
+from tokenize_rt import src_to_tokens
+from tokenize_rt import Token
+from tokenize_rt import tokens_to_src
+from tokenize_rt import UNIMPORTANT_WS
 
 
 _stdlib_parse_format = string.Formatter().parse
@@ -45,47 +49,7 @@ def unparse_parsed_string(parsed):
     return j.join(_convert_tup(tup) for tup in parsed)
 
 
-UNIMPORTANT_WS = 'UNIMPORTANT_WS'
 NON_CODING_TOKENS = frozenset(('COMMENT', 'NL', UNIMPORTANT_WS))
-Token = collections.namedtuple(
-    'Token', ('name', 'src', 'line', 'utf8_byte_offset'),
-)
-Token.__new__.__defaults__ = (None, None,)
-
-
-def tokenize_src(src):
-    tokenize_target = io.StringIO(src)
-    lines = (None,) + tuple(tokenize_target)
-    tokenize_target.seek(0)
-
-    tokens = []
-    last_line = 1
-    last_col = 0
-
-    for (
-            tok_type, tok_text, (sline, scol), (eline, ecol), line,
-    ) in tokenize.generate_tokens(tokenize_target.readline):
-        if sline > last_line:
-            newtok = lines[last_line][last_col:]
-            for lineno in range(last_line + 1, sline):
-                newtok += lines[lineno]
-            if scol > 0:
-                newtok += lines[sline][:scol]
-            if newtok:
-                tokens.append(Token(UNIMPORTANT_WS, newtok))
-        elif scol > last_col:
-            tokens.append(Token(UNIMPORTANT_WS, line[last_col:scol]))
-
-        tok_name = tokenize.tok_name[tok_type]
-        utf8_byte_offset = len(line[:scol].encode('UTF-8'))
-        tokens.append(Token(tok_name, tok_text, sline, utf8_byte_offset))
-        last_line, last_col = eline, ecol
-
-    return tokens
-
-
-def untokenize_tokens(tokens):
-    return ''.join(tok.src for tok in tokens)
 
 
 def ast_parse(contents_text):
@@ -127,7 +91,7 @@ def _rewrite_string_literal(literal):
 
 
 def _fix_format_literals(contents_text):
-    tokens = tokenize_src(contents_text)
+    tokens = src_to_tokens(contents_text)
 
     to_replace = []
     string_start = None
@@ -150,11 +114,11 @@ def _fix_format_literals(contents_text):
             string_start, string_end, seen_dot = None, None, False
 
     for start, end in reversed(to_replace):
-        src = untokenize_tokens(tokens[start:end])
+        src = tokens_to_src(tokens[start:end])
         new_src = _rewrite_string_literal(src)
         tokens[start:end] = [Token('STRING', new_src)]
 
-    return untokenize_tokens(tokens)
+    return tokens_to_src(tokens)
 
 
 def _has_kwargs(call):
@@ -348,14 +312,14 @@ def _fix_sets(contents_text):
     if not visitor.sets and not visitor.set_empty_literals:
         return contents_text
 
-    tokens = tokenize_src(contents_text)
+    tokens = src_to_tokens(contents_text)
     for i, token in reversed(tuple(enumerate(tokens))):
         key = (token.line, token.utf8_byte_offset)
         if key in visitor.set_empty_literals:
             _process_set_empty_literal(tokens, i)
         elif key in visitor.sets:
             _process_set_literal(tokens, i, visitor.sets[key])
-    return untokenize_tokens(tokens)
+    return tokens_to_src(tokens)
 
 
 class FindDictsVisitor(ast.NodeVisitor):
@@ -412,12 +376,12 @@ def _fix_dictcomps(contents_text):
     if not visitor.dicts:
         return contents_text
 
-    tokens = tokenize_src(contents_text)
+    tokens = src_to_tokens(contents_text)
     for i, token in reversed(tuple(enumerate(tokens))):
         key = (token.line, token.utf8_byte_offset)
         if key in visitor.dicts:
             _process_dict_comp(tokens, i, visitor.dicts[key])
-    return untokenize_tokens(tokens)
+    return tokens_to_src(tokens)
 
 
 def _imports_unicode_literals(contents_text):
@@ -450,7 +414,7 @@ STRING_PREFIXES_RE = re.compile('^([^\'"]*)(.*)$', re.DOTALL)
 def _fix_unicode_literals(contents_text, py3_only):
     if not py3_only and not _imports_unicode_literals(contents_text):
         return contents_text
-    tokens = tokenize_src(contents_text)
+    tokens = src_to_tokens(contents_text)
     for i, token in enumerate(tokens):
         if token.name != 'STRING':
             continue
@@ -460,15 +424,15 @@ def _fix_unicode_literals(contents_text, py3_only):
         rest = match.group(2)
         new_prefix = prefix.replace('u', '').replace('U', '')
         tokens[i] = Token('STRING', new_prefix + rest)
-    return untokenize_tokens(tokens)
+    return tokens_to_src(tokens)
 
 
 def _fix_long_literals(contents_text):
-    tokens = tokenize_src(contents_text)
+    tokens = src_to_tokens(contents_text)
     for i, token in enumerate(tokens):
         if token.name == 'NUMBER':
             tokens[i] = token._replace(src=token.src.rstrip('lL'))
-    return untokenize_tokens(tokens)
+    return tokens_to_src(tokens)
 
 
 def fix_file(filename, args):
