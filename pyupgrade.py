@@ -74,8 +74,8 @@ def _rewrite_string_literal(literal):
     last_int = -1
     # The last segment will always be the end of the string and not a format
     # We slice it off here to avoid a "None" format key
-    for _, fmtkey, _, _ in parsed_fmt[:-1]:
-        if inty(fmtkey) and int(fmtkey) == last_int + 1:
+    for _, fmtkey, spec, _ in parsed_fmt[:-1]:
+        if inty(fmtkey) and int(fmtkey) == last_int + 1 and '{' not in spec:
             last_int += 1
         else:
             return literal
