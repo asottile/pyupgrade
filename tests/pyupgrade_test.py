@@ -231,6 +231,8 @@ def test_dictcomps(s, expected):
             "    'bar{}'.format(1, 2)\n"
             ')',
         ),
+        # Formats can be embedded in formats, leave these alone?
+        ("'{0:<{1}}'.format(1, 4)", "'{0:<{1}}'.format(1, 4)"),
     ),
 )
 def test_format_literals(s, expected):
