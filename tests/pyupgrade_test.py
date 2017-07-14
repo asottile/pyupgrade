@@ -233,6 +233,13 @@ def test_dictcomps(s, expected):
         ),
         # Formats can be embedded in formats, leave these alone?
         ("'{0:<{1}}'.format(1, 4)", "'{0:<{1}}'.format(1, 4)"),
+        # joined by backslash
+        (
+            'x = "foo {0}" \\\n'
+            '    "bar {1}".format(1, 2)',
+            'x = "foo {}" \\\n'
+            '    "bar {}".format(1, 2)',
+        )
     ),
 )
 def test_format_literals(s, expected):

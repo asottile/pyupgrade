@@ -9,6 +9,7 @@ import io
 import re
 import string
 
+from tokenize_rt import ESCAPED_NL
 from tokenize_rt import src_to_tokens
 from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
@@ -49,7 +50,7 @@ def unparse_parsed_string(parsed):
     return j.join(_convert_tup(tup) for tup in parsed)
 
 
-NON_CODING_TOKENS = frozenset(('COMMENT', 'NL', UNIMPORTANT_WS))
+NON_CODING_TOKENS = frozenset(('COMMENT', ESCAPED_NL, 'NL', UNIMPORTANT_WS))
 
 
 def ast_parse(contents_text):
@@ -109,7 +110,6 @@ def _fix_format_literals(contents_text):
         elif seen_dot and token.src == 'format':
             to_replace.append((string_start, string_end))
             string_start, string_end, seen_dot = None, None, False
-        # NL is the non-breaking newline token
         elif token.name not in NON_CODING_TOKENS:
             string_start, string_end, seen_dot = None, None, False
 
