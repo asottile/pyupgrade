@@ -453,7 +453,7 @@ def fix_file(filename, args):
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
-        with io.open(filename, 'w', encoding='UTF-8') as f:
+        with io.open(filename, 'w', encoding='UTF-8', newline='') as f:
             f.write(contents_text)
         return 1
 
