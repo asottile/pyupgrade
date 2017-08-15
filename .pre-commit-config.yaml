@@ -11,7 +11,7 @@
     -   id: requirements-txt-fixer
     -   id: flake8
 -   repo: https://github.com/asottile/reorder_python_imports
-    sha: v0.3.4
+    sha: v0.3.5
     hooks:
     -   id: reorder-python-imports
 -   repo: https://github.com/asottile/pyupgrade
