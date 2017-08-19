@@ -81,7 +81,7 @@ Availability:
 
 Availability:
 - If `pyupgrade` is running in python 2.
-```python
+```
 0755  # 0o755
 ```
 
