@@ -77,6 +77,14 @@ Availability:
 123456789123456789123456789L  # 123456789123456789123456789
 ```
 
+### Octal literals
+
+Availability:
+- If `pyupgrade` is running in python 2.
+```python
+0755  # 0o755
+```
+
 
 ## Planned features
 

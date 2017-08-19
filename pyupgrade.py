@@ -435,6 +435,20 @@ def _fix_long_literals(contents_text):
     return tokens_to_src(tokens)
 
 
+def _fix_octal_literals(contents_text):
+    def _fix_octal(s):
+        if not s.startswith('0') or not s.isdigit() or s == len(s) * '0':
+            return s
+        else:  # pragma: no cover (py2 only)
+            return '0o' + s[1:]
+
+    tokens = src_to_tokens(contents_text)
+    for i, token in enumerate(tokens):
+        if token.name == 'NUMBER':
+            tokens[i] = token._replace(src=_fix_octal(token.src))
+    return tokens_to_src(tokens)
+
+
 def fix_file(filename, args):
     with open(filename, 'rb') as f:
         contents_bytes = f.read()
@@ -450,6 +464,7 @@ def fix_file(filename, args):
     contents_text = _fix_format_literals(contents_text)
     contents_text = _fix_unicode_literals(contents_text, args.py3_only)
     contents_text = _fix_long_literals(contents_text)
+    contents_text = _fix_octal_literals(contents_text)
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
