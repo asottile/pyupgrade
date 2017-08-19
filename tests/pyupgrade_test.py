@@ -9,6 +9,7 @@ import pytest
 from pyupgrade import _fix_dictcomps
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_long_literals
+from pyupgrade import _fix_octal_literals
 from pyupgrade import _fix_sets
 from pyupgrade import _fix_unicode_literals
 from pyupgrade import _imports_unicode_literals
@@ -307,6 +308,27 @@ def test_unicode_literals(s, py3_only, expected):
 )
 def test_long_literals(s, expected):
     assert _fix_long_literals(s) == expected
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        # Any number of zeros is considered a legal token
+        ('0', '0'),
+        ('00', '00'),
+        # Don't modify non octal literals
+        ('1', '1'),
+        ('12345', '12345'),
+        ('1.2345', '1.2345'),
+    ),
+)
+def test_noop_octal_literals(s, expected):
+    assert _fix_octal_literals(s) == expected
+
+
+@pytest.mark.xfail(sys.version_info >= (3,), reason='python2 "feature"')
+def test_fix_octal_literal():
+    assert _fix_octal_literals('0755') == '0o755'
 
 
 def test_main_trivial():
