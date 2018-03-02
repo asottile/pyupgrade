@@ -449,6 +449,199 @@ def _fix_octal_literals(contents_text):
     return tokens_to_src(tokens)
 
 
+MAPPING_KEY_RE = re.compile(r'\(([^()]*)\)')
+CONVERSION_FLAG_RE = re.compile('[#0+ -]*')
+WIDTH_RE = re.compile(r'(?:\*|\d*)')
+PRECISION_RE = re.compile(r'(?:\.(?:\*|\d*))?')
+LENGTH_RE = re.compile('[hlL]?')
+
+
+def parse_percent_format(s):
+    def _parse_inner():
+        string_start = 0
+        string_end = 0
+        in_fmt = False
+
+        i = 0
+        while i < len(s):
+            if not in_fmt:
+                try:
+                    i = s.index('%', i)
+                except ValueError:  # no more % fields!
+                    yield s[string_start:], None
+                    return
+                else:
+                    string_end = i
+                    i += 1
+                    in_fmt = True
+            else:
+                key_match = MAPPING_KEY_RE.match(s, i)
+                if key_match:
+                    key = key_match.group(1)
+                    i = key_match.end()
+                else:
+                    key = None
+
+                conversion_flag_match = CONVERSION_FLAG_RE.match(s, i)
+                conversion_flag = conversion_flag_match.group() or None
+                i = conversion_flag_match.end()
+
+                width_match = WIDTH_RE.match(s, i)
+                width = width_match.group() or None
+                i = width_match.end()
+
+                precision_match = PRECISION_RE.match(s, i)
+                precision = precision_match.group() or None
+                i = precision_match.end()
+
+                # length modifier is ignored
+                i = LENGTH_RE.match(s, i).end()
+
+                conversion = s[i]
+                i += 1
+
+                fmt = (key, conversion_flag, width, precision, conversion)
+                yield s[string_start:string_end], fmt
+
+                in_fmt = False
+                string_start = i
+
+    return tuple(_parse_inner())
+
+
+class FindsPercentFormats(ast.NodeVisitor):
+    def __init__(self):
+        self.found = {}
+
+    def visit_BinOp(self, node):
+        if isinstance(node.op, ast.Mod) and isinstance(node.left, ast.Str):
+            for _, fmt in parse_percent_format(node.left.s):
+                if not fmt:
+                    continue
+                key, conversion_flag, width, precision, conversion = fmt
+                # timid: these require out-of-order parameter consumption
+                if width == '*' or precision == '.*':
+                    break
+                # timid: these conversions require modification of parameters
+                if conversion in {'d', 'i', 'u', 'c'}:
+                    break
+                # timid: py2: %#o formats different from {:#o} (TODO: --py3)
+                if '#' in (conversion_flag or '') and conversion == 'o':
+                    break
+                # timid: no equivalent in format
+                if key == '':
+                    break
+                # timid: py2: conversion is subject to modifiers (TODO: --py3)
+                nontrivial_fmt = any((conversion_flag, width, precision))
+                if conversion == '%' and nontrivial_fmt:
+                    break
+                # timid: no equivalent in format
+                if conversion in {'a', 'r'} and nontrivial_fmt:
+                    break
+            else:
+                self.found[Offset(node.lineno, node.col_offset)] = node
+        self.generic_visit(node)
+
+
+def _simplify_conversion_flag(flag):
+    parts = []
+    for c in flag:
+        if c in parts:
+            continue
+        c = c.replace('-', '<')
+        parts.append(c)
+        if c == '<' and '0' in parts:
+            parts.remove('0')
+        elif c == '+' and ' ' in parts:
+            parts.remove(' ')
+    return ''.join(parts)
+
+
+def _percent_to_format(s):
+    def _handle_part(part):
+        s, fmt = part
+        s = s.replace('{', '{{').replace('}', '}}')
+        if fmt is None:
+            return s
+        else:
+            key, conversion_flag, width, precision, conversion = fmt
+            if conversion == '%':
+                return s + '%'
+            parts = [s, '{']
+            if conversion == 's':
+                conversion = None
+            if key:
+                parts.append(key)
+            if conversion in {'r', 'a'}:
+                converter = '!{}'.format(conversion)
+                conversion = ''
+            else:
+                converter = ''
+            if any((conversion_flag, width, precision, conversion)):
+                parts.append(':')
+            if conversion_flag:
+                parts.append(_simplify_conversion_flag(conversion_flag))
+            parts.extend(x for x in (width, precision, conversion) if x)
+            parts.extend(converter)
+            parts.append('}')
+            return ''.join(parts)
+
+    return ''.join(_handle_part(part) for part in parse_percent_format(s))
+
+
+def _fix_percent_format_tuple(tokens, start, node):
+    # search for b prefix: no .format() equivalent for bytestrings in py3
+    # note that this code is only necessary when running in python2
+    for c in tokens[start].src:
+        if c in '"\'':
+            break
+        elif c.lower() == 'b':  # pragma: no cover (py2 only)
+            return
+
+    p = start + 4
+    ws1, perc, ws2, paren = tokens[start + 1:p + 1]
+    if (
+            ws1.name != UNIMPORTANT_WS or ws1.src != ' ' or
+            perc.name != 'OP' or perc.src != '%' or
+            ws2.name != UNIMPORTANT_WS or ws2.src != ' ' or
+            paren.name != 'OP' or paren.src != '('
+    ):
+        # TODO: this is overly timid
+        return
+
+    victims = _get_victims(tokens, p, node.right)
+    victims.ends.pop()
+
+    for index in reversed(victims.starts + victims.ends):
+        _remove_brace(tokens, index)
+
+    newsrc = _percent_to_format(tokens[start].src)
+    tokens[start] = tokens[start]._replace(src=newsrc)
+    tokens[start + 1:p] = [Token('Format', '.format'), Token('OP', '(')]
+
+
+def _fix_percent_format(contents_text):
+    try:
+        ast_obj = ast_parse(contents_text)
+    except SyntaxError:
+        return contents_text
+
+    visitor = FindsPercentFormats()
+    visitor.visit(ast_obj)
+
+    tokens = src_to_tokens(contents_text)
+
+    for i, token in reversed(tuple(enumerate(tokens))):
+        node = visitor.found.get(Offset(token.line, token.utf8_byte_offset))
+        if node is None:
+            continue
+
+        if isinstance(node.right, ast.Tuple):
+            _fix_percent_format_tuple(tokens, i, node)
+
+    return tokens_to_src(tokens)
+
+
 def fix_file(filename, args):
     with open(filename, 'rb') as f:
         contents_bytes = f.read()
@@ -465,6 +658,7 @@ def fix_file(filename, args):
     contents_text = _fix_unicode_literals(contents_text, args.py3_only)
     contents_text = _fix_long_literals(contents_text)
     contents_text = _fix_octal_literals(contents_text)
+    contents_text = _fix_percent_format(contents_text)
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
