@@ -8,6 +8,7 @@ import copy
 import io
 import re
 import string
+import sys
 
 from tokenize_rt import ESCAPED_NL
 from tokenize_rt import src_to_tokens
@@ -470,7 +471,7 @@ def fix_file(filename, args):
         print('Rewriting {}'.format(filename))
         with io.open(filename, 'w', encoding='UTF-8', newline='') as f:
             f.write(contents_text)
-        return 1
+        return 0
 
     return 0
 
@@ -481,11 +482,9 @@ def main(argv=None):
     parser.add_argument('--py3-only', '--py3-plus', action='store_true')
     args = parser.parse_args(argv)
 
-    ret = 0
     for filename in args.filenames:
-        ret |= fix_file(filename, args)
-    return ret
+        fix_file(filename, args)
 
 
 if __name__ == '__main__':
-    exit(main())
+    sys.exit(main())
