@@ -8,6 +8,7 @@ import copy
 import io
 import re
 import string
+import sys
 
 from tokenize_rt import ESCAPED_NL
 from tokenize_rt import src_to_tokens
@@ -450,14 +451,18 @@ def _fix_octal_literals(contents_text):
 
 
 def fix_file(filename, args):
-    with open(filename, 'rb') as f:
-        contents_bytes = f.read()
+    if filename == '-':
+        filename = sys.stdin
+        contents_text_orig = contents_text = sys.stdin.read()
+    else:
+        with open(filename, 'rb') as f:
+            contents_bytes = f.read()
 
-    try:
-        contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
-    except UnicodeDecodeError:
-        print('{} is non-utf-8 (not supported)'.format(filename))
-        return 1
+        try:
+            contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
+        except UnicodeDecodeError:
+            print('{} is non-utf-8 (not supported)'.format(filename))
+            return 1
 
     contents_text = _fix_dictcomps(contents_text)
     contents_text = _fix_sets(contents_text)
@@ -466,11 +471,13 @@ def fix_file(filename, args):
     contents_text = _fix_long_literals(contents_text)
     contents_text = _fix_octal_literals(contents_text)
 
-    if contents_text != contents_text_orig:
+    if filename == sys.stdin:
+        sys.stdout.write(contents_text)
+    elif contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
         with io.open(filename, 'w', encoding='UTF-8', newline='') as f:
             f.write(contents_text)
-        return 1
+        return 0
 
     return 0
 
@@ -481,11 +488,9 @@ def main(argv=None):
     parser.add_argument('--py3-only', '--py3-plus', action='store_true')
     args = parser.parse_args(argv)
 
-    ret = 0
     for filename in args.filenames:
-        ret |= fix_file(filename, args)
-    return ret
+        fix_file(filename, args)
 
 
 if __name__ == '__main__':
-    exit(main())
+    sys.exit(main())

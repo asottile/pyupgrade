@@ -26,6 +26,11 @@ Sample `.pre-commit-config.yaml`:
     -   id: pyupgrade
 ```
 
+## As a UNIX filter
+
+If you pass `-` as an argument on the command line, `pyupgrade` will read from
+STDIN and print the formatted text back to STDOUT.
+
 ## Implemented features
 
 ### Set literals
