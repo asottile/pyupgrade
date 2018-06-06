@@ -9,6 +9,7 @@ import pytest
 
 from pyupgrade import _fix_dictcomps
 from pyupgrade import _fix_format_literals
+from pyupgrade import _fix_fstrings
 from pyupgrade import _fix_long_literals
 from pyupgrade import _fix_octal_literals
 from pyupgrade import _fix_percent_format
@@ -277,7 +278,7 @@ def test_imports_unicode_literals(s, expected):
 
 
 @pytest.mark.parametrize(
-    ('s', 'py3_only', 'expected'),
+    ('s', 'py3_plus', 'expected'),
     (
         # Syntax errors are unchanged
         ('(', False, '('),
@@ -297,8 +298,8 @@ def test_imports_unicode_literals(s, expected):
         ('"""with newline\n"""', True, '"""with newline\n"""'),
     ),
 )
-def test_unicode_literals(s, py3_only, expected):
-    ret = _fix_unicode_literals(s, py3_only=py3_only)
+def test_unicode_literals(s, py3_plus, expected):
+    ret = _fix_unicode_literals(s, py3_plus=py3_plus)
     assert ret == expected
 
 
@@ -561,6 +562,44 @@ def test_percent_format_todo(s, expected):
     assert _fix_percent_format(s) == expected
 
 
+@pytest.mark.parametrize(
+    's',
+    (
+        # syntax error
+        '(',
+        # weird syntax
+        '"{}" . format(x)',
+        # spans multiple lines
+        '"{}".format(\n    a,\n)',
+        # starargs
+        '"{} {}".format(*a)', '"{foo} {bar}".format(**b)"',
+        # likely makes the format longer
+        '"{0} {0}".format(arg)', '"{x} {x}".format(arg)',
+        '"{x.y} {x.z}".format(arg)',
+    ),
+)
+def test_fix_fstrings_noop(s):
+    assert _fix_fstrings(s) == s
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        ('"{} {}".format(a, b)', 'f"{a} {b}"'),
+        ('"{1} {0}".format(a, b)', 'f"{b} {a}"'),
+        ('"{x.y}".format(x=z)', 'f"{z.y}"'),
+        ('"{.x} {.y}".format(a, b)', 'f"{a.x} {b.y}"'),
+        ('"{} {}".format(a.b, c.d)', 'f"{a.b} {c.d}"'),
+        ('"hello {}!".format(name)', 'f"hello {name}!"'),
+
+        # TODO: poor man's f-strings?
+        # '"{foo}".format(**locals())'
+    ),
+)
+def test_fix_fstrings(s, expected):
+    assert _fix_fstrings(s) == expected
+
+
 def test_main_trivial():
     assert main(()) == 0
 
@@ -602,10 +641,19 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
     assert out == '{} is non-utf-8 (not supported)\n'.format(f.strpath)
 
 
-def test_py3_only_argument_unicode_literals(tmpdir):
+def test_py3_plus_argument_unicode_literals(tmpdir):
     f = tmpdir.join('f.py')
     f.write('u""')
     assert main((f.strpath,)) == 0
     assert f.read() == 'u""'
     assert main((f.strpath, '--py3-plus')) == 1
     assert f.read() == '""'
+
+
+def test_py36_plus_fstrings(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('"{} {}".format(hello, world)')
+    assert main((f.strpath,)) == 0
+    assert f.read() == '"{} {}".format(hello, world)'
+    assert main((f.strpath, '--py36-plus')) == 1
+    assert f.read() == 'f"{hello} {world}"'

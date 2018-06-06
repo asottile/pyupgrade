@@ -413,8 +413,8 @@ def _imports_unicode_literals(contents_text):
 STRING_PREFIXES_RE = re.compile('^([^\'"]*)(.*)$', re.DOTALL)
 
 
-def _fix_unicode_literals(contents_text, py3_only):
-    if not py3_only and not _imports_unicode_literals(contents_text):
+def _fix_unicode_literals(contents_text, py3_plus):
+    if not py3_plus and not _imports_unicode_literals(contents_text):
         return contents_text
     tokens = src_to_tokens(contents_text)
     for i, token in enumerate(tokens):
@@ -511,7 +511,7 @@ def parse_percent_format(s):
     return tuple(_parse_inner())
 
 
-class FindsPercentFormats(ast.NodeVisitor):
+class FindPercentFormats(ast.NodeVisitor):
     def __init__(self):
         self.found = {}
 
@@ -600,18 +600,12 @@ def _fix_percent_format_tuple(tokens, start, node):
         elif c.lower() == 'b':  # pragma: no cover (py2 only)
             return
 
-    p = start + 4
-    ws1, perc, ws2, paren = tokens[start + 1:p + 1]
-    if (
-            ws1.name != UNIMPORTANT_WS or ws1.src != ' ' or
-            perc.name != 'OP' or perc.src != '%' or
-            ws2.name != UNIMPORTANT_WS or ws2.src != ' ' or
-            paren.name != 'OP' or paren.src != '('
-    ):
-        # TODO: this is overly timid
+    # TODO: this is overly timid
+    paren = start + 4
+    if tokens_to_src(tokens[start + 1:paren + 1]) != ' % (':
         return
 
-    victims = _victims(tokens, p, node.right, gen=False)
+    victims = _victims(tokens, paren, node.right, gen=False)
     victims.ends.pop()
 
     for index in reversed(victims.starts + victims.ends):
@@ -619,7 +613,7 @@ def _fix_percent_format_tuple(tokens, start, node):
 
     newsrc = _percent_to_format(tokens[start].src)
     tokens[start] = tokens[start]._replace(src=newsrc)
-    tokens[start + 1:p] = [Token('Format', '.format'), Token('OP', '(')]
+    tokens[start + 1:paren] = [Token('Format', '.format'), Token('OP', '(')]
 
 
 def _fix_percent_format(contents_text):
@@ -628,7 +622,7 @@ def _fix_percent_format(contents_text):
     except SyntaxError:
         return contents_text
 
-    visitor = FindsPercentFormats()
+    visitor = FindPercentFormats()
     visitor.visit(ast_obj)
 
     tokens = src_to_tokens(contents_text)
@@ -640,6 +634,110 @@ def _fix_percent_format(contents_text):
 
         if isinstance(node.right, ast.Tuple):
             _fix_percent_format_tuple(tokens, i, node)
+
+    return tokens_to_src(tokens)
+
+
+def _simple_arg(arg):
+    return (
+        isinstance(arg, ast.Name) or
+        (isinstance(arg, ast.Attribute) and _simple_arg(arg.value))
+    )
+
+
+def _starargs(call):
+    return (  # pragma: no branch (starred check uncovered in py2)
+        # py2
+        getattr(call, 'starargs', None) or
+        getattr(call, 'kwargs', None) or
+        any(k.arg is None for k in call.keywords) or (
+            # py3
+            getattr(ast, 'Starred', None) and
+            any(isinstance(a, ast.Starred) for a in call.args)
+        )
+    )
+
+
+class FindSimpleFormats(ast.NodeVisitor):
+    def __init__(self):
+        self.found = {}
+
+    def visit_Call(self, node):
+        if (
+                isinstance(node.func, ast.Attribute) and
+                isinstance(node.func.value, ast.Str) and
+                node.func.attr == 'format' and
+                all(_simple_arg(arg) for arg in node.args) and
+                all(_simple_arg(k.value) for k in node.keywords) and
+                not _starargs(node)
+        ):
+            seen = set()
+            for _, name, _, _ in parse_format(node.func.value.s):
+                if name is not None:
+                    candidate, _, _ = name.partition('.')
+                    # timid: could make the f-string longer
+                    if candidate and candidate in seen:
+                        break
+                    seen.add(candidate)
+            else:
+                self.found[Offset(node.lineno, node.col_offset)] = node
+
+        self.generic_visit(node)
+
+
+def _unparse(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    elif isinstance(node, ast.Attribute):
+        return ''.join((_unparse(node.value), '.', node.attr))
+    else:
+        raise NotImplementedError(ast.dump(node))
+
+
+def _to_fstring(src, call):
+    params = {}
+    for i, arg in enumerate(call.args):
+        params[str(i)] = _unparse(arg)
+    for kwd in call.keywords:
+        params[kwd.arg] = _unparse(kwd.value)
+
+    parts = []
+    for i, (s, name, spec, conv) in enumerate(parse_format('f' + src)):
+        if name is not None:
+            k, dot, rest = name.partition('.')
+            name = ''.join((params[k or str(i)], dot, rest))
+        parts.append((s, name, spec, conv))
+    return unparse_parsed_string(parts)
+
+
+def _fix_fstrings(contents_text):
+    try:
+        ast_obj = ast_parse(contents_text)
+    except SyntaxError:
+        return contents_text
+
+    visitor = FindSimpleFormats()
+    visitor.visit(ast_obj)
+
+    tokens = src_to_tokens(contents_text)
+    for i, token in reversed(tuple(enumerate(tokens))):
+        node = visitor.found.get(Offset(token.line, token.utf8_byte_offset))
+        if node is None:
+            continue
+
+        paren = i + 3
+        if tokens_to_src(tokens[i + 1:paren + 1]) != '.format(':
+            continue
+
+        # we don't actually care about arg position, so we pass `node`
+        victims = _victims(tokens, paren, node, gen=False)
+        end = victims.ends[-1]
+        # if it spans more than one line, bail
+        if tokens[end].line != token.line:
+            continue
+
+        tokens[i] = token._replace(src=_to_fstring(token.src, node))
+        del tokens[i + 1:end + 1]
 
     return tokens_to_src(tokens)
 
@@ -657,10 +755,12 @@ def fix_file(filename, args):
     contents_text = _fix_dictcomps(contents_text)
     contents_text = _fix_sets(contents_text)
     contents_text = _fix_format_literals(contents_text)
-    contents_text = _fix_unicode_literals(contents_text, args.py3_only)
+    contents_text = _fix_unicode_literals(contents_text, args.py3_plus)
     contents_text = _fix_long_literals(contents_text)
     contents_text = _fix_octal_literals(contents_text)
     contents_text = _fix_percent_format(contents_text)
+    if args.py36_plus:
+        contents_text = _fix_fstrings(contents_text)
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
@@ -674,8 +774,12 @@ def fix_file(filename, args):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
-    parser.add_argument('--py3-only', '--py3-plus', action='store_true')
+    parser.add_argument('--py3-plus', '--py3-only', action='store_true')
+    parser.add_argument('--py36-plus', action='store_true')
     args = parser.parse_args(argv)
+
+    if args.py36_plus:
+        args.py3_plus = True
 
     ret = 0
     for filename in args.filenames:
