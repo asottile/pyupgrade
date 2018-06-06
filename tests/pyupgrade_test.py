@@ -514,6 +514,14 @@ def test_percent_format_noop_if_bug_16806():
         ('"%3f" % (15,)', '"{:3f}".format(15)'),
         ('"%-5s" % ("hi",)', '"{:<5}".format("hi")'),
         ('"brace {} %s" % (1,)', '"brace {{}} {}".format(1)'),
+        (
+            '"%s" % (\n'
+            '    "trailing comma",\n'
+            ')\n',
+            '"{}".format(\n'
+            '    "trailing comma",\n'
+            ')\n',
+        ),
     ),
 )
 def test_percent_format(s, expected):
