@@ -211,7 +211,7 @@ Victims = collections.namedtuple(
 )
 
 
-def _get_victims(tokens, start, arg):
+def _victims(tokens, start, arg, gen):
     arg = _adjust_arg(tokens, start, arg)
 
     starts = [start]
@@ -261,12 +261,13 @@ def _get_victims(tokens, start, arg):
 
         i += 1
 
-    # May need to remove a trailing comma
-    i -= 2
-    while tokens[i].name in NON_CODING_TOKENS:
-        i -= 1
-    if tokens[i].src == ',':
-        ends = sorted(set(ends + [i]))
+    # May need to remove a trailing comma for a comprehension
+    if gen:
+        i -= 2
+        while tokens[i].name in NON_CODING_TOKENS:
+            i -= 1
+        if tokens[i].src == ',':
+            ends = sorted(set(ends + [i]))
 
     return Victims(starts, ends, first_comma_index, arg_index)
 
@@ -291,7 +292,8 @@ def _process_set_literal(tokens, start, arg):
     if _is_wtf('set', tokens, start):
         return
 
-    set_victims = _get_victims(tokens, start + 1, arg)
+    gen = isinstance(arg, ast.GeneratorExp)
+    set_victims = _victims(tokens, start + 1, arg, gen=gen)
 
     del set_victims.starts[0]
     end_index = set_victims.ends.pop()
@@ -346,8 +348,8 @@ def _process_dict_comp(tokens, start, arg):
     if _is_wtf('dict', tokens, start):
         return
 
-    dict_victims = _get_victims(tokens, start + 1, arg)
-    elt_victims = _get_victims(tokens, dict_victims.arg_index, arg.elt)
+    dict_victims = _victims(tokens, start + 1, arg, gen=True)
+    elt_victims = _victims(tokens, dict_victims.arg_index, arg.elt, gen=True)
 
     del dict_victims.starts[0]
     end_index = dict_victims.ends.pop()
@@ -609,7 +611,7 @@ def _fix_percent_format_tuple(tokens, start, node):
         # TODO: this is overly timid
         return
 
-    victims = _get_victims(tokens, p, node.right)
+    victims = _victims(tokens, p, node.right, gen=False)
     victims.ends.pop()
 
     for index in reversed(victims.starts + victims.ends):
