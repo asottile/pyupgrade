@@ -54,6 +54,15 @@ dict([(a, b) for a, b in y)  # {a: b for a, b in y}
 '{0}' '{1}'.format(1, 2)  # '{}' '{}'.format(1, 2)
 ```
 
+### printf-style string formatting
+
+```python
+'%s %s' % (a, b)   # '{} {}'.format(a, b)
+'%r %2f' % (a, b)  # '{!r} {:2f}'.format(a, b)
+```
+
+Key format (`%(key)s`) rewriting is planned but not yet implemented.
+
 ### Unicode literals
 
 Availability:
