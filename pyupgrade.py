@@ -591,14 +591,21 @@ def _percent_to_format(s):
     return ''.join(_handle_part(part) for part in parse_percent_format(s))
 
 
-def _fix_percent_format_tuple(tokens, start, node):
-    # search for b prefix: no .format() equivalent for bytestrings in py3
-    # note that this code is only necessary when running in python2
-    for c in tokens[start].src:
+def _is_bytestring(s):
+    for c in s:
         if c in '"\'':
-            break
-        elif c.lower() == 'b':  # pragma: no cover (py2 only)
-            return
+            return False
+        elif c.lower() == 'b':
+            return True
+    else:
+        return False
+
+
+def _fix_percent_format_tuple(tokens, start, node):
+    # no .format() equivalent for bytestrings in py3
+    # note that this code is only necessary when running in python2
+    if _is_bytestring(tokens[start].src):  # pragma: no cover (py2-only)
+        return
 
     # TODO: this is overly timid
     paren = start + 4
@@ -723,6 +730,9 @@ def _fix_fstrings(contents_text):
     for i, token in reversed(tuple(enumerate(tokens))):
         node = visitor.found.get(Offset(token.line, token.utf8_byte_offset))
         if node is None:
+            continue
+
+        if _is_bytestring(token.src):  # pragma: no cover (py2-only)
             continue
 
         paren = i + 3

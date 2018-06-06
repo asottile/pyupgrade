@@ -16,6 +16,7 @@ from pyupgrade import _fix_percent_format
 from pyupgrade import _fix_sets
 from pyupgrade import _fix_unicode_literals
 from pyupgrade import _imports_unicode_literals
+from pyupgrade import _is_bytestring
 from pyupgrade import _percent_to_format
 from pyupgrade import _simplify_conversion_flag
 from pyupgrade import main
@@ -337,6 +338,16 @@ def test_fix_octal_literal():
     assert _fix_octal_literals('0755') == '0o755'
 
 
+@pytest.mark.parametrize('s', ("b''", 'b""', 'B""', "B''", "rb''", "rb''"))
+def test_is_bytestring_true(s):
+    assert _is_bytestring(s) is True
+
+
+@pytest.mark.parametrize('s', ('', '""', "''", 'u""', '"b"'))
+def test_is_bytestring_false(s):
+    assert _is_bytestring(s) is False
+
+
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
@@ -576,6 +587,9 @@ def test_percent_format_todo(s, expected):
         # likely makes the format longer
         '"{0} {0}".format(arg)', '"{x} {x}".format(arg)',
         '"{x.y} {x.z}".format(arg)',
+        # bytestrings don't participate in `.format()` or `f''`
+        # but are legal in python 2
+        'b"{} {}".format(a, b)',
     ),
 )
 def test_fix_fstrings_noop(s):
