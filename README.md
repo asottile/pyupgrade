@@ -104,3 +104,7 @@ Availability:
 '{} {}'.format(foo, bar)                # f'{foo} {bar}'
 '{} {}'.format(foo.bar, baz.womp}       # f'{foo.bar} {baz.womp}'
 ```
+
+_note_: `pyupgrade` is intentionally timid and will not create an f-string
+if it would make the expression longer or if the substitution parameters are
+anything but simple names or dotted names (as this can decrease readability).
