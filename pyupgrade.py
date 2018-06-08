@@ -679,7 +679,10 @@ class FindSimpleFormats(ast.NodeVisitor):
                 not _starargs(node)
         ):
             seen = set()
-            for _, name, _, _ in parse_format(node.func.value.s):
+            for _, name, spec, _ in parse_format(node.func.value.s):
+                # timid: difficult to rewrite correctly
+                if spec is not None and '{' in spec:
+                    break
                 if name is not None:
                     candidate, _, _ = name.partition('.')
                     # timid: could make the f-string longer
