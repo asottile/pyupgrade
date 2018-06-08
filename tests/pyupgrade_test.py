@@ -590,6 +590,8 @@ def test_percent_format_todo(s, expected):
         # bytestrings don't participate in `.format()` or `f''`
         # but are legal in python 2
         'b"{} {}".format(a, b)',
+        # for now, too difficult to rewrite correctly
+        '"{:{}}".format(x, y)',
     ),
 )
 def test_fix_fstrings_noop(s):
