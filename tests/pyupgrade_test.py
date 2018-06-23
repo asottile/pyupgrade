@@ -499,6 +499,19 @@ def test_simplify_conversion_flag(s, expected):
         '"%.2r" % (1.25)', '"%.2a" % (1.25)',
         # non-string mod
         'i % 3',
+        # dict format but not keyed arguments
+        '"%s" % {"k": "v"}',
+        # dict format must have valid identifiers
+        '"%()s" % {"": "bar"}',
+        '"%(1)s" % {"1": "bar"}',
+        # don't trigger `SyntaxError: keyword argument repeated`
+        '"%(a)s" % {"a": 1, "a": 2}',
+        # don't rewrite string-joins in dict literal
+        '"%(ab)s" % {"a" "b": 1}',
+        # don't rewrite strangely styled things
+        '"%(a)s" % {"a"  :  1}',
+        # don't rewrite non-str keys
+        '"%(1)s" % {1: 2, "1": 2}',
     ),
 )
 def test_percent_format_noop(s):
@@ -519,6 +532,7 @@ def test_percent_format_noop_if_bug_16806():
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
+        # tuple
         ('"trivial" % ()', '"trivial".format()'),
         ('"%s" % ("simple",)', '"{}".format("simple")'),
         ('"%s" % ("%s" % ("nested",),)', '"{}".format("{}".format("nested"))'),
@@ -534,6 +548,8 @@ def test_percent_format_noop_if_bug_16806():
             '    "trailing comma",\n'
             ')\n',
         ),
+        # dict
+        ('"%(k)s" % {"k": "v"}', '"{k}".format(k="v")'),
     ),
 )
 def test_percent_format(s, expected):
@@ -544,8 +560,6 @@ def test_percent_format(s, expected):
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
-        # percent format of maps are not yet attempted
-        ('"%(foo)s" % {"foo": "bar"}', '"{foo}".format(foo="bar")'),
         # currently the approach does not attempt to consider joined strings
         (
             'paren_continue = (\n'
@@ -566,6 +580,26 @@ def test_percent_format(s, expected):
             '    "foo {} "\n'
             '    "bar {}"\n'
             ').format(x, y)\n',
+        ),
+        (
+            'paren_continue = (\n'
+            '    "foo %(foo)s "\n'
+            '    "bar %(bar)s" % {"foo": x, "bar": y}\n'
+            ')\n',
+            'paren_continue = (\n'
+            '    "foo {foo} "\n'
+            '    "bar {bar}".format(foo=x, bar=y)\n'
+            ')\n',
+        ),
+        (
+            'paren_string = (\n'
+            '    "foo %(foo)s "\n'
+            '    "bar %(bar)s"\n'
+            ') % {"foo": x, "bar": y}\n',
+            'paren_string = (\n'
+            '    "foo {foo} "\n'
+            '    "bar {bar}"\n'
+            ').format(foo=x, bar=y)\n',
         ),
     ),
 )

@@ -540,6 +540,9 @@ class FindPercentFormats(ast.NodeVisitor):
                 # timid: no equivalent in format
                 if conversion in {'a', 'r'} and nontrivial_fmt:
                     break
+                # all dict substitutions must be named
+                if isinstance(node.right, ast.Dict) and not key:
+                    break
             else:
                 self.found[Offset(node.lineno, node.col_offset)] = node
         self.generic_visit(node)
@@ -602,11 +605,6 @@ def _is_bytestring(s):
 
 
 def _fix_percent_format_tuple(tokens, start, node):
-    # no .format() equivalent for bytestrings in py3
-    # note that this code is only necessary when running in python2
-    if _is_bytestring(tokens[start].src):  # pragma: no cover (py2-only)
-        return
-
     # TODO: this is overly timid
     paren = start + 4
     if tokens_to_src(tokens[start + 1:paren + 1]) != ' % (':
@@ -621,6 +619,58 @@ def _fix_percent_format_tuple(tokens, start, node):
     newsrc = _percent_to_format(tokens[start].src)
     tokens[start] = tokens[start]._replace(src=newsrc)
     tokens[start + 1:paren] = [Token('Format', '.format'), Token('OP', '(')]
+
+
+IDENT_RE = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def _fix_percent_format_dict(tokens, start, node):
+    seen_keys = set()
+    keys = {}
+    for k in node.right.keys:
+        # not a string key
+        if not isinstance(k, ast.Str):
+            return
+        # duplicate key
+        elif k.s in seen_keys:
+            return
+        # not an identifier
+        elif not IDENT_RE.match(k.s):
+            return
+        seen_keys.add(k.s)
+        keys[Offset(k.lineno, k.col_offset)] = k
+
+    # TODO: this is overly timid
+    brace = start + 4
+    if tokens_to_src(tokens[start + 1:brace + 1]) != ' % {':
+        return
+
+    victims = _victims(tokens, brace, node.right, gen=False)
+    brace_end = victims.ends.pop()
+
+    key_indices = []
+    for i, token in enumerate(tokens[brace:brace_end], brace):
+        k = keys.pop(Offset(token.line, token.utf8_byte_offset), None)
+        if k is None:
+            continue
+        # we found the key, but the string didn't match (implicit join?)
+        elif ast.literal_eval(token.src) != k.s:
+            return
+        # the map uses some strange syntax that's not `'k': v`
+        elif tokens_to_src(tokens[i + 1:i + 3]) != ': ':
+            return
+        else:
+            key_indices.append((i, k.s))
+    assert not keys, keys
+
+    tokens[brace_end] = tokens[brace_end]._replace(src=')')
+    for (key_index, s) in reversed(key_indices):
+        tokens[key_index:key_index + 3] = [Token('CODE', '{}='.format(s))]
+    for index in reversed(victims.starts + victims.ends):
+        _remove_brace(tokens, index)
+    newsrc = _percent_to_format(tokens[start].src)
+    tokens[start] = tokens[start]._replace(src=newsrc)
+    tokens[start + 1:brace] = [Token('Format', '.format'), Token('OP', '(')]
 
 
 def _fix_percent_format(contents_text):
@@ -639,8 +689,15 @@ def _fix_percent_format(contents_text):
         if node is None:
             continue
 
+        # no .format() equivalent for bytestrings in py3
+        # note that this code is only necessary when running in python2
+        if _is_bytestring(tokens[i].src):  # pragma: no cover (py2-only)
+            continue
+
         if isinstance(node.right, ast.Tuple):
             _fix_percent_format_tuple(tokens, i, node)
+        elif isinstance(node.right, ast.Dict):
+            _fix_percent_format_dict(tokens, i, node)
 
     return tokens_to_src(tokens)
 
