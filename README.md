@@ -59,7 +59,7 @@ dict([(a, b) for a, b in y)  # {a: b for a, b in y}
 ```python
 '%s %s' % (a, b)                  # '{} {}'.format(a, b)
 '%r %2f' % (a, b)                 # '{!r} {:2f}'.format(a, b)
-'%(a)s %(b)s' % {'a': 1, 'b': 2}  # '{a} {b}'.format(a=1, b2=)
+'%(a)s %(b)s' % {'a': 1, 'b': 2}  # '{a} {b}'.format(a=1, b=2)
 ```
 
 Key format (`%(key)s`) rewriting is planned but not yet implemented.
