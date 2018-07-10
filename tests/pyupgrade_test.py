@@ -109,6 +109,26 @@ def test_intentionally_not_round_trip(s, expected):
         ('set((1, ))', '{1}'),
         # Remove trailing commas after things
         ('set([1, 2, 3,],)', '{1, 2, 3}'),
+        ('set((x for x in y),)', '{x for x in y}'),
+        (
+            'set(\n'
+            '    (x for x in y),\n'
+            ')',
+            '{\n'
+            '    x for x in y\n'
+            '}',
+        ),
+    ),
+)
+def test_sets(s, expected):
+    ret = _fix_sets(s)
+    assert ret == expected
+
+
+@pytest.mark.xfail(sys.version_info >= (3, 7), reason='genexp trailing comma')
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
         ('set(x for x in y,)', '{x for x in y}'),
         (
             'set(\n'
@@ -120,7 +140,7 @@ def test_intentionally_not_round_trip(s, expected):
         ),
     ),
 )
-def test_sets(s, expected):
+def test_sets_generators_trailing_comas(s, expected):
     ret = _fix_sets(s)
     assert ret == expected
 
