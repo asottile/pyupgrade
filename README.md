@@ -95,6 +95,17 @@ Availability:
 0755  # 0o755
 ```
 
+### `super()` calls
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```python
+class C(Base):
+    def f(self):
+        super(C, self).f()   # super().f()
+```
+
 ### f-strings
 
 Availability:

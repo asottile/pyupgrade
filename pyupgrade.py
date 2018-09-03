@@ -702,6 +702,55 @@ def _fix_percent_format(contents_text):
     return tokens_to_src(tokens)
 
 
+class FindSuper(ast.NodeVisitor):
+    def __init__(self):
+        self.class_name_stack = []
+        self.found = {}
+
+    def visit_ClassDef(self, node):
+        self.class_name_stack.append(node.name)
+        self.generic_visit(node)
+        self.class_name_stack.pop()
+
+    def visit_Call(self, node):
+        if (
+                isinstance(node.func, ast.Name) and
+                node.func.id == 'super' and
+                len(node.args) == 2 and
+                all(isinstance(arg, ast.Name) for arg in node.args) and
+                self.class_name_stack and
+                node.args[0].id == self.class_name_stack[-1] and
+                node.args[1].id == 'self'
+        ):
+            self.found[Offset(node.lineno, node.col_offset)] = node
+
+        self.generic_visit(node)
+
+
+def _fix_super(contents_text):
+    try:
+        ast_obj = ast_parse(contents_text)
+    except SyntaxError:
+        return contents_text
+
+    visitor = FindSuper()
+    visitor.visit(ast_obj)
+
+    tokens = src_to_tokens(contents_text)
+    for i, token in reversed(tuple(enumerate(tokens))):
+        call = visitor.found.get(Offset(token.line, token.utf8_byte_offset))
+        if not call:
+            continue
+
+        while tokens[i].name != 'OP':
+            i += 1
+
+        victims = _victims(tokens, i, call, gen=False)
+        del tokens[victims.starts[0] + 1:victims.ends[-1]]
+
+    return tokens_to_src(tokens)
+
+
 def _simple_arg(arg):
     return (
         isinstance(arg, ast.Name) or
@@ -829,6 +878,8 @@ def fix_file(filename, args):
     contents_text = _fix_long_literals(contents_text)
     contents_text = _fix_octal_literals(contents_text)
     contents_text = _fix_percent_format(contents_text)
+    if args.py3_plus:
+        contents_text = _fix_super(contents_text)
     if args.py36_plus:
         contents_text = _fix_fstrings(contents_text)
 

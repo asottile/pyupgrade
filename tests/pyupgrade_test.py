@@ -14,6 +14,7 @@ from pyupgrade import _fix_long_literals
 from pyupgrade import _fix_octal_literals
 from pyupgrade import _fix_percent_format
 from pyupgrade import _fix_sets
+from pyupgrade import _fix_super
 from pyupgrade import _fix_unicode_literals
 from pyupgrade import _imports_unicode_literals
 from pyupgrade import _is_bytestring
@@ -631,6 +632,65 @@ def test_percent_format_todo(s, expected):
     's',
     (
         # syntax error
+        'x(',
+
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        super().f()\n',
+
+        # super class doesn't match class name
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        super(Base, self).f()\n',
+
+        # super outside of a class (technically legal!)
+        'def f(self):\n'
+        '    super(C, self).f()\n',
+    ),
+)
+def test_fix_super_noop(s):
+    assert _fix_super(s) == s
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        (
+            'class C(Base):\n'
+            '    def f(self):\n'
+            '        super(C, self).f()\n',
+            'class C(Base):\n'
+            '    def f(self):\n'
+            '        super().f()\n',
+        ),
+        (
+            'class C(Base):\n'
+            '    def f(self):\n'
+            '        super (C, self).f()\n',
+            'class C(Base):\n'
+            '    def f(self):\n'
+            '        super ().f()\n',
+        ),
+        (
+            'class Outer(object):\n'
+            '    class C(Base):\n'
+            '        def f(self):\n'
+            '            super (C, self).f()\n',
+            'class Outer(object):\n'
+            '    class C(Base):\n'
+            '        def f(self):\n'
+            '            super ().f()\n',
+        ),
+    ),
+)
+def test_fix_super(s, expected):
+    assert _fix_super(s) == expected
+
+
+@pytest.mark.parametrize(
+    's',
+    (
+        # syntax error
         '(',
         # weird syntax
         '"{}" . format(x)',
@@ -718,6 +778,27 @@ def test_py3_plus_argument_unicode_literals(tmpdir):
     assert f.read() == 'u""'
     assert main((f.strpath, '--py3-plus')) == 1
     assert f.read() == '""'
+
+
+def test_py3_plus_super(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write(
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        super(C, self).f()\n',
+    )
+    assert main((f.strpath,)) == 0
+    assert f.read() == (
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        super(C, self).f()\n'
+    )
+    assert main((f.strpath, '--py3-plus')) == 1
+    assert f.read() == (
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        super().f()\n'
+    )
 
 
 def test_py36_plus_fstrings(tmpdir):
