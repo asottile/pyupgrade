@@ -706,14 +706,24 @@ class FindSuper(ast.NodeVisitor):
     def __init__(self):
         self.class_name_stack = []
         self.found = {}
+        self.in_comp = 0
 
     def visit_ClassDef(self, node):
         self.class_name_stack.append(node.name)
         self.generic_visit(node)
         self.class_name_stack.pop()
 
+    def _visit_comp(self, node):
+        self.in_comp += 1
+        self.generic_visit(node)
+        self.in_comp -= 1
+
+    visit_ListComp = visit_SetComp = _visit_comp
+    visit_DictComp = visit_GeneratorExp = _visit_comp
+
     def visit_Call(self, node):
         if (
+                not self.in_comp and
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'super' and
                 len(node.args) == 2 and
