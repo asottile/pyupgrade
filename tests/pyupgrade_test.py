@@ -721,6 +721,7 @@ def test_fix_fstrings_noop(s):
         ('"{.x} {.y}".format(a, b)', 'f"{a.x} {b.y}"'),
         ('"{} {}".format(a.b, c.d)', 'f"{a.b} {c.d}"'),
         ('"hello {}!".format(name)', 'f"hello {name}!"'),
+        ('"{}{{}}{}".format(escaped, y)', 'f"{escaped}{{}}{y}"'),
 
         # TODO: poor man's f-strings?
         # '"{foo}".format(**locals())'
