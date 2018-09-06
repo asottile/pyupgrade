@@ -646,6 +646,30 @@ def test_percent_format_todo(s, expected):
         # super outside of a class (technically legal!)
         'def f(self):\n'
         '    super(C, self).f()\n',
+
+        # super used in a comprehension
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        return [super(C, self).f() for _ in ()]\n',
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        return {super(C, self).f() for _ in ()}\n',
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        return (super(C, self).f() for _ in ())\n',
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        return {True: super(C, self).f() for _ in ()}\n',
+        # nested comprehension
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        return [\n'
+        '            (\n'
+        '                [_ for _ in ()],\n'
+        '                super(C, self).f(),\n'
+        '            )\n'
+        '            for _ in ()'
+        '        ]\n',
     ),
 )
 def test_fix_super_noop(s):
