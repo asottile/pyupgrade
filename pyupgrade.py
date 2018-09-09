@@ -703,15 +703,30 @@ def _fix_percent_format(contents_text):
 
 
 class FindSuper(ast.NodeVisitor):
+    class ClassInfo:
+        def __init__(self, name):
+            self.name = name
+            self.def_depth = 0
+
     def __init__(self):
-        self.class_name_stack = []
+        self.class_info_stack = []
         self.found = {}
         self.in_comp = 0
 
     def visit_ClassDef(self, node):
-        self.class_name_stack.append(node.name)
+        self.class_info_stack.append(FindSuper.ClassInfo(node.name))
         self.generic_visit(node)
-        self.class_name_stack.pop()
+        self.class_info_stack.pop()
+
+    def _visit_func(self, node):
+        if self.class_info_stack:
+            self.class_info_stack[-1].def_depth += 1
+            self.generic_visit(node)
+            self.class_info_stack[-1].def_depth -= 1
+        else:
+            self.generic_visit(node)
+
+    visit_FunctionDef = visit_Lambda = _visit_func
 
     def _visit_comp(self, node):
         self.in_comp += 1
@@ -724,12 +739,13 @@ class FindSuper(ast.NodeVisitor):
     def visit_Call(self, node):
         if (
                 not self.in_comp and
+                self.class_info_stack and
+                self.class_info_stack[-1].def_depth == 1 and
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'super' and
                 len(node.args) == 2 and
                 all(isinstance(arg, ast.Name) for arg in node.args) and
-                self.class_name_stack and
-                node.args[0].id == self.class_name_stack[-1] and
+                node.args[0].id == self.class_info_stack[-1].name and
                 node.args[1].id == 'self'
         ):
             self.found[Offset(node.lineno, node.col_offset)] = node
