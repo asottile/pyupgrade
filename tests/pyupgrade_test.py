@@ -721,6 +721,16 @@ def test_fix_super_noop(s):
             'class C(Base):\n'
             '    f = lambda self: super().f()\n'
         ),
+        (
+            'class C(Base):\n'
+            '    @classmethod\n'
+            '    def f(cls):\n'
+            '        super(C, cls).f()\n',
+            'class C(Base):\n'
+            '    @classmethod\n'
+            '    def f(cls):\n'
+            '        super().f()\n',
+        ),
     ),
 )
 def test_fix_super(s, expected):

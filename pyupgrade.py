@@ -702,11 +702,17 @@ def _fix_percent_format(contents_text):
     return tokens_to_src(tokens)
 
 
+# PY2: arguments are `Name`, PY3: arguments are `arg`
+ARGATTR = 'id' if str is bytes else 'arg'
+
+
 class FindSuper(ast.NodeVisitor):
+
     class ClassInfo:
         def __init__(self, name):
             self.name = name
             self.def_depth = 0
+            self.first_arg_name = ''
 
     def __init__(self):
         self.class_info_stack = []
@@ -720,9 +726,12 @@ class FindSuper(ast.NodeVisitor):
 
     def _visit_func(self, node):
         if self.class_info_stack:
-            self.class_info_stack[-1].def_depth += 1
+            class_info = self.class_info_stack[-1]
+            class_info.def_depth += 1
+            if class_info.def_depth == 1 and node.args.args:
+                class_info.first_arg_name = getattr(node.args.args[0], ARGATTR)
             self.generic_visit(node)
-            self.class_info_stack[-1].def_depth -= 1
+            class_info.def_depth -= 1
         else:
             self.generic_visit(node)
 
@@ -746,7 +755,7 @@ class FindSuper(ast.NodeVisitor):
                 len(node.args) == 2 and
                 all(isinstance(arg, ast.Name) for arg in node.args) and
                 node.args[0].id == self.class_info_stack[-1].name and
-                node.args[1].id == 'self'
+                node.args[1].id == self.class_info_stack[-1].first_arg_name
         ):
             self.found[Offset(node.lineno, node.col_offset)] = node
 
