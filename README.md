@@ -106,6 +106,16 @@ class C(Base):
         super(C, self).f()   # super().f()
 ```
 
+### "new style" classes
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```python
+class C(object): pass     # class C: pass
+class C(B, object): pass  # class C(B): pass
+```
+
 ### f-strings
 
 Availability:

@@ -11,6 +11,7 @@ from pyupgrade import _fix_dictcomps
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_fstrings
 from pyupgrade import _fix_long_literals
+from pyupgrade import _fix_new_style_classes
 from pyupgrade import _fix_octal_literals
 from pyupgrade import _fix_percent_format
 from pyupgrade import _fix_sets
@@ -741,6 +742,94 @@ def test_fix_super(s, expected):
     's',
     (
         # syntax error
+        'x = (',
+        # does not inherit from `object`
+        'class C(B): pass',
+    ),
+)
+def test_fix_new_style_classes_noop(s):
+    assert _fix_new_style_classes(s) == s
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        (
+            'class C(object): pass',
+            'class C: pass',
+        ),
+        (
+            'class C(\n'
+            '    object,\n'
+            '): pass',
+            'class C: pass',
+        ),
+        (
+            'class C(B, object): pass',
+            'class C(B): pass',
+        ),
+        (
+            'class C(B, (object)): pass',
+            'class C(B): pass',
+        ),
+        (
+            'class C(B, ( object )): pass',
+            'class C(B): pass',
+        ),
+        (
+            'class C((object)): pass',
+            'class C: pass',
+        ),
+        (
+            'class C(\n'
+            '    B,\n'
+            '    object,\n'
+            '): pass\n',
+            'class C(\n'
+            '    B,\n'
+            '): pass\n',
+        ),
+        (
+            'class C(\n'
+            '    B,\n'
+            '    object\n'
+            '): pass\n',
+            'class C(\n'
+            '    B\n'
+            '): pass\n',
+        ),
+        # only legal in python2
+        (
+            'class C(object, B): pass',
+            'class C(B): pass',
+        ),
+        (
+            'class C((object), B): pass',
+            'class C(B): pass',
+        ),
+        (
+            'class C(( object ), B): pass',
+            'class C(B): pass',
+        ),
+        (
+            'class C(\n'
+            '    object,\n'
+            '    B,\n'
+            '): pass',
+            'class C(\n'
+            '    B,\n'
+            '): pass',
+        ),
+    ),
+)
+def test_fix_new_style_classes(s, expected):
+    assert _fix_new_style_classes(s) == expected
+
+
+@pytest.mark.parametrize(
+    's',
+    (
+        # syntax error
         '(',
         # weird syntax
         '"{}" . format(x)',
@@ -850,6 +939,15 @@ def test_py3_plus_super(tmpdir):
         '    def f(self):\n'
         '        super().f()\n'
     )
+
+
+def test_py3_plus_new_style_classes(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('class C(object): pass\n')
+    assert main((f.strpath,)) == 0
+    assert f.read() == 'class C(object): pass\n'
+    assert main((f.strpath, '--py3-plus')) == 1
+    assert f.read() == 'class C: pass\n'
 
 
 def test_py36_plus_fstrings(tmpdir):
