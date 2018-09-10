@@ -761,6 +761,107 @@ def _fix_super(contents_text):
     return tokens_to_src(tokens)
 
 
+class FindNewStyleClasses(ast.NodeVisitor):
+    Base = collections.namedtuple('Base', ('node', 'index'))
+
+    def __init__(self):
+        self.found = {}
+
+    def visit_ClassDef(self, node):
+        for i, base in enumerate(node.bases):
+            if isinstance(base, ast.Name) and base.id == 'object':
+                key = Offset(base.lineno, base.col_offset)
+                self.found[key] = FindNewStyleClasses.Base(node, i)
+        self.generic_visit(node)
+
+
+def _fix_new_style_classes(contents_text):
+    try:
+        ast_obj = ast_parse(contents_text)
+    except SyntaxError:
+        return contents_text
+
+    visitor = FindNewStyleClasses()
+    visitor.visit(ast_obj)
+
+    tokens = src_to_tokens(contents_text)
+    for i, token in reversed(tuple(enumerate(tokens))):
+        base = visitor.found.get(Offset(token.line, token.utf8_byte_offset))
+        if not base:
+            continue
+
+        # single base, look forward until the colon to find the ), then  look
+        # backward to find the matching (
+        if len(base.node.bases) == 1:
+            j = i
+            while tokens[j].src != ':':
+                j += 1
+            while tokens[j].src != ')':
+                j -= 1
+
+            end_index = j
+            brace_stack = [')']
+            while brace_stack:
+                j -= 1
+                if tokens[j].src == ')':
+                    brace_stack.append(')')
+                elif tokens[j].src == '(':
+                    brace_stack.pop()
+            start_index = j
+
+            del tokens[start_index:end_index + 1]
+        # multiple bases, look forward and remove a comma
+        elif base.index == 0:
+            j = i
+            brace_stack = []
+            while tokens[j].src != ',':
+                if tokens[j].src == ')':
+                    brace_stack.append(')')
+                j += 1
+            end_index = j
+
+            j = i
+            while brace_stack:
+                j -= 1
+                if tokens[j].src == '(':
+                    brace_stack.pop()
+            start_index = j
+
+            # if there's space afterwards remove that too
+            if tokens[end_index + 1].name == UNIMPORTANT_WS:
+                end_index += 1
+
+            # if it is on its own line, remove it
+            if (
+                    tokens[start_index - 1].name == UNIMPORTANT_WS and
+                    tokens[start_index - 2].name == 'NL' and
+                    tokens[end_index + 1].name == 'NL'
+            ):
+                start_index -= 1
+                end_index += 1
+
+            del tokens[start_index:end_index + 1]
+        # multiple bases, look backward and remove a comma
+        else:
+            j = i
+            brace_stack = []
+            while tokens[j].src != ',':
+                if tokens[j].src == '(':
+                    brace_stack.append('(')
+                j -= 1
+            start_index = j
+
+            j = i
+            while brace_stack:
+                j += 1
+                if tokens[j].src == ')':
+                    brace_stack.pop()
+            end_index = j
+
+            del tokens[start_index:end_index + 1]
+    return tokens_to_src(tokens)
+
+
 def _simple_arg(arg):
     return (
         isinstance(arg, ast.Name) or
@@ -892,6 +993,7 @@ def fix_file(filename, args):
     contents_text = _fix_percent_format(contents_text)
     if args.py3_plus:
         contents_text = _fix_super(contents_text)
+        contents_text = _fix_new_style_classes(contents_text)
     if args.py36_plus:
         contents_text = _fix_fstrings(contents_text)
 
