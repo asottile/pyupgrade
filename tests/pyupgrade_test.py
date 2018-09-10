@@ -670,6 +670,16 @@ def test_percent_format_todo(s, expected):
         '            )\n'
         '            for _ in ()'
         '        ]\n',
+        # super in a closure
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        def g():\n'
+        '            super(C, self).f()\n'
+        '        g()\n',
+        'class C(Base):\n'
+        '    def f(self):\n'
+        '        g = lambda: super(C, self).f()\n'
+        '        g()\n',
     ),
 )
 def test_fix_super_noop(s):
@@ -704,6 +714,22 @@ def test_fix_super_noop(s):
             '    class C(Base):\n'
             '        def f(self):\n'
             '            super ().f()\n',
+        ),
+        (
+            'class C(Base):\n'
+            '    f = lambda self: super(C, self).f()\n',
+            'class C(Base):\n'
+            '    f = lambda self: super().f()\n'
+        ),
+        (
+            'class C(Base):\n'
+            '    @classmethod\n'
+            '    def f(cls):\n'
+            '        super(C, cls).f()\n',
+            'class C(Base):\n'
+            '    @classmethod\n'
+            '    def f(cls):\n'
+            '        super().f()\n',
         ),
     ),
 )
