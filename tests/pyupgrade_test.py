@@ -826,6 +826,20 @@ def test_fix_new_style_classes(s, expected):
     assert _fix_new_style_classes(s) == expected
 
 
+@pytest.mark.xfail(sys.version_info < (3,), reason='py3+ metaclass')
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        (
+            'class C(object, metaclass=ABCMeta): pass',
+            'class C(metaclass=ABCMeta): pass',
+        ),
+    ),
+)
+def test_fix_new_style_classes_py3only(s, expected):
+    assert _fix_new_style_classes(s) == expected
+
+
 @pytest.mark.parametrize(
     's',
     (

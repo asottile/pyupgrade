@@ -817,7 +817,10 @@ def _fix_new_style_classes(contents_text):
 
         # single base, look forward until the colon to find the ), then  look
         # backward to find the matching (
-        if len(base.node.bases) == 1:
+        if (
+                len(base.node.bases) == 1 and
+                not getattr(base.node, 'keywords', None)
+        ):
             j = i
             while tokens[j].src != ':':
                 j += 1
