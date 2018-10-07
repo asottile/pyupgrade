@@ -890,6 +890,77 @@ def _fix_new_style_classes(contents_text):
     return tokens_to_src(tokens)
 
 
+SIX_SIMPLE_ATTRS = {
+    'text_type': 'str',
+    'binary_type': 'bytes',
+    'class_types': '(type,)',
+    'string_types': '(str,)',
+    'integer_types': '(int,)',
+    'unichr': 'chr',
+    'iterbytes': 'iter',
+    'print_': 'print',
+    'exec_': 'exec',
+    'advance_iterator': 'next',
+    'next': 'next',
+    'callable': 'callable',
+}
+
+
+class FindSixUsage(ast.NodeVisitor):
+    def __init__(self):
+        self.simple_attrs = {}
+        self.simple_names = {}
+        self.six_from_imports = set()
+
+    def visit_ImportFrom(self, node):
+        if node.module == 'six':
+            for name in node.names:
+                if not name.asname and name.name in SIX_SIMPLE_ATTRS:
+                    self.six_from_imports.add(name.name)
+        self.generic_visit(node)
+
+    def visit_Name(self, node):
+        if (
+                node.id in SIX_SIMPLE_ATTRS and
+                node.id in self.six_from_imports
+        ):
+            self.simple_names[Offset(node.lineno, node.col_offset)] = node
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node):
+        if (
+                isinstance(node.value, ast.Name) and
+                node.value.id == 'six' and
+                node.attr in SIX_SIMPLE_ATTRS
+        ):
+            self.simple_attrs[Offset(node.lineno, node.col_offset)] = node
+        self.generic_visit(node)
+
+
+def _fix_six(contents_text):
+    try:
+        ast_obj = ast_parse(contents_text)
+    except SyntaxError:
+        return contents_text
+
+    visitor = FindSixUsage()
+    visitor.visit(ast_obj)
+
+    tokens = src_to_tokens(contents_text)
+    for i, token in reversed(tuple(enumerate(tokens))):
+        key = Offset(token.line, token.utf8_byte_offset)
+
+        if key in visitor.simple_names:
+            node = visitor.simple_names[key]
+            tokens[i] = Token('CODE', SIX_SIMPLE_ATTRS[node.id])
+        elif key in visitor.simple_attrs:
+            node = visitor.simple_attrs[key]
+            if tokens[i + 1].src == '.' and tokens[i + 2].src == node.attr:
+                tokens[i:i + 3] = [Token('CODE', SIX_SIMPLE_ATTRS[node.attr])]
+
+    return tokens_to_src(tokens)
+
+
 def _simple_arg(arg):
     return (
         isinstance(arg, ast.Name) or
@@ -1022,6 +1093,7 @@ def fix_file(filename, args):
     if args.py3_plus:
         contents_text = _fix_super(contents_text)
         contents_text = _fix_new_style_classes(contents_text)
+        contents_text = _fix_six(contents_text)
     if args.py36_plus:
         contents_text = _fix_fstrings(contents_text)
 

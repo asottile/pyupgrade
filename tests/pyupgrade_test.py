@@ -15,6 +15,7 @@ from pyupgrade import _fix_new_style_classes
 from pyupgrade import _fix_octal_literals
 from pyupgrade import _fix_percent_format
 from pyupgrade import _fix_sets
+from pyupgrade import _fix_six
 from pyupgrade import _fix_super
 from pyupgrade import _fix_unicode_literals
 from pyupgrade import _imports_unicode_literals
@@ -824,6 +825,43 @@ def test_fix_new_style_classes_noop(s):
 )
 def test_fix_new_style_classes(s, expected):
     assert _fix_new_style_classes(s) == expected
+
+
+@pytest.mark.parametrize(
+    's',
+    (
+        # syntax error
+        'x = (',
+        # weird attributes
+        'isinstance(s, six   .    string_types)',
+        # unrelated
+        'from os import path',
+        'from six import moves',
+    )
+)
+def test_fix_six_noop(s):
+    assert _fix_six(s) == s
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        (
+            'isinstance(s, six.string_types)',
+            # TODO: maybe `isinstance(s, str)` (special case isinstance)
+            'isinstance(s, (str,))',
+        ),
+        (
+            'from six import string_types\n'
+            'isinstance(s, string_types)\n',
+
+            'from six import string_types\n'
+            'isinstance(s, (str,))\n',
+        ),
+    ),
+)
+def test_fix_six(s, expected):
+    assert _fix_six(s) == expected
 
 
 @pytest.mark.xfail(sys.version_info < (3,), reason='py3+ metaclass')
