@@ -116,6 +116,31 @@ class C(object): pass     # class C: pass
 class C(B, object): pass  # class C(B): pass
 ```
 
+### remove `six` compatibility code
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```python
+six.text_type             # str
+six.binary_type           # bytes
+six.class_types           # (type,)
+six.string_types          # (str,)
+six.integer_types         # (int,)
+six.unichr                # chr
+six.iterbytes             # iter
+six.print_(...)           # print(...)
+six.exec_(c, g, l)        # exec(c, g, l)
+six.advance_iterator(it)  # next(it)
+six.next(it)              # next(it)
+six.callable(x)           # callable(x)
+
+from six import text_type
+text_type                 # str
+```
+
+_note_: this is a work-in-progress, see #59.
+
 ### f-strings
 
 Availability:
