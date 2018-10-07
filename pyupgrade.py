@@ -10,6 +10,8 @@ import re
 import string
 
 from tokenize_rt import ESCAPED_NL
+from tokenize_rt import Offset
+from tokenize_rt import reversed_enumerate
 from tokenize_rt import src_to_tokens
 from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
@@ -51,6 +53,10 @@ def unparse_parsed_string(parsed):
 
 
 NON_CODING_TOKENS = frozenset(('COMMENT', ESCAPED_NL, 'NL', UNIMPORTANT_WS))
+
+
+def _ast_to_offset(node):
+    return Offset(node.lineno, node.col_offset)
 
 
 def ast_parse(contents_text):
@@ -127,7 +133,6 @@ def _has_kwargs(call):
 
 BRACES = {'(': ')', '[': ']', '{': '}'}
 SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
-Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
 
 
 class FindSetsVisitor(ast.NodeVisitor):
@@ -144,7 +149,7 @@ class FindSetsVisitor(ast.NodeVisitor):
                 isinstance(node.args[0], SET_TRANSFORM)
         ):
             arg, = node.args
-            key = Offset(node.func.lineno, node.func.col_offset)
+            key = _ast_to_offset(node.func)
             if (
                     isinstance(arg, (ast.List, ast.Tuple)) and
                     len(arg.elts) == 0
@@ -315,12 +320,11 @@ def _fix_sets(contents_text):
         return contents_text
 
     tokens = src_to_tokens(contents_text)
-    for i, token in reversed(tuple(enumerate(tokens))):
-        key = (token.line, token.utf8_byte_offset)
-        if key in visitor.set_empty_literals:
+    for i, token in reversed_enumerate(tokens):
+        if token.offset in visitor.set_empty_literals:
             _process_set_empty_literal(tokens, i)
-        elif key in visitor.sets:
-            _process_set_literal(tokens, i, visitor.sets[key])
+        elif token.offset in visitor.sets:
+            _process_set_literal(tokens, i, visitor.sets[token.offset])
     return tokens_to_src(tokens)
 
 
@@ -339,8 +343,7 @@ class FindDictsVisitor(ast.NodeVisitor):
                 len(node.args[0].elt.elts) == 2
         ):
             arg, = node.args
-            key = Offset(node.func.lineno, node.func.col_offset)
-            self.dicts[key] = arg
+            self.dicts[_ast_to_offset(node.func)] = arg
         self.generic_visit(node)
 
 
@@ -379,10 +382,9 @@ def _fix_dictcomps(contents_text):
         return contents_text
 
     tokens = src_to_tokens(contents_text)
-    for i, token in reversed(tuple(enumerate(tokens))):
-        key = (token.line, token.utf8_byte_offset)
-        if key in visitor.dicts:
-            _process_dict_comp(tokens, i, visitor.dicts[key])
+    for i, token in reversed_enumerate(tokens):
+        if token.offset in visitor.dicts:
+            _process_dict_comp(tokens, i, visitor.dicts[token.offset])
     return tokens_to_src(tokens)
 
 
@@ -544,7 +546,7 @@ class FindPercentFormats(ast.NodeVisitor):
                 if isinstance(node.right, ast.Dict) and not key:
                     break
             else:
-                self.found[Offset(node.lineno, node.col_offset)] = node
+                self.found[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
 
@@ -638,7 +640,7 @@ def _fix_percent_format_dict(tokens, start, node):
         elif not IDENT_RE.match(k.s):
             return
         seen_keys.add(k.s)
-        keys[Offset(k.lineno, k.col_offset)] = k
+        keys[_ast_to_offset(k)] = k
 
     # TODO: this is overly timid
     brace = start + 4
@@ -650,7 +652,7 @@ def _fix_percent_format_dict(tokens, start, node):
 
     key_indices = []
     for i, token in enumerate(tokens[brace:brace_end], brace):
-        k = keys.pop(Offset(token.line, token.utf8_byte_offset), None)
+        k = keys.pop(token.offset, None)
         if k is None:
             continue
         # we found the key, but the string didn't match (implicit join?)
@@ -684,8 +686,8 @@ def _fix_percent_format(contents_text):
 
     tokens = src_to_tokens(contents_text)
 
-    for i, token in reversed(tuple(enumerate(tokens))):
-        node = visitor.found.get(Offset(token.line, token.utf8_byte_offset))
+    for i, token in reversed_enumerate(tokens):
+        node = visitor.found.get(token.offset)
         if node is None:
             continue
 
@@ -757,7 +759,7 @@ class FindSuper(ast.NodeVisitor):
                 node.args[0].id == self.class_info_stack[-1].name and
                 node.args[1].id == self.class_info_stack[-1].first_arg_name
         ):
-            self.found[Offset(node.lineno, node.col_offset)] = node
+            self.found[_ast_to_offset(node)] = node
 
         self.generic_visit(node)
 
@@ -772,8 +774,8 @@ def _fix_super(contents_text):
     visitor.visit(ast_obj)
 
     tokens = src_to_tokens(contents_text)
-    for i, token in reversed(tuple(enumerate(tokens))):
-        call = visitor.found.get(Offset(token.line, token.utf8_byte_offset))
+    for i, token in reversed_enumerate(tokens):
+        call = visitor.found.get(token.offset)
         if not call:
             continue
 
@@ -795,8 +797,7 @@ class FindNewStyleClasses(ast.NodeVisitor):
     def visit_ClassDef(self, node):
         for i, base in enumerate(node.bases):
             if isinstance(base, ast.Name) and base.id == 'object':
-                key = Offset(base.lineno, base.col_offset)
-                self.found[key] = FindNewStyleClasses.Base(node, i)
+                self.found[_ast_to_offset(base)] = self.Base(node, i)
         self.generic_visit(node)
 
 
@@ -810,8 +811,8 @@ def _fix_new_style_classes(contents_text):
     visitor.visit(ast_obj)
 
     tokens = src_to_tokens(contents_text)
-    for i, token in reversed(tuple(enumerate(tokens))):
-        base = visitor.found.get(Offset(token.line, token.utf8_byte_offset))
+    for i, token in reversed_enumerate(tokens):
+        base = visitor.found.get(token.offset)
         if not base:
             continue
 
@@ -924,7 +925,7 @@ class FindSixUsage(ast.NodeVisitor):
                 node.id in SIX_SIMPLE_ATTRS and
                 node.id in self.six_from_imports
         ):
-            self.simple_names[Offset(node.lineno, node.col_offset)] = node
+            self.simple_names[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
     def visit_Attribute(self, node):
@@ -933,7 +934,7 @@ class FindSixUsage(ast.NodeVisitor):
                 node.value.id == 'six' and
                 node.attr in SIX_SIMPLE_ATTRS
         ):
-            self.simple_attrs[Offset(node.lineno, node.col_offset)] = node
+            self.simple_attrs[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
 
@@ -947,14 +948,12 @@ def _fix_six(contents_text):
     visitor.visit(ast_obj)
 
     tokens = src_to_tokens(contents_text)
-    for i, token in reversed(tuple(enumerate(tokens))):
-        key = Offset(token.line, token.utf8_byte_offset)
-
-        if key in visitor.simple_names:
-            node = visitor.simple_names[key]
+    for i, token in reversed_enumerate(tokens):
+        if token.offset in visitor.simple_names:
+            node = visitor.simple_names[token.offset]
             tokens[i] = Token('CODE', SIX_SIMPLE_ATTRS[node.id])
-        elif key in visitor.simple_attrs:
-            node = visitor.simple_attrs[key]
+        elif token.offset in visitor.simple_attrs:
+            node = visitor.simple_attrs[token.offset]
             if tokens[i + 1].src == '.' and tokens[i + 2].src == node.attr:
                 tokens[i:i + 3] = [Token('CODE', SIX_SIMPLE_ATTRS[node.attr])]
 
@@ -1006,7 +1005,7 @@ class FindSimpleFormats(ast.NodeVisitor):
                         break
                     seen.add(candidate)
             else:
-                self.found[Offset(node.lineno, node.col_offset)] = node
+                self.found[_ast_to_offset(node)] = node
 
         self.generic_visit(node)
 
@@ -1048,8 +1047,8 @@ def _fix_fstrings(contents_text):
     visitor.visit(ast_obj)
 
     tokens = src_to_tokens(contents_text)
-    for i, token in reversed(tuple(enumerate(tokens))):
-        node = visitor.found.get(Offset(token.line, token.utf8_byte_offset))
+    for i, token in reversed_enumerate(tokens):
+        node = visitor.found.get(token.offset)
         if node is None:
             continue
 
