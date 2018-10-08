@@ -17,5 +17,5 @@ setup(
     ],
     install_requires=['tokenize-rt>=2.1'],
     py_modules=['pyupgrade_opt'],
-    entry_points={'console_scripts': ['pyupgradeopt = pyupgrade_opt:main']},
+    entry_points={'console_scripts': ['pyupgrade-opt = pyupgrade_opt:main']},
 )
