@@ -56,6 +56,9 @@ dict([(a, b) for a, b in y)  # {a: b for a, b in y}
 
 ### printf-style string formatting
 
+Availability:
+- Unless `--keep-percent-format` is passed.
+
 ```python
 '%s %s' % (a, b)                  # '{} {}'.format(a, b)
 '%r %2f' % (a, b)                 # '{!r} {:2f}'.format(a, b)
