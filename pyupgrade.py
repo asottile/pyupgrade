@@ -75,7 +75,7 @@ def _rewrite_string_literal(literal):
     try:
         parsed_fmt = parse_format(literal)
     except ValueError:
-        # Wellp, the format literal was malformed, so skip it
+        # Well, the format literal was malformed, so skip it
         return literal
 
     last_int = -1
