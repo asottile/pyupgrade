@@ -137,6 +137,11 @@ six.callable(x)           # callable(x)
 
 from six import text_type
 text_type                 # str
+
+@six.python_2_unicode_compatible  # decorator is removed
+class C:
+    def __str__(self):
+        return u'C()'
 ```
 
 _note_: this is a work-in-progress, see #59.
