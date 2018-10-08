@@ -4,3 +4,4 @@
 /.coverage
 /.tox
 /venv*
+.idea

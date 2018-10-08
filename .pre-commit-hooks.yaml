@@ -1,7 +1,7 @@
--   id: pyupgrade
-    name: pyupgrade
-    description: Automatically upgrade syntax for newer versions.
-    entry: pyupgrade
+-   id: pyupgrade-opt
+    name: pyupgrade-opt
+    description: Automatically upgrade syntax for newer versions of Python.
+    entry: pyupgrade-opt
     language: python
     types: [python]
     # for backward compatibility

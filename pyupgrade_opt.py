@@ -1,6 +1,3 @@
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
 import argparse
 import ast
 import collections
@@ -9,14 +6,8 @@ import io
 import re
 import string
 
-from tokenize_rt import ESCAPED_NL
-from tokenize_rt import Offset
-from tokenize_rt import reversed_enumerate
-from tokenize_rt import src_to_tokens
-from tokenize_rt import Token
-from tokenize_rt import tokens_to_src
-from tokenize_rt import UNIMPORTANT_WS
-
+from tokenize_rt import ESCAPED_NL, Offset, reversed_enumerate, src_to_tokens, Token, \
+    tokens_to_src, UNIMPORTANT_WS
 
 _stdlib_parse_format = string.Formatter().parse
 
@@ -27,9 +18,8 @@ def parse_format(s):
     """
     parsed = tuple(_stdlib_parse_format(s))
     if not parsed:
-        return ((s, None, None, None),)
-    else:
-        return parsed
+        return (s, None, None, None),
+    return parsed
 
 
 def unparse_parsed_string(parsed):
@@ -1114,7 +1104,8 @@ def fix_file(filename, args):
     contents_text = _fix_unicode_literals(contents_text, args.py3_plus)
     contents_text = _fix_long_literals(contents_text)
     contents_text = _fix_octal_literals(contents_text)
-    contents_text = _fix_percent_format(contents_text)
+    if not args.no_percent:
+        contents_text = _fix_percent_format(contents_text)
     if args.py3_plus:
         contents_text = _fix_super(contents_text)
         contents_text = _fix_new_style_classes(contents_text)
@@ -1132,10 +1123,11 @@ def fix_file(filename, args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Fork of asottile/pyupgrade with --no-percent')
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--py3-plus', '--py3-only', action='store_true')
     parser.add_argument('--py36-plus', action='store_true')
+    parser.add_argument('--no-percent', action='store_true')
     args = parser.parse_args(argv)
 
     if args.py36_plus:

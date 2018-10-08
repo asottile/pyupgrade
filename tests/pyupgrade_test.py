@@ -7,25 +7,25 @@ import sys
 
 import pytest
 
-from pyupgrade import _fix_dictcomps
-from pyupgrade import _fix_format_literals
-from pyupgrade import _fix_fstrings
-from pyupgrade import _fix_long_literals
-from pyupgrade import _fix_new_style_classes
-from pyupgrade import _fix_octal_literals
-from pyupgrade import _fix_percent_format
-from pyupgrade import _fix_sets
-from pyupgrade import _fix_six
-from pyupgrade import _fix_super
-from pyupgrade import _fix_unicode_literals
-from pyupgrade import _imports_unicode_literals
-from pyupgrade import _is_bytestring
-from pyupgrade import _percent_to_format
-from pyupgrade import _simplify_conversion_flag
-from pyupgrade import main
-from pyupgrade import parse_format
-from pyupgrade import parse_percent_format
-from pyupgrade import unparse_parsed_string
+from pyupgrade_opt import _fix_dictcomps
+from pyupgrade_opt import _fix_format_literals
+from pyupgrade_opt import _fix_fstrings
+from pyupgrade_opt import _fix_long_literals
+from pyupgrade_opt import _fix_new_style_classes
+from pyupgrade_opt import _fix_octal_literals
+from pyupgrade_opt import _fix_percent_format
+from pyupgrade_opt import _fix_sets
+from pyupgrade_opt import _fix_six
+from pyupgrade_opt import _fix_super
+from pyupgrade_opt import _fix_unicode_literals
+from pyupgrade_opt import _imports_unicode_literals
+from pyupgrade_opt import _is_bytestring
+from pyupgrade_opt import _percent_to_format
+from pyupgrade_opt import _simplify_conversion_flag
+from pyupgrade_opt import main
+from pyupgrade_opt import parse_format
+from pyupgrade_opt import parse_percent_format
+from pyupgrade_opt import unparse_parsed_string
 
 
 @pytest.mark.parametrize(

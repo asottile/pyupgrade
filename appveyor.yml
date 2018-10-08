@@ -1,6 +1,5 @@
 environment:
     matrix:
-        - TOXENV: py27
         - TOXENV: py37
 
 install:

@@ -1,16 +1,21 @@
-[![Build Status](https://travis-ci.org/asottile/pyupgrade.svg?branch=master)](https://travis-ci.org/asottile/pyupgrade)
-[![Coverage Status](https://coveralls.io/repos/github/asottile/pyupgrade/badge.svg?branch=master)](https://coveralls.io/github/asottile/pyupgrade?branch=master)
-[![Build status](https://ci.appveyor.com/api/projects/status/tibypnuyu1svqely/branch/master?svg=true)](https://ci.appveyor.com/project/asottile/pyupgrade/branch/master)
+[![Build Status](https://travis-ci.org/vmarkovtsev/pyupgrade-opt.svg?branch=master)](https://travis-ci.org/vmarkovtsev/pyupgrade-opt)
+[![Coverage Status](https://coveralls.io/repos/github/vmarkovtsev/pyupgrade-opt/badge.svg?branch=master)](https://coveralls.io/github/vmarkovtsev/pyupgrade-opt?branch=master)
+[![Build status](https://ci.appveyor.com/api/projects/status/ts09kyr3ahprg3q9/branch/master?svg=true)](https://ci.appveyor.com/project/vmarkovtsev/pyupgrade-opt/branch/master)
 
-pyupgrade
-=========
+pyupgrade-opt
+=============
 
 A tool (and pre-commit hook) to automatically upgrade syntax for newer
-versions of the language.
+versions of the Python language.
+This is actually a fork of [asottile/pyupgrade](https://github.com/asottile/pyupgrade) with the only
+difference is that the other maintainer is less opinionated and accepts changes which would never
+be accepted in the original project. For example, `--no-percent` disables turning `%` string
+formatting into `format()` calls. Upstream changes are manually mirrored from time to time;
+please file an issue if there is a sync lag.
 
 ## Installation
 
-`pip install pyupgrade`
+`pip install pyupgrade-opt`
 
 
 ## As a pre-commit hook
@@ -20,7 +25,7 @@ See [pre-commit](https://github.com/pre-commit/pre-commit) for instructions
 Sample `.pre-commit-config.yaml`:
 
 ```yaml
--   repo: https://github.com/asottile/pyupgrade
+-   repo: https://github.com/vmarkovtsev/pyupgrade-opt
     rev: v1.7.0
     hooks:
     -   id: pyupgrade
@@ -61,6 +66,8 @@ dict([(a, b) for a, b in y)  # {a: b for a, b in y}
 '%r %2f' % (a, b)                 # '{!r} {:2f}'.format(a, b)
 '%(a)s %(b)s' % {'a': 1, 'b': 2}  # '{a} {b}'.format(a=1, b=2)
 ```
+
+Can be disabled with `--no-percent` command line argument.
 
 Key format (`%(key)s`) rewriting is planned but not yet implemented.
 

@@ -11,11 +11,7 @@ repos:
     -   id: name-tests-test
     -   id: requirements-txt-fixer
     -   id: flake8
--   repo: https://github.com/asottile/reorder_python_imports
-    rev: v1.0.1
-    hooks:
-    -   id: reorder-python-imports
--   repo: https://github.com/asottile/pyupgrade
+-   repo: https://github.com/vmarkovtsev/pyupgrade-opt
     rev: v1.7.0
     hooks:
-    -   id: pyupgrade
+    -   id: pyupgrade-opt
