@@ -905,18 +905,38 @@ SIX_SIMPLE_ATTRS = {
     'next': 'next',
     'callable': 'callable',
 }
+SIX_UNICODE_COMPATIBLE = 'python_2_unicode_compatible'
 
 
 class FindSixUsage(ast.NodeVisitor):
     def __init__(self):
         self.simple_attrs = {}
         self.simple_names = {}
+        self.remove_decorators = set()
         self.six_from_imports = set()
+
+    def visit_ClassDef(self, node):
+        for decorator in node.decorator_list:
+            if (
+                    (
+                        isinstance(decorator, ast.Name) and
+                        decorator.id in self.six_from_imports and
+                        decorator.id == SIX_UNICODE_COMPATIBLE
+                    ) or (
+                        isinstance(decorator, ast.Attribute) and
+                        isinstance(decorator.value, ast.Name) and
+                        decorator.value.id == 'six' and
+                        decorator.attr == SIX_UNICODE_COMPATIBLE
+                    )
+            ):
+                self.remove_decorators.add(_ast_to_offset(decorator))
+
+        self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
         if node.module == 'six':
             for name in node.names:
-                if not name.asname and name.name in SIX_SIMPLE_ATTRS:
+                if not name.asname:
                     self.six_from_imports.add(name.name)
         self.generic_visit(node)
 
@@ -956,6 +976,12 @@ def _fix_six(contents_text):
             node = visitor.simple_attrs[token.offset]
             if tokens[i + 1].src == '.' and tokens[i + 2].src == node.attr:
                 tokens[i:i + 3] = [Token('CODE', SIX_SIMPLE_ATTRS[node.attr])]
+        elif token.offset in visitor.remove_decorators:
+            if tokens[i - 1].src == '@':
+                end = i + 1
+                while tokens[end].name != 'NEWLINE':
+                    end += 1
+                del tokens[i - 1:end + 1]
 
     return tokens_to_src(tokens)
 

@@ -834,9 +834,18 @@ def test_fix_new_style_classes(s, expected):
         'x = (',
         # weird attributes
         'isinstance(s, six   .    string_types)',
+        # weird space at beginning of decorator
+        '@  six.python_2_unicode_compatible\n'
+        'class C: pass',
         # unrelated
         'from os import path',
         'from six import moves',
+        # unrelated decorator
+        '@mydec\n'
+        'class C: pass',
+        # renaming things for weird reasons
+        'from six import StringIO as text_type\n'
+        'isinstance(s, text_type)\n',
     )
 )
 def test_fix_six_noop(s):
@@ -857,6 +866,28 @@ def test_fix_six_noop(s):
 
             'from six import string_types\n'
             'isinstance(s, (str,))\n',
+        ),
+        (
+            '@six.python_2_unicode_compatible\n'
+            'class C: pass',
+
+            'class C: pass',
+        ),
+        (
+            '@six.python_2_unicode_compatible\n'
+            '@other_decorator\n'
+            'class C: pass',
+
+            '@other_decorator\n'
+            'class C: pass',
+        ),
+        (
+            'from six import python_2_unicode_compatible\n'
+            '@python_2_unicode_compatible\n'
+            'class C: pass',
+
+            'from six import python_2_unicode_compatible\n'
+            'class C: pass',
         ),
     ),
 )
