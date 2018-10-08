@@ -27,9 +27,8 @@ def parse_format(s):
     """
     parsed = tuple(_stdlib_parse_format(s))
     if not parsed:
-        return ((s, None, None, None),)
-    else:
-        return parsed
+        return (s, None, None, None),
+    return parsed
 
 
 def unparse_parsed_string(parsed):
