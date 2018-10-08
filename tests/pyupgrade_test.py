@@ -994,6 +994,15 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
     assert out == '{} is non-utf-8 (not supported)\n'.format(f.strpath)
 
 
+def test_keep_percent_format(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('"%s" % (1,)')
+    assert main((f.strpath, '--keep-percent-format')) == 0
+    assert f.read() == '"%s" % (1,)'
+    assert main((f.strpath,)) == 1
+    assert f.read() == '"{}".format(1)'
+
+
 def test_py3_plus_argument_unicode_literals(tmpdir):
     f = tmpdir.join('f.py')
     f.write('u""')
