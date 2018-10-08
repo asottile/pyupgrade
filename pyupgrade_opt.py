@@ -1,6 +1,3 @@
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
 import argparse
 import ast
 import collections
@@ -9,14 +6,8 @@ import io
 import re
 import string
 
-from tokenize_rt import ESCAPED_NL
-from tokenize_rt import Offset
-from tokenize_rt import reversed_enumerate
-from tokenize_rt import src_to_tokens
-from tokenize_rt import Token
-from tokenize_rt import tokens_to_src
-from tokenize_rt import UNIMPORTANT_WS
-
+from tokenize_rt import ESCAPED_NL, Offset, reversed_enumerate, src_to_tokens, Token, \
+    tokens_to_src, UNIMPORTANT_WS
 
 _stdlib_parse_format = string.Formatter().parse
 
@@ -27,9 +18,8 @@ def parse_format(s):
     """
     parsed = tuple(_stdlib_parse_format(s))
     if not parsed:
-        return ((s, None, None, None),)
-    else:
-        return parsed
+        return (s, None, None, None),
+    return parsed
 
 
 def unparse_parsed_string(parsed):
