@@ -857,6 +857,10 @@ def test_fix_six_noop(s):
     ('s', 'expected'),
     (
         (
+            'isinstance(s, six.text_type)',
+            'isinstance(s, str)',
+        ),
+        (
             'isinstance(s, six.string_types)',
             'isinstance(s, str)',
         ),

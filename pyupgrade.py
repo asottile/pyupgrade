@@ -889,11 +889,6 @@ def _fix_new_style_classes(contents_text):
     return tokens_to_src(tokens)
 
 
-SIX_TYPE_CTX_ATTRS = {
-    'class_types': 'type',
-    'string_types': 'str',
-    'integer_types': 'int',
-}
 SIX_SIMPLE_ATTRS = {
     'text_type': 'str',
     'binary_type': 'bytes',
@@ -908,6 +903,12 @@ SIX_SIMPLE_ATTRS = {
     'next': 'next',
     'callable': 'callable',
 }
+SIX_TYPE_CTX_ATTRS = dict(
+    SIX_SIMPLE_ATTRS,
+    class_types='type',
+    string_types='str',
+    integer_types='int',
+)
 SIX_UNICODE_COMPATIBLE = 'python_2_unicode_compatible'
 
 
