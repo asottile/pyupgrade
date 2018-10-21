@@ -857,15 +857,29 @@ def test_fix_six_noop(s):
     (
         (
             'isinstance(s, six.string_types)',
-            # TODO: maybe `isinstance(s, str)` (special case isinstance)
-            'isinstance(s, (str,))',
+            'isinstance(s, str)',
+        ),
+        (
+            'issubclass(tp, six.string_types)',
+            'issubclass(tp, str)',
+        ),
+        (
+            'STRING_TYPES = six.string_types',
+            'STRING_TYPES = (str,)',
         ),
         (
             'from six import string_types\n'
             'isinstance(s, string_types)\n',
 
             'from six import string_types\n'
-            'isinstance(s, (str,))\n',
+            'isinstance(s, str)\n',
+        ),
+        (
+            'from six import string_types\n'
+            'STRING_TYPES = string_types\n',
+
+            'from six import string_types\n'
+            'STRING_TYPES = (str,)\n',
         ),
         (
             '@six.python_2_unicode_compatible\n'

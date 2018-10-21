@@ -145,6 +145,10 @@ text_type                 # str
 class C:
     def __str__(self):
         return u'C()'
+
+isinstance(..., six.class_types)    # isinstance(..., type)
+issubclass(..., six.integer_types)  # issubclass(..., int)
+isinstance(..., six.string_types)   # isinstance(..., str)
 ```
 
 _note_: this is a work-in-progress, see #59.
