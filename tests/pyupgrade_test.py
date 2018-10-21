@@ -847,6 +847,9 @@ def test_fix_new_style_classes(s, expected):
         # renaming things for weird reasons
         'from six import StringIO as text_type\n'
         'isinstance(s, text_type)\n',
+        # weird spaces at begining of calls
+        'six.u ("bar")',
+        'from six import u\nu ("bar")',
     )
 )
 def test_fix_six_noop(s):
@@ -907,6 +910,69 @@ def test_fix_six_noop(s):
 
             'from six import python_2_unicode_compatible\n'
             'class C: pass',
+        ),
+        (
+            'six.get_unbound_method(meth)\n',
+            'meth\n',
+        ),
+        (
+            'from six import get_unbound_method\n'
+            'get_unbound_method(meth)\n',
+
+            'from six import get_unbound_method\n'
+            'meth\n',
+        ),
+        (
+            'six.indexbytes(bs, i)\n',
+            'bs[i]\n',
+        ),
+        (
+            'six.assertCountEqual(\n'
+            '   self,\n'
+            '   arg1,\n'
+            '   arg2,\n'
+            ')',
+
+            'self.assertCountEqual(\n'
+            '   arg1,\n'
+            '   arg2,\n'
+            ')',
+        ),
+        (
+            'six.assertCountEqual(\n'
+            '   self,\\\n'
+            '   arg1,\n'
+            '   arg2,\n'
+            ')',
+
+            'self.assertCountEqual(\\\n'
+            '   arg1,\n'
+            '   arg2,\n'
+            ')',
+        ),
+        (
+            'six.assertCountEqual(\n'
+            '   self,  # hello\n'
+            '   arg1,\n'
+            '   arg2,\n'
+            ')',
+
+            'self.assertCountEqual(\n'
+            '   arg1,\n'
+            '   arg2,\n'
+            ')',
+        ),
+        (
+            'six.assertCountEqual(\n'
+            '   self,\n'
+            '   arg1,\n'
+            '   (1, 2, 3),\n'
+            ')',
+
+            'self.assertCountEqual(\n'
+            '   arg1,\n'
+            '   (1, 2, 3),\n'
+            ')',
         ),
     ),
 )

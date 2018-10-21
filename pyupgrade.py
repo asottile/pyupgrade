@@ -909,11 +909,35 @@ SIX_TYPE_CTX_ATTRS = dict(
     string_types='str',
     integer_types='int',
 )
+SIX_CALLS = {
+    'u': '{arg0}',
+    'byte2int': '{arg0}[0]',
+    'indexbytes': '{arg0}[{rest}]',
+    'iteritems': '{arg0}.items()',
+    'iterkeys': '{arg0}.keys()',
+    'itervalues': '{arg0}.values()',
+    'viewitems': '{arg0}.items()',
+    'viewkeys': '{arg0}.keys()',
+    'viewvalues': '{arg0}.values()',
+    'create_unbound_method': '{arg0}',
+    'get_unbound_method': '{arg0}',
+    'get_method_function': '{arg0}.__func__',
+    'get_method_self': '{arg0}.__self__',
+    'get_function_closure': '{arg0}.__closure__',
+    'get_function_code': '{arg0}.__code__',
+    'get_function_defaults': '{arg0}.__defaults__',
+    'get_function_globals': '{arg0}.__globals__',
+    'assertCountEqual': '{arg0}.assertCountEqual({rest})',
+    'assertRaisesRegex': '{arg0}.assertRaisesRegex({rest})',
+    'assertRegex': '{arg0}.assertRegex({rest})',
+}
 SIX_UNICODE_COMPATIBLE = 'python_2_unicode_compatible'
 
 
 class FindSixUsage(ast.NodeVisitor):
     def __init__(self):
+        self.call_attrs = {}
+        self.call_names = {}
         self.simple_attrs = {}
         self.simple_names = {}
         self.type_ctx_attrs = {}
@@ -982,8 +1006,62 @@ class FindSixUsage(ast.NodeVisitor):
                 self.type_ctx_attrs[_ast_to_offset(type_arg)] = type_arg
             elif self._is_six_name(type_arg):
                 self.type_ctx_names[_ast_to_offset(type_arg)] = type_arg
+        elif (
+                isinstance(node.func, ast.Attribute) and
+                isinstance(node.func.value, ast.Name) and
+                node.func.value.id == 'six' and
+                node.func.attr in SIX_CALLS
+        ):
+            self.call_attrs[_ast_to_offset(node)] = node
+        elif (
+                isinstance(node.func, ast.Name) and
+                node.func.id in SIX_CALLS and
+                node.func.id in self.six_from_imports
+        ):
+            self.call_names[_ast_to_offset(node)] = node
 
         self.generic_visit(node)
+
+
+def _parse_call_args(tokens, i):
+    args = []
+    stack = [i]
+    i += 1
+    arg_start = i
+
+    while stack:
+        token = tokens[i]
+
+        if len(stack) == 1 and token.src == ',':
+            args.append((arg_start, i))
+            arg_start = i + 1
+        elif token.src in BRACES:
+            stack.append(i)
+        elif token.src == BRACES[tokens[stack[-1]].src]:
+            stack.pop()
+            # if we're at the end, append that argument
+            if not stack and tokens_to_src(tokens[arg_start:i]).strip():
+                args.append((arg_start, i))
+
+        i += 1
+
+    return args, i
+
+
+def _replace_call(tokens, start, end, args, tmpl):
+    arg0 = tokens_to_src(tokens[slice(*args[0])]).strip()
+
+    start_rest = args[0][1] + 1
+    while start_rest < end:
+        if tokens[start_rest].name in {'COMMENT', UNIMPORTANT_WS}:
+            start_rest += 1
+            continue
+        else:
+            break
+
+    rest = tokens_to_src(tokens[start_rest:end - 1])
+    src = tmpl.format(arg0=arg0, rest=rest)
+    tokens[start:end] = [Token('CODE', src)]
 
 
 def _fix_six(contents_text):
@@ -1022,6 +1100,22 @@ def _fix_six(contents_text):
                 while tokens[end].name != 'NEWLINE':
                     end += 1
                 del tokens[i - 1:end + 1]
+        elif token.offset in visitor.call_names:
+            node = visitor.call_names[token.offset]
+            if tokens[i + 1].src == '(':
+                func_args, end = _parse_call_args(tokens, i + 1)
+                template = SIX_CALLS[node.func.id]
+                _replace_call(tokens, i, end, func_args, template)
+        elif token.offset in visitor.call_attrs:
+            node = visitor.call_attrs[token.offset]
+            if (
+                    tokens[i + 1].src == '.' and
+                    tokens[i + 2].src == node.func.attr and
+                    tokens[i + 3].src == '('
+            ):
+                func_args, end = _parse_call_args(tokens, i + 3)
+                template = SIX_CALLS[node.func.attr]
+                _replace_call(tokens, i, end, func_args, template)
 
     return tokens_to_src(tokens)
 

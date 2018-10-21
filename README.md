@@ -149,6 +149,27 @@ class C:
 isinstance(..., six.class_types)    # isinstance(..., type)
 issubclass(..., six.integer_types)  # issubclass(..., int)
 isinstance(..., six.string_types)   # isinstance(..., str)
+
+six.u('...')                            # '...'
+six.byte2int(bs)                        # bs[0]
+six.indexbytes(bs, i)                   # bs[i]
+six.iteritems(dct)                      # dct.items()
+six.iterkeys(dct)                       # dct.keys()
+six.itervalues(dct)                     # dct.values()
+six.viewitems(dct)                      # dct.items()
+six.viewkeys(dct)                       # dct.keys()
+six.viewvalues(dct)                     # dct.values()
+six.create_unbound_method(fn, cls)      # fn
+six.get_unbound_method(meth)            # meth
+six.get_method_function(meth)           # meth.__func__
+six.get_method_self(meth)               # meth.__self__
+six.get_function_closure(fn)            # fn.__closure__
+six.get_function_code(fn)               # fn.__code__
+six.get_function_defaults(fn)           # fn.__defaults__
+six.get_function_globals(fn)            # fn.__globals__
+six.assertCountEqual(self, a1, a2)      # self.assertCountEqual(a1, a2)
+six.assertRaisesRegex(self, e, r, fn)   # self.assertRaisesRegex(e, r, fn)
+six.assertRegex(self, s, r)             # self.assertRegex(s, r)
 ```
 
 _note_: this is a work-in-progress, see #59.
