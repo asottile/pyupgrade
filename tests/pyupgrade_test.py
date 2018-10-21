@@ -573,6 +573,7 @@ def test_percent_format_noop_if_bug_16806():
         ),
         # dict
         ('"%(k)s" % {"k": "v"}', '"{k}".format(k="v")'),
+        ('"%(to_list)s" % {"to_list": []}', '"{to_list}".format(to_list=[])'),
     ),
 )
 def test_percent_format(s, expected):
