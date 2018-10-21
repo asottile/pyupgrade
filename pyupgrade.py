@@ -891,6 +891,11 @@ def _fix_new_style_classes(contents_text):
     return tokens_to_src(tokens)
 
 
+SIX_TYPE_CTX_ATTRS = {
+    'class_types': 'type',
+    'string_types': 'str',
+    'integer_types': 'int',
+}
 SIX_SIMPLE_ATTRS = {
     'text_type': 'str',
     'binary_type': 'bytes',
@@ -912,6 +917,8 @@ class FindSixUsage(ast.NodeVisitor):
     def __init__(self):
         self.simple_attrs = {}
         self.simple_names = {}
+        self.type_ctx_attrs = {}
+        self.type_ctx_names = {}
         self.remove_decorators = set()
         self.six_from_imports = set()
 
@@ -940,21 +947,43 @@ class FindSixUsage(ast.NodeVisitor):
                     self.six_from_imports.add(name.name)
         self.generic_visit(node)
 
+    def _is_six_attr(self, node):
+        return (
+            isinstance(node, ast.Attribute) and
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'six' and
+            node.attr in SIX_SIMPLE_ATTRS
+        )
+
+    def _is_six_name(self, node):
+        return (
+            isinstance(node, ast.Name) and
+            node.id in SIX_SIMPLE_ATTRS and
+            node.id in self.six_from_imports
+        )
+
     def visit_Name(self, node):
-        if (
-                node.id in SIX_SIMPLE_ATTRS and
-                node.id in self.six_from_imports
-        ):
+        if self._is_six_name(node):
             self.simple_names[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
     def visit_Attribute(self, node):
-        if (
-                isinstance(node.value, ast.Name) and
-                node.value.id == 'six' and
-                node.attr in SIX_SIMPLE_ATTRS
-        ):
+        if self._is_six_attr(node):
             self.simple_attrs[_ast_to_offset(node)] = node
+        self.generic_visit(node)
+
+    def visit_Call(self, node):
+        if (
+                isinstance(node.func, ast.Name) and
+                node.func.id in {'isinstance', 'issubclass'} and
+                len(node.args) == 2
+        ):
+            type_arg = node.args[1]
+            if self._is_six_attr(type_arg):
+                self.type_ctx_attrs[_ast_to_offset(type_arg)] = type_arg
+            elif self._is_six_name(type_arg):
+                self.type_ctx_names[_ast_to_offset(type_arg)] = type_arg
+
         self.generic_visit(node)
 
 
@@ -967,15 +996,27 @@ def _fix_six(contents_text):
     visitor = FindSixUsage()
     visitor.visit(ast_obj)
 
+    def _replace_name(i, mapping, node):
+        tokens[i] = Token('CODE', mapping[node.id])
+
+    def _replace_attr(i, mapping, node):
+        if tokens[i + 1].src == '.' and tokens[i + 2].src == node.attr:
+            tokens[i:i + 3] = [Token('CODE', mapping[node.attr])]
+
     tokens = src_to_tokens(contents_text)
     for i, token in reversed_enumerate(tokens):
-        if token.offset in visitor.simple_names:
+        if token.offset in visitor.type_ctx_names:
+            node = visitor.type_ctx_names[token.offset]
+            _replace_name(i, SIX_TYPE_CTX_ATTRS, node)
+        elif token.offset in visitor.type_ctx_attrs:
+            node = visitor.type_ctx_attrs[token.offset]
+            _replace_attr(i, SIX_TYPE_CTX_ATTRS, node)
+        elif token.offset in visitor.simple_names:
             node = visitor.simple_names[token.offset]
-            tokens[i] = Token('CODE', SIX_SIMPLE_ATTRS[node.id])
+            _replace_name(i, SIX_SIMPLE_ATTRS, node)
         elif token.offset in visitor.simple_attrs:
             node = visitor.simple_attrs[token.offset]
-            if tokens[i + 1].src == '.' and tokens[i + 2].src == node.attr:
-                tokens[i:i + 3] = [Token('CODE', SIX_SIMPLE_ATTRS[node.attr])]
+            _replace_attr(i, SIX_SIMPLE_ATTRS, node)
         elif token.offset in visitor.remove_decorators:
             if tokens[i - 1].src == '@':
                 end = i + 1
