@@ -648,7 +648,7 @@ def _fix_percent_format_dict(tokens, start, node):
         return
 
     victims = _victims(tokens, brace, node.right, gen=False)
-    brace_end = victims.ends.pop()
+    brace_end = victims.ends[-1]
 
     key_indices = []
     for i, token in enumerate(tokens[brace:brace_end], brace):
@@ -668,11 +668,9 @@ def _fix_percent_format_dict(tokens, start, node):
     tokens[brace_end] = tokens[brace_end]._replace(src=')')
     for (key_index, s) in reversed(key_indices):
         tokens[key_index:key_index + 3] = [Token('CODE', '{}='.format(s))]
-    for index in reversed(victims.starts + victims.ends):
-        _remove_brace(tokens, index)
     newsrc = _percent_to_format(tokens[start].src)
     tokens[start] = tokens[start]._replace(src=newsrc)
-    tokens[start + 1:brace] = [Token('Format', '.format'), Token('OP', '(')]
+    tokens[start + 1:brace + 1] = [Token('CODE', '.format'), Token('OP', '(')]
 
 
 def _fix_percent_format(contents_text):
