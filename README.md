@@ -172,7 +172,9 @@ six.assertRaisesRegex(self, e, r, fn)   # self.assertRaisesRegex(e, r, fn)
 six.assertRegex(self, s, r)             # self.assertRegex(s, r)
 ```
 
-_note_: this is a work-in-progress, see #59.
+_note_: this is a work-in-progress, see [#59][issue-59].
+
+[issue-59]: https://github.com/asottile/pyupgrade/issues/59
 
 ### f-strings
 
