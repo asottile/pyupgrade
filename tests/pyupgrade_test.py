@@ -341,24 +341,28 @@ def test_long_literals(s, expected):
 
 
 @pytest.mark.parametrize(
-    ('s', 'expected'),
+    's',
     (
         # Any number of zeros is considered a legal token
-        ('0', '0'),
-        ('00', '00'),
+        '0', '00',
         # Don't modify non octal literals
-        ('1', '1'),
-        ('12345', '12345'),
-        ('1.2345', '1.2345'),
+        '1', '12345', '1.2345',
     ),
 )
-def test_noop_octal_literals(s, expected):
-    assert _fix_octal_literals(s) == expected
+def test_noop_octal_literals(s):
+    assert _fix_octal_literals(s) == s
 
 
 @pytest.mark.xfail(sys.version_info >= (3,), reason='python2 "feature"')
-def test_fix_octal_literal():
-    assert _fix_octal_literals('0755') == '0o755'
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        ('0755', '0o755'),
+        ('05', '5'),
+    ),
+)
+def test_fix_octal_literal(s, expected):
+    assert _fix_octal_literals(s) == expected
 
 
 @pytest.mark.parametrize('s', ("b''", 'b""', 'B""', "B''", "rb''", "rb''"))
