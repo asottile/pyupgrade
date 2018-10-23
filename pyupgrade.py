@@ -443,6 +443,8 @@ def _fix_octal_literals(contents_text):
     def _fix_octal(s):
         if not s.startswith('0') or not s.isdigit() or s == len(s) * '0':
             return s
+        elif len(s) == 2:  # pragma: no cover (py2 only)
+            return s[1:]
         else:  # pragma: no cover (py2 only)
             return '0o' + s[1:]
 
