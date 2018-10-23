@@ -96,6 +96,7 @@ Availability:
 - If `pyupgrade` is running in python 2.
 ```
 0755  # 0o755
+05    # 5
 ```
 
 ### `super()` calls
