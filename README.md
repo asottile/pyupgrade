@@ -21,7 +21,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v1.9.1
+    rev: v1.10.0
     hooks:
     -   id: pyupgrade
 ```
