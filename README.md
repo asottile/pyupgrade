@@ -65,8 +65,6 @@ Availability:
 '%(a)s %(b)s' % {'a': 1, 'b': 2}  # '{a} {b}'.format(a=1, b=2)
 ```
 
-Key format (`%(key)s`) rewriting is planned but not yet implemented.
-
 ### Unicode literals
 
 Availability:
