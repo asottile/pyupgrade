@@ -8,6 +8,7 @@ import sys
 import pytest
 
 from pyupgrade import _fix_dictcomps
+from pyupgrade import _fix_escape_sequences
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_fstrings
 from pyupgrade import _fix_long_literals
@@ -325,6 +326,48 @@ def test_imports_unicode_literals(s, expected):
 def test_unicode_literals(s, py3_plus, expected):
     ret = _fix_unicode_literals(s, py3_plus=py3_plus)
     assert ret == expected
+
+
+@pytest.mark.parametrize(
+    's',
+    (
+        '""',
+        r'r"\d"', r"r'\d'", r'r"""\d"""', r"r'''\d'''",
+        # python2 has a bug where `rb'foo'` is tokenized as NAME + STRING
+        r'rb"\d"',
+        # make sure we don't replace an already valid string
+        r'"\\d"',
+        # in python2 `'\u2603'` is literally \\u2603, but transforming based
+        # on that would be incorrect in python3.
+        # intentionally timid here to avoid breaking working python3 code
+        '"\\u2603"',
+        # don't touch already valid escapes
+        r'"\r\n"',
+    ),
+)
+def test_fix_escape_sequences_noop(s):
+    assert _fix_escape_sequences(s) == s
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        # no valid escape sequences, make a raw literal
+        (r'"\d"', r'r"\d"'),
+        # when there are valid escape sequences, need to use backslashes
+        (r'"\n\d"', r'"\n\\d"'),
+        # `ur` is not a valid string prefix in python3.x
+        (r'u"\d"', r'u"\\d"'),
+        # `rb` is not a valid string prefix in python2.x
+        (r'b"\d"', r'br"\d"'),
+        # 8 and 9 aren't valid octal digits
+        (r'"\8"', r'r"\8"'), (r'"\9"', r'r"\9"'),
+        # explicit byte strings should not honor string-specific escapes
+        ('b"\\u2603"', 'br"\\u2603"'),
+    ),
+)
+def test_fix_escape_sequences(s, expected):
+    assert _fix_escape_sequences(s) == expected
 
 
 @pytest.mark.xfail(sys.version_info >= (3,), reason='python2 "feature"')
