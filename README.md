@@ -77,6 +77,21 @@ u"foo"      # 'foo'
 u'''foo'''  # '''foo'''
 ```
 
+### Invalid escape sequences
+
+```python
+# strings with only invalid sequences become raw strings
+'\d'    # r'\d'
+# strings with mixed valid / invalid sequences get escaped
+'\n\d'  # '\n\\d'
+# `ur` is not a valid string prefix in python3
+u'\d'   # u'\\d'
+
+# note: pyupgrade is timid in one case (that's usually a mistake)
+# in python2.x `'\u2603'` is the same as `'\\u2603'` without `unicode_literals`
+# but in python3.x, that's our friend ☃
+```
+
 ### Long literals
 
 Availability:
