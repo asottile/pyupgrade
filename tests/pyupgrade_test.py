@@ -343,6 +343,8 @@ def test_unicode_literals(s, py3_plus, expected):
         '"\\u2603"',
         # don't touch already valid escapes
         r'"\r\n"',
+        # don't touch escaped newlines
+        '"""\\\n"""', '"""\\\r\n"""', '"""\\\r"""',
     ),
 )
 def test_fix_escape_sequences_noop(s):

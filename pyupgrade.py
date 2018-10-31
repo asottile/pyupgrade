@@ -437,7 +437,7 @@ def _fix_unicode_literals(contents_text, py3_plus):
 
 # https://docs.python.org/3/reference/lexical_analysis.html
 ESCAPE_STARTS = frozenset((
-    '\n', '\\', "'", '"', 'a', 'b', 'f', 'n', 'r', 't', 'v',
+    '\n', '\r', '\\', "'", '"', 'a', 'b', 'f', 'n', 'r', 't', 'v',
     '0', '1', '2', '3', '4', '5', '6', '7',  # octal escapes
     'x',  # hex escapes
     # only valid in non-bytestrings
