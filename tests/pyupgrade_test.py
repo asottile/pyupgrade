@@ -899,6 +899,10 @@ def test_fix_new_style_classes(s, expected):
         # weird spaces at begining of calls
         'six.u ("bar")',
         'from six import u\nu ("bar")',
+        'six.raise_from (exc, exc_from)',
+        'from six import raise_from\nraise_from (exc, exc_from)',
+        # don't rewrite things that would become `raise` in non-statements
+        'print(six.raise_from(exc, exc_from))',
     )
 )
 def test_fix_six_noop(s):
@@ -1022,6 +1026,29 @@ def test_fix_six_noop(s):
             '   arg1,\n'
             '   (1, 2, 3),\n'
             ')',
+        ),
+        (
+            'six.raise_from(exc, exc_from)\n',
+            'raise exc from exc_from\n',
+        ),
+        (
+            'six.reraise(tp, exc, tb)\n',
+            'raise exc.with_traceback(tb)\n',
+        ),
+        (
+            'from six import raise_from\n'
+            'raise_from(exc, exc_from)\n',
+
+            'from six import raise_from\n'
+            'raise exc from exc_from\n',
+        ),
+        (
+            'six.reraise(\n'
+            '   tp,\n'
+            '   exc,\n'
+            '   tb,\n'
+            ')\n',
+            'raise exc.with_traceback(tb)\n',
         ),
     ),
 )

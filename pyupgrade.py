@@ -975,26 +975,30 @@ SIX_TYPE_CTX_ATTRS = dict(
     integer_types='int',
 )
 SIX_CALLS = {
-    'u': '{arg0}',
+    'u': '{args[0]}',
     'byte2int': '{arg0}[0]',
-    'indexbytes': '{arg0}[{rest}]',
-    'iteritems': '{arg0}.items()',
-    'iterkeys': '{arg0}.keys()',
-    'itervalues': '{arg0}.values()',
-    'viewitems': '{arg0}.items()',
-    'viewkeys': '{arg0}.keys()',
-    'viewvalues': '{arg0}.values()',
-    'create_unbound_method': '{arg0}',
-    'get_unbound_method': '{arg0}',
-    'get_method_function': '{arg0}.__func__',
-    'get_method_self': '{arg0}.__self__',
-    'get_function_closure': '{arg0}.__closure__',
-    'get_function_code': '{arg0}.__code__',
-    'get_function_defaults': '{arg0}.__defaults__',
-    'get_function_globals': '{arg0}.__globals__',
-    'assertCountEqual': '{arg0}.assertCountEqual({rest})',
-    'assertRaisesRegex': '{arg0}.assertRaisesRegex({rest})',
-    'assertRegex': '{arg0}.assertRegex({rest})',
+    'indexbytes': '{args[0]}[{rest}]',
+    'iteritems': '{args[0]}.items()',
+    'iterkeys': '{args[0]}.keys()',
+    'itervalues': '{args[0]}.values()',
+    'viewitems': '{args[0]}.items()',
+    'viewkeys': '{args[0]}.keys()',
+    'viewvalues': '{args[0]}.values()',
+    'create_unbound_method': '{args[0]}',
+    'get_unbound_method': '{args[0]}',
+    'get_method_function': '{args[0]}.__func__',
+    'get_method_self': '{args[0]}.__self__',
+    'get_function_closure': '{args[0]}.__closure__',
+    'get_function_code': '{args[0]}.__code__',
+    'get_function_defaults': '{args[0]}.__defaults__',
+    'get_function_globals': '{args[0]}.__globals__',
+    'assertCountEqual': '{args[0]}.assertCountEqual({rest})',
+    'assertRaisesRegex': '{args[0]}.assertRaisesRegex({rest})',
+    'assertRegex': '{args[0]}.assertRegex({rest})',
+}
+SIX_RAISES = {
+    'raise_from': 'raise {args[0]} from {rest}',
+    'reraise': 'raise {args[1]}.with_traceback({args[2]})',
 }
 SIX_UNICODE_COMPATIBLE = 'python_2_unicode_compatible'
 
@@ -1003,12 +1007,15 @@ class FindSixUsage(ast.NodeVisitor):
     def __init__(self):
         self.call_attrs = {}
         self.call_names = {}
+        self.raise_attrs = {}
+        self.raise_names = {}
         self.simple_attrs = {}
         self.simple_names = {}
         self.type_ctx_attrs = {}
         self.type_ctx_names = {}
         self.remove_decorators = set()
         self.six_from_imports = set()
+        self._previous_node = None
 
     def visit_ClassDef(self, node):
         for decorator in node.decorator_list:
@@ -1084,8 +1091,27 @@ class FindSixUsage(ast.NodeVisitor):
                 node.func.id in self.six_from_imports
         ):
             self.call_names[_ast_to_offset(node)] = node
+        elif (
+                isinstance(self._previous_node, ast.Expr) and
+                isinstance(node.func, ast.Attribute) and
+                isinstance(node.func.value, ast.Name) and
+                node.func.value.id == 'six' and
+                node.func.attr in SIX_RAISES
+        ):
+            self.raise_attrs[_ast_to_offset(node)] = node
+        elif (
+                isinstance(self._previous_node, ast.Expr) and
+                isinstance(node.func, ast.Name) and
+                node.func.id in SIX_RAISES and
+                node.func.id in self.six_from_imports
+        ):
+            self.raise_names[_ast_to_offset(node)] = node
 
         self.generic_visit(node)
+
+    def generic_visit(self, node):
+        self._previous_node = node
+        super(FindSixUsage, self).generic_visit(node)
 
 
 def _parse_call_args(tokens, i):
@@ -1114,7 +1140,7 @@ def _parse_call_args(tokens, i):
 
 
 def _replace_call(tokens, start, end, args, tmpl):
-    arg0 = tokens_to_src(tokens[slice(*args[0])]).strip()
+    arg_strs = [tokens_to_src(tokens[slice(*arg)]).strip() for arg in args]
 
     start_rest = args[0][1] + 1
     while start_rest < end:
@@ -1125,7 +1151,7 @@ def _replace_call(tokens, start, end, args, tmpl):
             break
 
     rest = tokens_to_src(tokens[start_rest:end - 1])
-    src = tmpl.format(arg0=arg0, rest=rest)
+    src = tmpl.format(args=arg_strs, rest=rest)
     tokens[start:end] = [Token('CODE', src)]
 
 
@@ -1180,6 +1206,22 @@ def _fix_six(contents_text):
             ):
                 func_args, end = _parse_call_args(tokens, i + 3)
                 template = SIX_CALLS[node.func.attr]
+                _replace_call(tokens, i, end, func_args, template)
+        elif token.offset in visitor.raise_names:
+            node = visitor.raise_names[token.offset]
+            if tokens[i + 1].src == '(':
+                func_args, end = _parse_call_args(tokens, i + 1)
+                template = SIX_RAISES[node.func.id]
+                _replace_call(tokens, i, end, func_args, template)
+        elif token.offset in visitor.raise_attrs:
+            node = visitor.raise_attrs[token.offset]
+            if (
+                    tokens[i + 1].src == '.' and
+                    tokens[i + 2].src == node.func.attr and
+                    tokens[i + 3].src == '('
+            ):
+                func_args, end = _parse_call_args(tokens, i + 3)
+                template = SIX_RAISES[node.func.attr]
                 _replace_call(tokens, i, end, func_args, template)
 
     return tokens_to_src(tokens)
