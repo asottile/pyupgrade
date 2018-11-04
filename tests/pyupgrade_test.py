@@ -11,13 +11,12 @@ from pyupgrade import _fix_dictcomps
 from pyupgrade import _fix_escape_sequences
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_fstrings
-from pyupgrade import _fix_long_literals
 from pyupgrade import _fix_new_style_classes
-from pyupgrade import _fix_octal_literals
 from pyupgrade import _fix_percent_format
 from pyupgrade import _fix_sets
 from pyupgrade import _fix_six
 from pyupgrade import _fix_super
+from pyupgrade import _fix_tokens
 from pyupgrade import _fix_unicode_literals
 from pyupgrade import _imports_unicode_literals
 from pyupgrade import _is_bytestring
@@ -388,7 +387,7 @@ def test_fix_escape_sequences(s, expected):
     ),
 )
 def test_long_literals(s, expected):
-    assert _fix_long_literals(s) == expected
+    assert _fix_tokens(s) == expected
 
 
 @pytest.mark.parametrize(
@@ -401,7 +400,7 @@ def test_long_literals(s, expected):
     ),
 )
 def test_noop_octal_literals(s):
-    assert _fix_octal_literals(s) == s
+    assert _fix_tokens(s) == s
 
 
 @pytest.mark.xfail(sys.version_info >= (3,), reason='python2 "feature"')
@@ -413,7 +412,7 @@ def test_noop_octal_literals(s):
     ),
 )
 def test_fix_octal_literal(s, expected):
-    assert _fix_octal_literals(s) == expected
+    assert _fix_tokens(s) == expected
 
 
 @pytest.mark.parametrize('s', ("b''", 'b""', 'B""', "B''", "rb''", "rb''"))

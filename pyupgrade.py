@@ -494,15 +494,10 @@ def _fix_escape_sequences(contents_text):
     return tokens_to_src(tokens)
 
 
-def _fix_long_literals(contents_text):
-    tokens = src_to_tokens(contents_text)
-    for i, token in enumerate(tokens):
-        if token.name == 'NUMBER':
-            tokens[i] = token._replace(src=token.src.rstrip('lL'))
-    return tokens_to_src(tokens)
+def _fix_tokens(contents_text):
+    def _fix_long(src):
+        return src.rstrip('lL')
 
-
-def _fix_octal_literals(contents_text):
     def _fix_octal(s):
         if not s.startswith('0') or not s.isdigit() or s == len(s) * '0':
             return s
@@ -514,7 +509,7 @@ def _fix_octal_literals(contents_text):
     tokens = src_to_tokens(contents_text)
     for i, token in enumerate(tokens):
         if token.name == 'NUMBER':
-            tokens[i] = token._replace(src=_fix_octal(token.src))
+            tokens[i] = token._replace(src=_fix_long(_fix_octal(token.src)))
     return tokens_to_src(tokens)
 
 
@@ -1312,8 +1307,7 @@ def fix_file(filename, args):
     contents_text = _fix_format_literals(contents_text)
     contents_text = _fix_unicode_literals(contents_text, args.py3_plus)
     contents_text = _fix_escape_sequences(contents_text)
-    contents_text = _fix_long_literals(contents_text)
-    contents_text = _fix_octal_literals(contents_text)
+    contents_text = _fix_tokens(contents_text)
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)
     if args.py3_plus:
