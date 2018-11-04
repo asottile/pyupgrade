@@ -228,6 +228,8 @@ def test_dictcomps(s, expected):
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
+        # Don't touch syntax errors
+        ('"{0}"format(1)', '"{0}"format(1)'),
         # Don't touch py27 format strings
         ("'{}'.format(1)", "'{}'.format(1)"),
         # Don't touch invalid format strings
@@ -235,8 +237,12 @@ def test_dictcomps(s, expected):
         ("'}'.format(1)", "'}'.format(1)"),
         # Don't touch non-format strings
         ("x = ('{0} {1}',)\n", "x = ('{0} {1}',)\n"),
+        # Don't touch non-incrementing integers
+        ("'{0} {0}'.format(1)", "'{0} {0}'.format(1)"),
         # Simplest case
         ("'{0}'.format(1)", "'{}'.format(1)"),
+        ("'{0:x}'.format(30)", "'{:x}'.format(30)"),
+        ("x = '{0}'.format(1)", "x = '{}'.format(1)"),
         # Multiline strings
         ("'''{0}\n{1}\n'''.format(1, 2)", "'''{}\n{}\n'''.format(1, 2)"),
         # Multiple implicitly-joined strings
