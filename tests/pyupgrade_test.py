@@ -7,13 +7,12 @@ import sys
 
 import pytest
 
-from pyupgrade import _fix_dictcomps
+from pyupgrade import _fix_dict_set
 from pyupgrade import _fix_escape_sequences
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_fstrings
 from pyupgrade import _fix_new_style_classes
 from pyupgrade import _fix_percent_format
-from pyupgrade import _fix_sets
 from pyupgrade import _fix_six
 from pyupgrade import _fix_super
 from pyupgrade import _fix_tokens
@@ -124,7 +123,7 @@ def test_intentionally_not_round_trip(s, expected):
     ),
 )
 def test_sets(s, expected):
-    ret = _fix_sets(s)
+    ret = _fix_dict_set(s)
     assert ret == expected
 
 
@@ -144,7 +143,7 @@ def test_sets(s, expected):
     ),
 )
 def test_sets_generators_trailing_comas(s, expected):
-    ret = _fix_sets(s)
+    ret = _fix_dict_set(s)
     assert ret == expected
 
 
@@ -220,7 +219,7 @@ def test_sets_generators_trailing_comas(s, expected):
     ),
 )
 def test_dictcomps(s, expected):
-    ret = _fix_dictcomps(s)
+    ret = _fix_dict_set(s)
     assert ret == expected
 
 
