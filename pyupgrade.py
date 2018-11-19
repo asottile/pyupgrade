@@ -139,32 +139,6 @@ BRACES = {'(': ')', '[': ']', '{': '}'}
 SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
 
 
-class FindSetsVisitor(ast.NodeVisitor):
-    def __init__(self):
-        self.sets = {}
-        self.set_empty_literals = {}
-
-    def visit_Call(self, node):
-        if (
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'set' and
-                len(node.args) == 1 and
-                not _has_kwargs(node) and
-                isinstance(node.args[0], SET_TRANSFORM)
-        ):
-            arg, = node.args
-            key = _ast_to_offset(node.func)
-            if (
-                    isinstance(arg, (ast.List, ast.Tuple)) and
-                    len(arg.elts) == 0
-            ):
-                self.set_empty_literals[key] = arg
-            else:
-                self.sets[key] = arg
-
-        self.generic_visit(node)
-
-
 def _is_wtf(func, tokens, i):
     return tokens[i].src != func or tokens[i + 1].src != '('
 
@@ -313,44 +287,6 @@ def _process_set_literal(tokens, start, arg):
     tokens[start:start + 2] = [Token('OP', '{')]
 
 
-def _fix_sets(contents_text):
-    try:
-        ast_obj = ast_parse(contents_text)
-    except SyntaxError:
-        return contents_text
-    visitor = FindSetsVisitor()
-    visitor.visit(ast_obj)
-    if not visitor.sets and not visitor.set_empty_literals:
-        return contents_text
-
-    tokens = src_to_tokens(contents_text)
-    for i, token in reversed_enumerate(tokens):
-        if token.offset in visitor.set_empty_literals:
-            _process_set_empty_literal(tokens, i)
-        elif token.offset in visitor.sets:
-            _process_set_literal(tokens, i, visitor.sets[token.offset])
-    return tokens_to_src(tokens)
-
-
-class FindDictsVisitor(ast.NodeVisitor):
-    def __init__(self):
-        self.dicts = {}
-
-    def visit_Call(self, node):
-        if (
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'dict' and
-                len(node.args) == 1 and
-                not _has_kwargs(node) and
-                isinstance(node.args[0], (ast.ListComp, ast.GeneratorExp)) and
-                isinstance(node.args[0].elt, (ast.Tuple, ast.List)) and
-                len(node.args[0].elt.elts) == 2
-        ):
-            arg, = node.args
-            self.dicts[_ast_to_offset(node.func)] = arg
-        self.generic_visit(node)
-
-
 def _process_dict_comp(tokens, start, arg):
     if _is_wtf('dict', tokens, start):
         return
@@ -375,20 +311,58 @@ def _process_dict_comp(tokens, start, arg):
     tokens[start:start + 2] = [Token('OP', '{')]
 
 
-def _fix_dictcomps(contents_text):
+class FindDictsSetsVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.dicts = {}
+        self.sets = {}
+        self.set_empty_literals = {}
+
+    def visit_Call(self, node):
+        if (
+                isinstance(node.func, ast.Name) and
+                node.func.id == 'set' and
+                len(node.args) == 1 and
+                not _has_kwargs(node) and
+                isinstance(node.args[0], SET_TRANSFORM)
+        ):
+            arg, = node.args
+            key = _ast_to_offset(node.func)
+            if isinstance(arg, (ast.List, ast.Tuple)) and not arg.elts:
+                self.set_empty_literals[key] = arg
+            else:
+                self.sets[key] = arg
+        elif (
+                isinstance(node.func, ast.Name) and
+                node.func.id == 'dict' and
+                len(node.args) == 1 and
+                not _has_kwargs(node) and
+                isinstance(node.args[0], (ast.ListComp, ast.GeneratorExp)) and
+                isinstance(node.args[0].elt, (ast.Tuple, ast.List)) and
+                len(node.args[0].elt.elts) == 2
+        ):
+            arg, = node.args
+            self.dicts[_ast_to_offset(node.func)] = arg
+        self.generic_visit(node)
+
+
+def _fix_dict_set(contents_text):
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
-    visitor = FindDictsVisitor()
+    visitor = FindDictsSetsVisitor()
     visitor.visit(ast_obj)
-    if not visitor.dicts:
+    if not any((visitor.dicts, visitor.sets, visitor.set_empty_literals)):
         return contents_text
 
     tokens = src_to_tokens(contents_text)
     for i, token in reversed_enumerate(tokens):
         if token.offset in visitor.dicts:
             _process_dict_comp(tokens, i, visitor.dicts[token.offset])
+        elif token.offset in visitor.set_empty_literals:
+            _process_set_empty_literal(tokens, i)
+        elif token.offset in visitor.sets:
+            _process_set_literal(tokens, i, visitor.sets[token.offset])
     return tokens_to_src(tokens)
 
 
@@ -1344,8 +1318,7 @@ def fix_file(filename, args):
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
-    contents_text = _fix_dictcomps(contents_text)
-    contents_text = _fix_sets(contents_text)
+    contents_text = _fix_dict_set(contents_text)
     contents_text = _fix_format_literals(contents_text)
     contents_text = _fix_unicode_literals(contents_text, args.py3_plus)
     contents_text = _fix_escape_sequences(contents_text)
