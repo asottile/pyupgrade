@@ -609,6 +609,8 @@ def _percent_to_format(s):
             if conversion == '%':
                 return s + '%'
             parts = [s, '{']
+            if width and conversion == 's' and not conversion_flag:
+                conversion_flag = '>'
             if conversion == 's':
                 conversion = None
             if key:
