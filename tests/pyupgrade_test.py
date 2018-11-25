@@ -615,6 +615,7 @@ def test_percent_format_noop_if_bug_16806():
         ('"%s%% percent" % (15,)', '"{}% percent".format(15)'),
         ('"%3f" % (15,)', '"{:3f}".format(15)'),
         ('"%-5s" % ("hi",)', '"{:<5}".format("hi")'),
+        ('"%9s" % (5,)', '"{:>9}".format(5)'),
         ('"brace {} %s" % (1,)', '"brace {{}} {}".format(1)'),
         (
             '"%s" % (\n'
