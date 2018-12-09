@@ -7,6 +7,7 @@ setup(
     version='1.11.0',
     author='Anthony Sottile',
     author_email='asottile@umich.edu',
+    license='MIT',
     classifiers=[
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 2',
