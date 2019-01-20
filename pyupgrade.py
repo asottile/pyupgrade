@@ -6,6 +6,7 @@ import ast
 import collections
 import copy
 import io
+import keyword
 import re
 import string
 import warnings
@@ -674,6 +675,9 @@ def _fix_percent_format_dict(tokens, start, node):
             return
         # not an identifier
         elif not IDENT_RE.match(k.s):
+            return
+        # a keyword
+        elif k.s in keyword.kwlist:
             return
         seen_keys.add(k.s)
         keys[_ast_to_offset(k)] = k
