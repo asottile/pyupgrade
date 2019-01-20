@@ -588,6 +588,8 @@ def test_simplify_conversion_flag(s, expected):
         '"%(a)s" % {"a"  :  1}',
         # don't rewrite non-str keys
         '"%(1)s" % {1: 2, "1": 2}',
+        # don't rewrite keyword keys
+        '"%(and)s" % {"and": 2}',
     ),
 )
 def test_percent_format_noop(s):
