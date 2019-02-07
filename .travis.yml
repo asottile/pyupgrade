@@ -1,3 +1,4 @@
+dist: xenial
 language: python
 matrix:
     include:
@@ -5,7 +6,9 @@ matrix:
         -   env: TOXENV=py36
             python: 3.6
         -   env: TOXENV=pypy
-            python: pypy-5.7.1
+            python: pypy2.7-5.10.0
+        -   env: TOXENV=py38
+            python: 3.8-dev
 install: pip install coveralls tox
 script: tox
 after_success: coveralls

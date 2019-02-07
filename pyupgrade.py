@@ -4,11 +4,11 @@ from __future__ import unicode_literals
 import argparse
 import ast
 import collections
-import copy
 import io
 import keyword
 import re
 import string
+import sys
 import warnings
 
 from tokenize_rt import ESCAPED_NL
@@ -165,29 +165,42 @@ def _process_set_empty_literal(tokens, start):
     del tokens[start + 2:i - 1]
 
 
-def _is_arg(token, arg):
-    return (
-        token.line == arg.lineno and token.utf8_byte_offset == arg.col_offset
-    )
+def _search_until(tokens, idx, arg):
+    while (
+            idx < len(tokens) and
+            not (
+                tokens[idx].line == arg.lineno and
+                tokens[idx].utf8_byte_offset == arg.col_offset
+            )
+    ):
+        idx += 1
+    return idx
 
 
-def _adjust_arg(tokens, i, arg):
-    # Adjust `arg` to be the position of the first element.
-    # listcomps, generators, and tuples already point to the first element
-    if isinstance(arg, ast.List) and not isinstance(arg.elts[0], ast.Tuple):
-        arg = arg.elts[0]
-    elif isinstance(arg, ast.List):
-        # If the first element is a tuple, the ast lies to us about its col
-        # offset.  We must find the first `(` token after the start of the
-        # list element.
-        while not _is_arg(tokens[i], arg):
-            i += 1
-        while tokens[i].src != '(':
-            i += 1
-        arg = copy.copy(arg.elts[0])
-        arg.lineno = tokens[i].line
-        arg.col_offset = tokens[i].utf8_byte_offset
-    return arg
+if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
+    # python 3.8 fixed the offsets of generators / tuples
+    def _arg_token_index(tokens, i, arg):
+        idx = _search_until(tokens, i, arg) + 1
+        while idx < len(tokens) and tokens[idx].name in NON_CODING_TOKENS:
+            idx += 1
+        return idx
+else:  # pragma: no cover (<py38)
+    def _arg_token_index(tokens, i, arg):
+        # lists containing non-tuples report the first element correctly
+        if isinstance(arg, ast.List):
+            # If the first element is a tuple, the ast lies to us about its col
+            # offset.  We must find the first `(` token after the start of the
+            # list element.
+            if isinstance(arg.elts[0], ast.Tuple):
+                i = _search_until(tokens, i, arg)
+                while tokens[i].src != '(':
+                    i += 1
+                return i
+            else:
+                return _search_until(tokens, i, arg.elts[0])
+            # others' start position points at their first child node already
+        else:
+            return _search_until(tokens, i, arg)
 
 
 Victims = collections.namedtuple(
@@ -196,14 +209,12 @@ Victims = collections.namedtuple(
 
 
 def _victims(tokens, start, arg, gen):
-    arg = _adjust_arg(tokens, start, arg)
-
     starts = [start]
     start_depths = [1]
     ends = []
     first_comma_index = None
     arg_depth = None
-    arg_index = None
+    arg_index = _arg_token_index(tokens, start, arg)
     brace_stack = [tokens[start].src]
     i = start + 1
 
@@ -212,9 +223,8 @@ def _victims(tokens, start, arg, gen):
         is_start_brace = token in BRACES
         is_end_brace = token == BRACES[brace_stack[-1]]
 
-        if _is_arg(tokens[i], arg):
+        if i == arg_index:
             arg_depth = len(brace_stack)
-            arg_index = i
 
         if is_start_brace:
             brace_stack.append(token)
@@ -1118,12 +1128,11 @@ def _replace_call(tokens, start, end, args, tmpl):
     arg_strs = [tokens_to_src(tokens[slice(*arg)]).strip() for arg in args]
 
     start_rest = args[0][1] + 1
-    while start_rest < end:
-        if tokens[start_rest].name in {'COMMENT', UNIMPORTANT_WS}:
-            start_rest += 1
-            continue
-        else:
-            break
+    while (
+            start_rest < end and
+            tokens[start_rest].name in {'COMMENT', UNIMPORTANT_WS}
+    ):
+        start_rest += 1
 
     rest = tokens_to_src(tokens[start_rest:end - 1])
     src = tmpl.format(args=arg_strs, rest=rest)
