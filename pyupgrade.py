@@ -429,7 +429,7 @@ ESCAPE_STARTS = frozenset((
     'N', 'u', 'U',
 ))
 ESCAPE_STARTS_BYTES = ESCAPE_STARTS - frozenset(('N', 'u', 'U'))
-ESCAPE_RE = re.compile(r'\\.')
+ESCAPE_RE = re.compile(r'\\.', re.DOTALL)
 
 
 def _fix_escape_sequences(contents_text):
