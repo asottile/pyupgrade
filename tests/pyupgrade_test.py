@@ -370,6 +370,10 @@ def test_fix_escape_sequences_noop(s):
         (r'"\8"', r'r"\8"'), (r'"\9"', r'r"\9"'),
         # explicit byte strings should not honor string-specific escapes
         ('b"\\u2603"', 'br"\\u2603"'),
+        # do not make a raw string for escaped newlines
+        ('"""\\\n\\q"""', '"""\\\n\\\\q"""'),
+        ('"""\\\r\n\\q"""', '"""\\\r\n\\\\q"""'),
+        ('"""\\\r\\q"""', '"""\\\r\\\\q"""'),
     ),
 )
 def test_fix_escape_sequences(s, expected):
