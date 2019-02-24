@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.org/asottile/pyupgrade.svg?branch=master)](https://travis-ci.org/asottile/pyupgrade)
 [![Coverage Status](https://coveralls.io/repos/github/asottile/pyupgrade/badge.svg?branch=master)](https://coveralls.io/github/asottile/pyupgrade?branch=master)
 [![Build status](https://ci.appveyor.com/api/projects/status/tibypnuyu1svqely/branch/master?svg=true)](https://ci.appveyor.com/project/asottile/pyupgrade/branch/master)
+[![Build Status](https://dev.azure.com/asottile/asottile/_apis/build/status/asottile.pyupgrade?branchName=master)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=2&branchName=master)
 
 pyupgrade
 =========

@@ -1,0 +1,26 @@
+resources:
+  repositories:
+    - repository: asottile
+      type: github
+      endpoint: asottile-github
+      name: asottile/azure-pipeline-templates
+      ref: refs/tags/v0.0.1
+
+jobs:
+- template: job--python-tox.yml@asottile
+  parameters: {tox: py27, os: windows}
+- template: job--python-tox.yml@asottile
+  parameters: {tox: py37, os: windows}
+
+- template: job--python-tox.yml@asottile
+  parameters: {tox: pypy, os: linux}
+- template: job--python-tox.yml@asottile
+  parameters: {tox: pypy3, os: linux}
+- template: job--python-tox.yml@asottile
+  parameters: {tox: py27, os: linux}
+- template: job--python-tox.yml@asottile
+  parameters: {tox: py36, os: linux}
+- template: job--python-tox.yml@asottile
+  parameters: {tox: py37, os: linux}
+- template: job--python-tox.yml@asottile
+  parameters: {tox: py38, os: linux}
