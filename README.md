@@ -1,5 +1,5 @@
 [![Build Status](https://dev.azure.com/asottile/asottile/_apis/build/status/asottile.pyupgrade?branchName=master)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=2&branchName=master)
-![Azure DevOps coverage (branch)](https://img.shields.io/azure-devops/coverage/asottile/asottile/2/master.svg)
+[![Azure DevOps coverage](https://img.shields.io/azure-devops/coverage/asottile/asottile/2/master.svg)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=2&branchName=master)
 
 pyupgrade
 =========
@@ -10,7 +10,6 @@ versions of the language.
 ## Installation
 
 `pip install pyupgrade`
-
 
 ## As a pre-commit hook
 
