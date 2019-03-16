@@ -90,6 +90,18 @@ u'\d'   # u'\\d'
 # but in python3.x, that's our friend ☃
 ```
 
+### `ur` string literals
+
+`ur'...'` literals are not valid in python 3.x
+
+```python
+ur'foo'         # u'foo'
+ur'\s'          # u'\\s'
+# unicode escapes are left alone
+ur'\u2603'      # u'\u2603'
+ur'\U0001f643'  # u'\U0001f643'
+```
+
 ### Long literals
 
 Availability:

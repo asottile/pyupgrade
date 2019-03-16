@@ -415,15 +415,14 @@ ESCAPE_STARTS_BYTES = ESCAPE_STARTS - frozenset(('N', 'u', 'U'))
 ESCAPE_RE = re.compile(r'\\.', re.DOTALL)
 
 
-def _fix_escape_sequences(last_name, token):
-    match = STRING_PREFIXES_RE.match(token.src)
-    prefix = match.group(1)
-    rest = match.group(2)
+def _parse_string_literal(s):
+    match = STRING_PREFIXES_RE.match(s)
+    return match.group(1), match.group(2)
 
-    if last_name is not None:  # pragma: no cover (py2 bug)
-        actual_prefix = (last_name.src + prefix).lower()
-    else:  # pragma: no cover (py3 only)
-        actual_prefix = prefix.lower()
+
+def _fix_escape_sequences(token):
+    prefix, rest = _parse_string_literal(token.src)
+    actual_prefix = prefix.lower()
 
     if 'r' in actual_prefix or '\\' not in rest:
         return token
@@ -452,36 +451,53 @@ def _fix_escape_sequences(last_name, token):
         return token
 
 
-def _remove_u_prefix(last_name, token):
-    match = STRING_PREFIXES_RE.match(token.src)
-    prefix = match.group(1)
+def _remove_u_prefix(token):
+    prefix, rest = _parse_string_literal(token.src)
     if 'u' not in prefix.lower():
         return token
     else:
-        rest = match.group(2)
         new_prefix = prefix.replace('u', '').replace('U', '')
         return Token('STRING', new_prefix + rest)
+
+
+def _fix_ur_literals(token):
+    prefix, rest = _parse_string_literal(token.src)
+    if prefix.lower() != 'ur':
+        return token
+    else:
+        def cb(match):
+            escape = match.group()
+            if escape[1].lower() == 'u':
+                return escape
+            else:
+                return '\\' + match.group()
+
+        rest = ESCAPE_RE.sub(cb, rest)
+        prefix = prefix.replace('r', '').replace('R', '')
+        return token._replace(src=prefix + rest)
 
 
 def _fix_strings(contents_text, py3_plus):
     remove_u_prefix = py3_plus or _imports_unicode_literals(contents_text)
 
-    last_name = None
     try:
         tokens = src_to_tokens(contents_text)
     except tokenize.TokenError:
         return contents_text
     for i, token in enumerate(tokens):
-        if token.name == 'NAME':
-            last_name = token
-            continue
-        elif token.name != 'STRING':
-            last_name = None
+        if token.name != 'STRING':
             continue
 
+        # when a string prefix is not recognized, the tokenizer produces a
+        # NAME token followed by a STRING token
+        if i > 0 and tokens[i - 1].name == 'NAME':
+            tokens[i] = token._replace(src=tokens[i - 1].src + token.src)
+            tokens[i - 1] = tokens[i - 1]._replace(src='')
+
+        tokens[i] = _fix_ur_literals(tokens[i])
         if remove_u_prefix:
-            tokens[i] = _remove_u_prefix(last_name, tokens[i])
-        tokens[i] = _fix_escape_sequences(last_name, tokens[i])
+            tokens[i] = _remove_u_prefix(tokens[i])
+        tokens[i] = _fix_escape_sequences(tokens[i])
 
     return tokens_to_src(tokens)
 
