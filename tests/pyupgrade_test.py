@@ -8,15 +8,14 @@ import sys
 import pytest
 
 from pyupgrade import _fix_dict_set
-from pyupgrade import _fix_escape_sequences
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_fstrings
 from pyupgrade import _fix_new_style_classes
 from pyupgrade import _fix_percent_format
 from pyupgrade import _fix_six
+from pyupgrade import _fix_strings
 from pyupgrade import _fix_super
 from pyupgrade import _fix_tokens
-from pyupgrade import _fix_unicode_literals
 from pyupgrade import _imports_unicode_literals
 from pyupgrade import _is_bytestring
 from pyupgrade import _percent_to_format
@@ -328,7 +327,7 @@ def test_imports_unicode_literals(s, expected):
     ),
 )
 def test_unicode_literals(s, py3_plus, expected):
-    ret = _fix_unicode_literals(s, py3_plus=py3_plus)
+    ret = _fix_strings(s, py3_plus=py3_plus)
     assert ret == expected
 
 
@@ -352,7 +351,7 @@ def test_unicode_literals(s, py3_plus, expected):
     ),
 )
 def test_fix_escape_sequences_noop(s):
-    assert _fix_escape_sequences(s) == s
+    assert _fix_strings(s, py3_plus=False) == s
 
 
 @pytest.mark.parametrize(
@@ -377,7 +376,7 @@ def test_fix_escape_sequences_noop(s):
     ),
 )
 def test_fix_escape_sequences(s, expected):
-    assert _fix_escape_sequences(s) == expected
+    assert _fix_strings(s, py3_plus=False) == expected
 
 
 @pytest.mark.xfail(sys.version_info >= (3,), reason='python2 "feature"')
