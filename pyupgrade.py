@@ -9,6 +9,7 @@ import keyword
 import re
 import string
 import sys
+import tokenize
 import warnings
 
 from tokenize_rt import ESCAPED_NL
@@ -402,24 +403,6 @@ def _imports_unicode_literals(contents_text):
 
 
 STRING_PREFIXES_RE = re.compile('^([^\'"]*)(.*)$', re.DOTALL)
-
-
-def _fix_unicode_literals(contents_text, py3_plus):
-    if not py3_plus and not _imports_unicode_literals(contents_text):
-        return contents_text
-    tokens = src_to_tokens(contents_text)
-    for i, token in enumerate(tokens):
-        if token.name != 'STRING':
-            continue
-
-        match = STRING_PREFIXES_RE.match(token.src)
-        prefix = match.group(1)
-        rest = match.group(2)
-        new_prefix = prefix.replace('u', '').replace('U', '')
-        tokens[i] = Token('STRING', new_prefix + rest)
-    return tokens_to_src(tokens)
-
-
 # https://docs.python.org/3/reference/lexical_analysis.html
 ESCAPE_STARTS = frozenset((
     '\n', '\r', '\\', "'", '"', 'a', 'b', 'f', 'n', 'r', 't', 'v',
@@ -432,9 +415,62 @@ ESCAPE_STARTS_BYTES = ESCAPE_STARTS - frozenset(('N', 'u', 'U'))
 ESCAPE_RE = re.compile(r'\\.', re.DOTALL)
 
 
-def _fix_escape_sequences(contents_text):
+def _fix_escape_sequences(last_name, token):
+    match = STRING_PREFIXES_RE.match(token.src)
+    prefix = match.group(1)
+    rest = match.group(2)
+
+    if last_name is not None:  # pragma: no cover (py2 bug)
+        actual_prefix = (last_name.src + prefix).lower()
+    else:  # pragma: no cover (py3 only)
+        actual_prefix = prefix.lower()
+
+    if 'r' in actual_prefix or '\\' not in rest:
+        return token
+
+    if 'b' in actual_prefix:
+        valid_escapes = ESCAPE_STARTS_BYTES
+    else:
+        valid_escapes = ESCAPE_STARTS
+
+    escape_sequences = {m[1] for m in ESCAPE_RE.findall(rest)}
+    has_valid_escapes = escape_sequences & valid_escapes
+    has_invalid_escapes = escape_sequences - valid_escapes
+
+    def cb(match):
+        matched = match.group()
+        if matched[1] in valid_escapes:
+            return matched
+        else:
+            return r'\{}'.format(matched)
+
+    if has_invalid_escapes and (has_valid_escapes or 'u' in actual_prefix):
+        return token._replace(src=prefix + ESCAPE_RE.sub(cb, rest))
+    elif has_invalid_escapes and not has_valid_escapes:
+        return token._replace(src=prefix + 'r' + rest)
+    else:
+        return token
+
+
+def _remove_u_prefix(last_name, token):
+    match = STRING_PREFIXES_RE.match(token.src)
+    prefix = match.group(1)
+    if 'u' not in prefix.lower():
+        return token
+    else:
+        rest = match.group(2)
+        new_prefix = prefix.replace('u', '').replace('U', '')
+        return Token('STRING', new_prefix + rest)
+
+
+def _fix_strings(contents_text, py3_plus):
+    remove_u_prefix = py3_plus or _imports_unicode_literals(contents_text)
+
     last_name = None
-    tokens = src_to_tokens(contents_text)
+    try:
+        tokens = src_to_tokens(contents_text)
+    except tokenize.TokenError:
+        return contents_text
     for i, token in enumerate(tokens):
         if token.name == 'NAME':
             last_name = token
@@ -443,38 +479,9 @@ def _fix_escape_sequences(contents_text):
             last_name = None
             continue
 
-        match = STRING_PREFIXES_RE.match(token.src)
-        prefix = match.group(1)
-        rest = match.group(2)
-
-        if last_name is not None:  # pragma: no cover (py2 bug)
-            actual_prefix = (last_name.src + prefix).lower()
-        else:  # pragma: no cover (py3 only)
-            actual_prefix = prefix.lower()
-
-        if 'r' in actual_prefix or '\\' not in rest:
-            continue
-
-        if 'b' in actual_prefix:
-            valid_escapes = ESCAPE_STARTS_BYTES
-        else:
-            valid_escapes = ESCAPE_STARTS
-
-        escape_sequences = {m[1] for m in ESCAPE_RE.findall(rest)}
-        has_valid_escapes = escape_sequences & valid_escapes
-        has_invalid_escapes = escape_sequences - valid_escapes
-
-        def cb(match):
-            matched = match.group()
-            if matched[1] in valid_escapes:
-                return matched
-            else:
-                return r'\{}'.format(matched)
-
-        if has_invalid_escapes and (has_valid_escapes or 'u' in actual_prefix):
-            tokens[i] = token._replace(src=prefix + ESCAPE_RE.sub(cb, rest))
-        elif has_invalid_escapes and not has_valid_escapes:
-            tokens[i] = token._replace(src=prefix + 'r' + rest)
+        if remove_u_prefix:
+            tokens[i] = _remove_u_prefix(last_name, tokens[i])
+        tokens[i] = _fix_escape_sequences(last_name, tokens[i])
 
     return tokens_to_src(tokens)
 
@@ -1335,8 +1342,7 @@ def fix_file(filename, args):
 
     contents_text = _fix_dict_set(contents_text)
     contents_text = _fix_format_literals(contents_text)
-    contents_text = _fix_unicode_literals(contents_text, args.py3_plus)
-    contents_text = _fix_escape_sequences(contents_text)
+    contents_text = _fix_strings(contents_text, args.py3_plus)
     contents_text = _fix_tokens(contents_text)
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)
