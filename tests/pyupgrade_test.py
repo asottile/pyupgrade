@@ -13,7 +13,6 @@ from pyupgrade import _fix_fstrings
 from pyupgrade import _fix_new_style_classes
 from pyupgrade import _fix_percent_format
 from pyupgrade import _fix_six
-from pyupgrade import _fix_strings
 from pyupgrade import _fix_super
 from pyupgrade import _fix_tokens
 from pyupgrade import _imports_unicode_literals
@@ -327,7 +326,7 @@ def test_imports_unicode_literals(s, expected):
     ),
 )
 def test_unicode_literals(s, py3_plus, expected):
-    ret = _fix_strings(s, py3_plus=py3_plus)
+    ret = _fix_tokens(s, py3_plus=py3_plus)
     assert ret == expected
 
 
@@ -342,12 +341,12 @@ def test_unicode_literals(s, py3_plus, expected):
     ),
 )
 def test_fix_ur_literals(s, expected):
-    ret = _fix_strings(s, py3_plus=False)
+    ret = _fix_tokens(s, py3_plus=False)
     assert ret == expected
 
 
 def test_fix_ur_literals_gets_fixed_before_u_removed():
-    assert _fix_strings("ur'\\s\\u2603'", py3_plus=True) == "'\\\\s\\u2603'"
+    assert _fix_tokens("ur'\\s\\u2603'", py3_plus=True) == "'\\\\s\\u2603'"
 
 
 @pytest.mark.parametrize(
@@ -370,7 +369,7 @@ def test_fix_ur_literals_gets_fixed_before_u_removed():
     ),
 )
 def test_fix_escape_sequences_noop(s):
-    assert _fix_strings(s, py3_plus=False) == s
+    assert _fix_tokens(s, py3_plus=False) == s
 
 
 @pytest.mark.parametrize(
@@ -395,7 +394,7 @@ def test_fix_escape_sequences_noop(s):
     ),
 )
 def test_fix_escape_sequences(s, expected):
-    assert _fix_strings(s, py3_plus=False) == expected
+    assert _fix_tokens(s, py3_plus=False) == expected
 
 
 @pytest.mark.xfail(sys.version_info >= (3,), reason='python2 "feature"')
@@ -408,7 +407,7 @@ def test_fix_escape_sequences(s, expected):
     ),
 )
 def test_long_literals(s, expected):
-    assert _fix_tokens(s) == expected
+    assert _fix_tokens(s, py3_plus=False) == expected
 
 
 @pytest.mark.parametrize(
@@ -421,7 +420,7 @@ def test_long_literals(s, expected):
     ),
 )
 def test_noop_octal_literals(s):
-    assert _fix_tokens(s) == s
+    assert _fix_tokens(s, py3_plus=False) == s
 
 
 @pytest.mark.xfail(sys.version_info >= (3,), reason='python2 "feature"')
@@ -433,7 +432,7 @@ def test_noop_octal_literals(s):
     ),
 )
 def test_fix_octal_literal(s, expected):
-    assert _fix_tokens(s) == expected
+    assert _fix_tokens(s, py3_plus=False) == expected
 
 
 @pytest.mark.parametrize('s', ("b''", 'b""', 'B""', "B''", "rb''", "rb''"))
