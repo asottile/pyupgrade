@@ -477,7 +477,20 @@ def _fix_ur_literals(token):
         return token._replace(src=prefix + rest)
 
 
-def _fix_strings(contents_text, py3_plus):
+def _fix_long(src):
+    return src.rstrip('lL')
+
+
+def _fix_octal(s):
+    if not s.startswith('0') or not s.isdigit() or s == len(s) * '0':
+        return s
+    elif len(s) == 2:  # pragma: no cover (py2 only)
+        return s[1:]
+    else:  # pragma: no cover (py2 only)
+        return '0o' + s[1:]
+
+
+def _fix_tokens(contents_text, py3_plus):
     remove_u_prefix = py3_plus or _imports_unicode_literals(contents_text)
 
     try:
@@ -485,39 +498,19 @@ def _fix_strings(contents_text, py3_plus):
     except tokenize.TokenError:
         return contents_text
     for i, token in enumerate(tokens):
-        if token.name != 'STRING':
-            continue
-
-        # when a string prefix is not recognized, the tokenizer produces a
-        # NAME token followed by a STRING token
-        if i > 0 and tokens[i - 1].name == 'NAME':
-            tokens[i] = token._replace(src=tokens[i - 1].src + token.src)
-            tokens[i - 1] = tokens[i - 1]._replace(src='')
-
-        tokens[i] = _fix_ur_literals(tokens[i])
-        if remove_u_prefix:
-            tokens[i] = _remove_u_prefix(tokens[i])
-        tokens[i] = _fix_escape_sequences(tokens[i])
-
-    return tokens_to_src(tokens)
-
-
-def _fix_tokens(contents_text):
-    def _fix_long(src):
-        return src.rstrip('lL')
-
-    def _fix_octal(s):
-        if not s.startswith('0') or not s.isdigit() or s == len(s) * '0':
-            return s
-        elif len(s) == 2:  # pragma: no cover (py2 only)
-            return s[1:]
-        else:  # pragma: no cover (py2 only)
-            return '0o' + s[1:]
-
-    tokens = src_to_tokens(contents_text)
-    for i, token in enumerate(tokens):
         if token.name == 'NUMBER':
             tokens[i] = token._replace(src=_fix_long(_fix_octal(token.src)))
+        elif token.name == 'STRING':
+            # when a string prefix is not recognized, the tokenizer produces a
+            # NAME token followed by a STRING token
+            if i > 0 and tokens[i - 1].name == 'NAME':
+                tokens[i] = token._replace(src=tokens[i - 1].src + token.src)
+                tokens[i - 1] = tokens[i - 1]._replace(src='')
+
+            tokens[i] = _fix_ur_literals(tokens[i])
+            if remove_u_prefix:
+                tokens[i] = _remove_u_prefix(tokens[i])
+            tokens[i] = _fix_escape_sequences(tokens[i])
     return tokens_to_src(tokens)
 
 
@@ -1358,8 +1351,7 @@ def fix_file(filename, args):
 
     contents_text = _fix_dict_set(contents_text)
     contents_text = _fix_format_literals(contents_text)
-    contents_text = _fix_strings(contents_text, args.py3_plus)
-    contents_text = _fix_tokens(contents_text)
+    contents_text = _fix_tokens(contents_text, args.py3_plus)
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)
     if args.py3_plus:
