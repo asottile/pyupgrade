@@ -490,6 +490,10 @@ def _fix_octal(s):
         return '0o' + s[1:]
 
 
+def _is_string_prefix(token):
+    return token.name == 'NAME' and set(token.src.lower()) <= set('bfru')
+
+
 def _fix_tokens(contents_text, py3_plus):
     remove_u_prefix = py3_plus or _imports_unicode_literals(contents_text)
 
@@ -503,7 +507,7 @@ def _fix_tokens(contents_text, py3_plus):
         elif token.name == 'STRING':
             # when a string prefix is not recognized, the tokenizer produces a
             # NAME token followed by a STRING token
-            if i > 0 and tokens[i - 1].name == 'NAME':
+            if i > 0 and _is_string_prefix(tokens[i - 1]):
                 tokens[i] = token._replace(src=tokens[i - 1].src + token.src)
                 tokens[i - 1] = tokens[i - 1]._replace(src='')
 
