@@ -323,6 +323,14 @@ def test_imports_unicode_literals(s, expected):
         ),
         # Regression: string containing newline
         ('"""with newline\n"""', True, '"""with newline\n"""'),
+        pytest.param(
+            'def f():\n'
+            '    return"foo"\n',
+            True,
+            'def f():\n'
+            '    return"foo"\n',
+            id='Regression: no space between return and string',
+        ),
     ),
 )
 def test_unicode_literals(s, py3_plus, expected):
