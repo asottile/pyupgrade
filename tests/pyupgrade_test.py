@@ -939,6 +939,10 @@ def test_fix_new_style_classes(s, expected):
         'from six import raise_from\nraise_from (exc, exc_from)',
         # don't rewrite things that would become `raise` in non-statements
         'print(six.raise_from(exc, exc_from))',
+        # non-ascii bytestring
+        'print(six.b("£"))',
+        # extra whitespace
+        'print(six.b(   "123"))',
     )
 )
 def test_fix_six_noop(s):
@@ -951,6 +955,22 @@ def test_fix_six_noop(s):
         (
             'isinstance(s, six.text_type)',
             'isinstance(s, str)',
+        ),
+        (
+            'isinstance(s, six.b("123"))',
+            'isinstance(s, b"123")',
+        ),
+        (
+            'isinstance(s, six.b(r"123"))',
+            'isinstance(s, br"123")',
+        ),
+        (
+            r'isinstance(s, six.b("\x12\xef"))',
+            r'isinstance(s, b"\x12\xef")',
+        ),
+        (
+            'from six import b\n\n' + r'b("\x12\xef")',
+            'from six import b\n\n' + r'b"\x12\xef"',
         ),
         (
             'isinstance(s, six.string_types)',

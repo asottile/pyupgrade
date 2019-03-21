@@ -673,6 +673,13 @@ def _is_bytestring(s):
         return False
 
 
+def _is_ascii(s):
+    if sys.version_info >= (3, 7):  # pragma: no cover (py37+)
+        return s.isascii()
+    else:  # pragma: no cover (<py37)
+        return all(c in string.printable for c in s)
+
+
 def _fix_percent_format_tuple(tokens, start, node):
     # TODO: this is overly timid
     paren = start + 4
@@ -981,6 +988,7 @@ SIX_TYPE_CTX_ATTRS = dict(
 )
 SIX_CALLS = {
     'u': '{args[0]}',
+    'b': 'b{args[0]}',
     'byte2int': '{arg0}[0]',
     'indexbytes': '{args[0]}[{rest}]',
     'iteritems': '{args[0]}.items()',
@@ -1197,7 +1205,10 @@ def _fix_six(contents_text):
                 del tokens[i - 1:end + 1]
         elif token.offset in visitor.call_names:
             node = visitor.call_names[token.offset]
-            if tokens[i + 1].src == '(':
+            if (
+                    tokens[i + 1].src == '(' and
+                    (tokens[i].src != 'b' or _valid_six_b(tokens, i))
+            ):
                 func_args, end = _parse_call_args(tokens, i + 1)
                 template = SIX_CALLS[node.func.id]
                 _replace_call(tokens, i, end, func_args, template)
@@ -1206,7 +1217,8 @@ def _fix_six(contents_text):
             if (
                     tokens[i + 1].src == '.' and
                     tokens[i + 2].src == node.func.attr and
-                    tokens[i + 3].src == '('
+                    tokens[i + 3].src == '(' and
+                    (tokens[i + 2].src != 'b' or _valid_six_b(tokens, i + 2))
             ):
                 func_args, end = _parse_call_args(tokens, i + 3)
                 template = SIX_CALLS[node.func.attr]
@@ -1229,6 +1241,14 @@ def _fix_six(contents_text):
                 _replace_call(tokens, i, end, func_args, template)
 
     return tokens_to_src(tokens)
+
+
+def _valid_six_b(tokens, b_i):
+    return (
+        tokens[b_i + 2].name == 'STRING' and
+        _is_ascii(tokens[b_i + 2].src) and
+        tokens[b_i + 3].src == ')'
+    )
 
 
 def _simple_arg(arg):
