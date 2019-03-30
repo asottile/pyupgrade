@@ -41,8 +41,8 @@ set([x for x in y])  # {x for x in y}
 ### Dictionary comprehensions
 
 ```python
-dict((a, b) for a, b in y)   # {a: b for a, b in y}
-dict([(a, b) for a, b in y)  # {a: b for a, b in y}
+dict((a, b) for a, b in y)    # {a: b for a, b in y}
+dict([(a, b) for a, b in y])  # {a: b for a, b in y}
 ```
 
 ### Python2.7+ Format Specifiers
