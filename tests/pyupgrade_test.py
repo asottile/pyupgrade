@@ -10,9 +10,8 @@ import pytest
 from pyupgrade import _fix_dict_set
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_fstrings
-from pyupgrade import _fix_new_style_classes
 from pyupgrade import _fix_percent_format
-from pyupgrade import _fix_six
+from pyupgrade import _fix_six_and_classes
 from pyupgrade import _fix_super
 from pyupgrade import _fix_tokens
 from pyupgrade import _imports_unicode_literals
@@ -834,8 +833,8 @@ def test_fix_super(s, expected):
         'class C(B): pass',
     ),
 )
-def test_fix_new_style_classes_noop(s):
-    assert _fix_new_style_classes(s) == s
+def test_fix_classes_noop(s):
+    assert _fix_six_and_classes(s) == s
 
 
 @pytest.mark.parametrize(
@@ -846,9 +845,31 @@ def test_fix_new_style_classes_noop(s):
             'class C: pass',
         ),
         (
+            'import six\n\nclass C(six.Iterator): pass',
+            'import six\n\nclass C: pass',
+        ),
+        (
+            'from six import Iterator\n'
+            '\n'
+            'class C(Iterator): pass',
+            'from six import Iterator\n'
+            '\n'
+            'class C: pass',
+        ),
+        (
             'class C(\n'
             '    object,\n'
             '): pass',
+            'class C: pass',
+        ),
+        (
+            'import six\n'
+            '\n'
+            'class C(\n'
+            '    six.Iterator,\n'
+            '): pass',
+            'import six\n'
+            '\n'
             'class C: pass',
         ),
         (
@@ -907,10 +928,23 @@ def test_fix_new_style_classes_noop(s):
             '    B,\n'
             '): pass',
         ),
+        (
+            'class C(\n'
+            '    object,  # comment!\n'
+            '    B,\n'
+            '): pass',
+            'class C(\n'
+            '    B,\n'
+            '): pass',
+        ),
+        (
+            'class C(object, six.Iterator): pass',
+            'class C: pass',
+        ),
     ),
 )
-def test_fix_new_style_classes(s, expected):
-    assert _fix_new_style_classes(s) == expected
+def test_fix_classes(s, expected):
+    assert _fix_six_and_classes(s) == expected
 
 
 @pytest.mark.parametrize(
@@ -946,7 +980,7 @@ def test_fix_new_style_classes(s, expected):
     )
 )
 def test_fix_six_noop(s):
-    assert _fix_six(s) == s
+    assert _fix_six_and_classes(s) == s
 
 
 @pytest.mark.parametrize(
@@ -1109,7 +1143,7 @@ def test_fix_six_noop(s):
     ),
 )
 def test_fix_six(s, expected):
-    assert _fix_six(s) == expected
+    assert _fix_six_and_classes(s) == expected
 
 
 @pytest.mark.xfail(sys.version_info < (3,), reason='py3+ metaclass')
@@ -1120,10 +1154,26 @@ def test_fix_six(s, expected):
             'class C(object, metaclass=ABCMeta): pass',
             'class C(metaclass=ABCMeta): pass',
         ),
+        (
+            'class C(six.Iterator, metaclass=ABCMeta): pass',
+            'class C(metaclass=ABCMeta): pass',
+        ),
+        (
+            'class C(six.Iterator, object, metaclass=ABCMeta): pass',
+            'class C(metaclass=ABCMeta): pass',
+        ),
+        (
+            'from six import Iterator\n'
+            '\n'
+            'class C(Iterator, metaclass=ABCMeta): pass',
+            'from six import Iterator\n'
+            '\n'
+            'class C(metaclass=ABCMeta): pass',
+        ),
     ),
 )
-def test_fix_new_style_classes_py3only(s, expected):
-    assert _fix_new_style_classes(s) == expected
+def test_fix_classes_py3only(s, expected):
+    assert _fix_six_and_classes(s) == expected
 
 
 @pytest.mark.parametrize(
