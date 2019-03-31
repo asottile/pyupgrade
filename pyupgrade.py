@@ -914,13 +914,11 @@ SIX_UNICODE_COMPATIBLE = 'python_2_unicode_compatible'
 
 
 class FindSixAndClassesUsage(ast.NodeVisitor):
-    Base = collections.namedtuple('Base', ('node', 'index'))
-
     def __init__(self):
         super(FindSixAndClassesUsage, self).__init__()
         self.call_attrs = {}
         self.call_names = {}
-        self.classes = {}
+        self.classes = set()
         self.raise_attrs = {}
         self.raise_names = {}
         self.simple_attrs = {}
@@ -956,20 +954,20 @@ class FindSixAndClassesUsage(ast.NodeVisitor):
 
         for i, base in enumerate(node.bases):
             if isinstance(base, ast.Name) and base.id == 'object':
-                self.classes[_ast_to_offset(base)] = self.Base(node, i)
+                self.classes.add(_ast_to_offset(base))
             elif (
                     isinstance(base, ast.Name) and
                     base.id == 'Iterator' and
                     base.id in self.six_from_imports
             ):
-                self.classes[_ast_to_offset(base)] = self.Base(node, i)
+                self.classes.add(_ast_to_offset(base))
             elif (
                     isinstance(base, ast.Attribute) and
                     isinstance(base.value, ast.Name) and
                     base.value.id == 'six' and
                     base.attr == 'Iterator'
             ):
-                self.classes[_ast_to_offset(base)] = self.Base(node, i)
+                self.classes.add(_ast_to_offset(base))
 
         self.generic_visit(node)
 
@@ -1103,80 +1101,55 @@ def _fix_six_and_classes(contents_text):
 
     tokens = src_to_tokens(contents_text)
     for i, token in reversed_enumerate(tokens):
-        base = visitor.classes.get(token.offset)
-        if base:
-            # single base, look forward until the colon to find the ), then
-            # look backward to find the matching (
-            if (
-                    len(base.node.bases) == 1 and
-                    not getattr(base.node, 'keywords', None)
-            ):
-                j = i
-                while tokens[j].src != ':':
-                    j += 1
-                while tokens[j].src != ')':
-                    j -= 1
+        if token.offset in visitor.classes:
+            # look forward and backward to find commas / parens
+            brace_stack = []
+            j = i
+            while tokens[j].src not in {',', ':'}:
+                if tokens[j].src == ')':
+                    brace_stack.append(j)
+                j += 1
+            right = j
 
-                end_index = j
-                brace_stack = [')']
-                while brace_stack:
-                    j -= 1
-                    if tokens[j].src == ')':
-                        brace_stack.append(')')
-                    elif tokens[j].src == '(':
-                        brace_stack.pop()
-                start_index = j
-
-                del tokens[start_index:end_index + 1]
-            # multiple bases, look forward and remove a comma
-            elif base.index == 0:
-                j = i
-                brace_stack = []
-                while tokens[j].src != ',':
-                    if tokens[j].src == ')':
-                        brace_stack.append(')')
-                    j += 1
-                end_index = j
-
-                j = i
-                while brace_stack:
-                    j -= 1
-                    if tokens[j].src == '(':
-                        brace_stack.pop()
-                start_index = j
-
-                # if there's space afterwards remove that too
-                if tokens[end_index + 1].name == UNIMPORTANT_WS:
-                    end_index += 1
-
-                # if it is on its own line, remove it
-                if (
-                        tokens[start_index - 1].name == UNIMPORTANT_WS and
-                        tokens[start_index - 2].name == 'NL' and
-                        tokens[end_index + 1].name == 'NL'
-                ):
-                    start_index -= 1
-                    end_index += 1
-
-                del tokens[start_index:end_index + 1]
-            # multiple bases, look backward and remove a comma
+            if tokens[right].src == ':':
+                brace_stack.pop()
             else:
-                j = i
-                brace_stack = []
-                while tokens[j].src != ',':
-                    if tokens[j].src == '(':
-                        brace_stack.append('(')
-                    j -= 1
-                start_index = j
-
-                j = i
-                while brace_stack:
+                # if there's a close-paren after a trailing comma
+                j = right + 1
+                while tokens[j].name in NON_CODING_TOKENS:
                     j += 1
-                    if tokens[j].src == ')':
-                        brace_stack.pop()
-                end_index = j
+                if tokens[j].src == ')':
+                    while tokens[j].src != ':':
+                        j += 1
+                    right = j
 
-                del tokens[start_index:end_index + 1]
+            if brace_stack:
+                last_part = brace_stack[-1]
+            else:
+                last_part = i
+
+            j = i
+            while brace_stack:
+                if tokens[j].src == '(':
+                    brace_stack.pop()
+                j -= 1
+
+            while tokens[j].src not in {',', '('}:
+                j -= 1
+            left = j
+
+            # single base, remove the entire bases
+            if tokens[left].src == '(' and tokens[right].src == ':':
+                del tokens[left:right]
+            # multiple bases, base is first
+            elif tokens[left].src == '(' and tokens[right].src != ':':
+                # if there's space / comment afterwards remove that too
+                while tokens[right + 1].name in {UNIMPORTANT_WS, 'COMMENT'}:
+                    right += 1
+                del tokens[left + 1:right + 1]
+            # multiple bases, base is not first
+            else:
+                del tokens[left:last_part + 1]
 
         if token.offset in visitor.type_ctx_names:
             node = visitor.type_ctx_names[token.offset]

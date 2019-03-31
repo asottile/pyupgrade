@@ -928,6 +928,19 @@ def test_fix_classes_noop(s):
             '    B,\n'
             '): pass',
         ),
+        (
+            'class C(\n'
+            '    object,  # comment!\n'
+            '    B,\n'
+            '): pass',
+            'class C(\n'
+            '    B,\n'
+            '): pass',
+        ),
+        (
+            'class C(object, six.Iterator): pass',
+            'class C: pass',
+        ),
     ),
 )
 def test_fix_classes(s, expected):
