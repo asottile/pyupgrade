@@ -122,6 +122,19 @@ Availability:
 05    # 5
 ```
 
+### extraneous parens in `print(...)`
+
+A fix for [python-modernize/python-modernize#178]
+
+```python
+print(())                       # ok: printing an empty tuple
+print((1,))                     # ok: printing a tuple
+sum((i for i in range(3)), [])  # ok: parenthesized generator argument
+print(("foo"))                  # print("foo")
+```
+
+[python-modernize/python-modernize#178]: https://github.com/python-modernize/python-modernize/issues/178
+
 ### `super()` calls
 
 Availability:
