@@ -138,6 +138,7 @@ def _has_kwargs(call):
 
 
 BRACES = {'(': ')', '[': ']', '{': '}'}
+OPENING, CLOSING = frozenset(BRACES), frozenset(BRACES.values())
 SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
 
 
@@ -494,6 +495,42 @@ def _is_string_prefix(token):
     return token.name == 'NAME' and set(token.src.lower()) <= set('bfru')
 
 
+def _fix_extraneous_parens(tokens, i):
+    # search forward for another non-coding token
+    i += 1
+    while tokens[i].name in NON_CODING_TOKENS:
+        i += 1
+    # if we did not find another brace, return immediately
+    if tokens[i].src != '(':
+        return
+
+    start = i
+    depth = 1
+    while depth:
+        i += 1
+        # found comma at depth 1: this is a tuple
+        if depth == 1 and tokens[i].src == ',':
+            return
+        elif tokens[i].src in OPENING:
+            depth += 1
+        elif tokens[i].src in CLOSING:
+            depth -= 1
+    end = i
+
+    # empty tuple
+    if all(t.name in NON_CODING_TOKENS for t in tokens[start + 1:i]):
+        return
+
+    # search forward for the next non-coding token
+    i += 1
+    while tokens[i].name in NON_CODING_TOKENS:
+        i += 1
+
+    if tokens[i].src == ')':
+        _remove_brace(tokens, end)
+        _remove_brace(tokens, start)
+
+
 def _fix_tokens(contents_text, py3_plus):
     remove_u_prefix = py3_plus or _imports_unicode_literals(contents_text)
 
@@ -501,7 +538,7 @@ def _fix_tokens(contents_text, py3_plus):
         tokens = src_to_tokens(contents_text)
     except tokenize.TokenError:
         return contents_text
-    for i, token in enumerate(tokens):
+    for i, token in reversed_enumerate(tokens):
         if token.name == 'NUMBER':
             tokens[i] = token._replace(src=_fix_long(_fix_octal(token.src)))
         elif token.name == 'STRING':
@@ -515,6 +552,8 @@ def _fix_tokens(contents_text, py3_plus):
             if remove_u_prefix:
                 tokens[i] = _remove_u_prefix(tokens[i])
             tokens[i] = _fix_escape_sequences(tokens[i])
+        elif token.src == '(':
+            _fix_extraneous_parens(tokens, i)
     return tokens_to_src(tokens)
 
 
