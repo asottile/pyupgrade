@@ -798,6 +798,9 @@ def _fix_percent_format(contents_text):
     visitor = FindPercentFormats()
     visitor.visit(ast_obj)
 
+    if not visitor.found:
+        return contents_text
+
     tokens = src_to_tokens(contents_text)
 
     for i, token in reversed_enumerate(tokens):
@@ -886,6 +889,9 @@ def _fix_super(contents_text):
 
     visitor = FindSuper()
     visitor.visit(ast_obj)
+
+    if not visitor.found:
+        return contents_text
 
     tokens = src_to_tokens(contents_text)
     for i, token in reversed_enumerate(tokens):
@@ -1131,6 +1137,20 @@ def _fix_six_and_classes(contents_text):
     visitor = FindSixAndClassesUsage()
     visitor.visit(ast_obj)
 
+    if not any((
+            visitor.classes,
+            visitor.type_ctx_names,
+            visitor.type_ctx_attrs,
+            visitor.simple_names,
+            visitor.simple_attrs,
+            visitor.remove_decorators,
+            visitor.call_names,
+            visitor.call_attrs,
+            visitor.raise_names,
+            visitor.raise_attrs,
+    )):
+        return contents_text
+
     def _replace_name(i, mapping, node):
         tokens[i] = Token('CODE', mapping[node.id])
 
@@ -1341,6 +1361,9 @@ def _fix_fstrings(contents_text):
 
     visitor = FindSimpleFormats()
     visitor.visit(ast_obj)
+
+    if not visitor.found:
+        return contents_text
 
     tokens = src_to_tokens(contents_text)
     for i, token in reversed_enumerate(tokens):
