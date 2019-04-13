@@ -324,13 +324,34 @@ def _process_dict_comp(tokens, start, arg):
     tokens[start:start + 2] = [Token('OP', '{')]
 
 
-class FindDictsSetsVisitor(ast.NodeVisitor):
-    def __init__(self):
+def _process_is_literal(tokens, i, compare):
+    while tokens[i].src != 'is':
+        i -= 1
+    if isinstance(compare, ast.Is):
+        tokens[i] = tokens[i]._replace(src='==')
+    else:
+        tokens[i] = tokens[i]._replace(src='!=')
+        # since we iterate backward, the dummy tokens keep the same length
+        i += 1
+        while tokens[i].src != 'not':
+            tokens[i] = Token('DUMMY', '')
+            i += 1
+        tokens[i] = Token('DUMMY', '')
+
+
+LITERAL_TYPES = (ast.Str, ast.Num)
+if sys.version_info >= (3,):  # pragma: no cover (py3+)
+    LITERAL_TYPES += (ast.Bytes,)
+
+
+class Py2CompatibleVisitor(ast.NodeVisitor):
+    def __init__(self):  # type: () -> None
         self.dicts = {}
         self.sets = {}
         self.set_empty_literals = {}
+        self.is_literal = {}
 
-    def visit_Call(self, node):
+    def visit_Call(self, node):  # type: (ast.AST) -> None
         if (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'set' and
@@ -357,15 +378,35 @@ class FindDictsSetsVisitor(ast.NodeVisitor):
             self.dicts[_ast_to_offset(node.func)] = arg
         self.generic_visit(node)
 
+    def visit_Compare(self, node):  # type: (ast.AST) -> None
+        left = node.left
+        for op, right in zip(node.ops, node.comparators):
+            if (
+                    isinstance(op, (ast.Is, ast.IsNot)) and
+                    (
+                        isinstance(left, LITERAL_TYPES) or
+                        isinstance(right, LITERAL_TYPES)
+                    )
+            ):
+                self.is_literal[_ast_to_offset(right)] = op
+            left = right
 
-def _fix_dict_set(contents_text):
+        self.generic_visit(node)
+
+
+def _fix_py2_compatible(contents_text):
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
-    visitor = FindDictsSetsVisitor()
+    visitor = Py2CompatibleVisitor()
     visitor.visit(ast_obj)
-    if not any((visitor.dicts, visitor.sets, visitor.set_empty_literals)):
+    if not any((
+            visitor.dicts,
+            visitor.sets,
+            visitor.set_empty_literals,
+            visitor.is_literal,
+    )):
         return contents_text
 
     tokens = src_to_tokens(contents_text)
@@ -376,6 +417,8 @@ def _fix_dict_set(contents_text):
             _process_set_empty_literal(tokens, i)
         elif token.offset in visitor.sets:
             _process_set_literal(tokens, i, visitor.sets[token.offset])
+        elif token.offset in visitor.is_literal:
+            _process_is_literal(tokens, i, visitor.is_literal[token.offset])
     return tokens_to_src(tokens)
 
 
@@ -1401,7 +1444,7 @@ def fix_file(filename, args):
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
-    contents_text = _fix_dict_set(contents_text)
+    contents_text = _fix_py2_compatible(contents_text)
     contents_text = _fix_format_literals(contents_text)
     contents_text = _fix_tokens(contents_text, args.py3_plus)
     if not args.keep_percent_format:
