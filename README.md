@@ -90,6 +90,17 @@ u'\d'   # u'\\d'
 # but in python3.x, that's our friend ☃
 ```
 
+### `is` / `is not` comparison to constant literals
+
+In python3.8+, comparison to literals becomes a `SyntaxWarning` as the success
+of those comparisons is implementation specific (due to common object caching).
+
+```python
+x is 5      # x == 5
+x is not 5  # x != 5
+x is 'foo'  # x == foo
+```
+
 ### `ur` string literals
 
 `ur'...'` literals are not valid in python 3.x

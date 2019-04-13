@@ -7,10 +7,10 @@ import sys
 
 import pytest
 
-from pyupgrade import _fix_dict_set
 from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_fstrings
 from pyupgrade import _fix_percent_format
+from pyupgrade import _fix_py2_compatible
 from pyupgrade import _fix_six_and_classes
 from pyupgrade import _fix_super
 from pyupgrade import _fix_tokens
@@ -120,7 +120,7 @@ def test_intentionally_not_round_trip(s, expected):
     ),
 )
 def test_sets(s, expected):
-    ret = _fix_dict_set(s)
+    ret = _fix_py2_compatible(s)
     assert ret == expected
 
 
@@ -139,8 +139,8 @@ def test_sets(s, expected):
         ),
     ),
 )
-def test_sets_generators_trailing_comas(s, expected):
-    ret = _fix_dict_set(s)
+def test_sets_generators_trailing_commas(s, expected):
+    ret = _fix_py2_compatible(s)
     assert ret == expected
 
 
@@ -216,7 +216,69 @@ def test_sets_generators_trailing_comas(s, expected):
     ),
 )
 def test_dictcomps(s, expected):
-    ret = _fix_dict_set(s)
+    ret = _fix_py2_compatible(s)
+    assert ret == expected
+
+
+@pytest.mark.parametrize(
+    's',
+    (
+        'x is True',
+        'x is False',
+        'x is None',
+        'x is (not 5)',
+        'x is 5 + 5',
+        # pyupgrade is timid about containers since the original can be
+        # always-False, but the rewritten code could be `True`.
+        'x is ()',
+        'x is []',
+        'x is {}',
+        'x is {1}',
+    ),
+)
+def test_fix_is_compare_to_literal_noop(s):
+    assert _fix_py2_compatible(s) == s
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        pytest.param('x is 5', 'x == 5', id='`is`'),
+        pytest.param('x is not 5', 'x != 5', id='`is not`'),
+        pytest.param('x is ""', 'x == ""', id='string'),
+        pytest.param('x is u""', 'x == u""', id='unicode string'),
+        pytest.param('x is b""', 'x == b""', id='bytes'),
+        pytest.param('x is 1.5', 'x == 1.5', id='float'),
+        pytest.param('x == 5 is 5', 'x == 5 == 5', id='compound compare'),
+        pytest.param(
+            'if (\n'
+            '    x is\n'
+            '    5\n'
+            '): pass\n',
+
+            'if (\n'
+            '    x ==\n'
+            '    5\n'
+            '): pass\n',
+
+            id='multi-line `is`',
+        ),
+        pytest.param(
+            'if (\n'
+            '    x is\n'
+            '    not 5\n'
+            '): pass\n',
+
+            'if (\n'
+            '    x != 5\n'
+            '): pass\n',
+
+            id='multi-line `is not`',
+        ),
+    ),
+)
+def test_fix_is_compare_to_literal(s, expected):
+    ret = _fix_py2_compatible(s)
     assert ret == expected
 
 
