@@ -551,8 +551,8 @@ def _fix_extraneous_parens(tokens, i):
     depth = 1
     while depth:
         i += 1
-        # found comma at depth 1: this is a tuple
-        if depth == 1 and tokens[i].src == ',':
+        # found comma or yield at depth 1: this is a tuple / coroutine
+        if depth == 1 and tokens[i].src in {',', 'yield'}:
             return
         elif tokens[i].src in OPENING:
             depth += 1

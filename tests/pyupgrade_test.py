@@ -513,6 +513,9 @@ def test_fix_octal_literal(s, expected):
         'print((\n))',
         # don't touch parenthesized generators
         'sum((block.code for block in blocks), [])',
+        # don't touch coroutine yields
+        'def f():\n'
+        '    x = int((yield 1))\n',
     ),
 )
 def test_fix_extra_parens_noop(s):
@@ -544,6 +547,15 @@ def test_fix_extra_parens_noop(s):
             'print(\n'
             '        "foo"\n'
             ')\n',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    x = int(((yield 1)))\n',
+
+            'def f():\n'
+            '    x = int((yield 1))\n',
+
+            id='extra parens on coroutines are instead reduced to 2',
         ),
     ),
 )
