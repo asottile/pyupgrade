@@ -194,10 +194,15 @@ class C:
     def __str__(self):
         return u'C()'
 
+class C(six.Iterator): pass              # class C: pass
+
+class C(six.with_metaclass(M, B)): pass  # class C(B, metaclass=M): pass
+
 isinstance(..., six.class_types)    # isinstance(..., type)
 issubclass(..., six.integer_types)  # issubclass(..., int)
 isinstance(..., six.string_types)   # isinstance(..., str)
 
+six.b('...')                            # b'...'
 six.u('...')                            # '...'
 six.byte2int(bs)                        # bs[0]
 six.indexbytes(bs, i)                   # bs[i]
