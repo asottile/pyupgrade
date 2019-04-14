@@ -11,8 +11,7 @@ from pyupgrade import _fix_format_literals
 from pyupgrade import _fix_fstrings
 from pyupgrade import _fix_percent_format
 from pyupgrade import _fix_py2_compatible
-from pyupgrade import _fix_six_and_classes
-from pyupgrade import _fix_super
+from pyupgrade import _fix_py3_plus
 from pyupgrade import _fix_tokens
 from pyupgrade import _imports_unicode_literals
 from pyupgrade import _is_bytestring
@@ -891,7 +890,7 @@ def test_percent_format_todo(s, expected):
     ),
 )
 def test_fix_super_noop(s):
-    assert _fix_super(s) == s
+    assert _fix_py3_plus(s) == s
 
 
 @pytest.mark.parametrize(
@@ -914,11 +913,11 @@ def test_fix_super_noop(s):
             '        super ().f()\n',
         ),
         (
-            'class Outer(object):\n'
+            'class Outer:\n'
             '    class C(Base):\n'
             '        def f(self):\n'
             '            super (C, self).f()\n',
-            'class Outer(object):\n'
+            'class Outer:\n'
             '    class C(Base):\n'
             '        def f(self):\n'
             '            super ().f()\n',
@@ -942,7 +941,7 @@ def test_fix_super_noop(s):
     ),
 )
 def test_fix_super(s, expected):
-    assert _fix_super(s) == expected
+    assert _fix_py3_plus(s) == expected
 
 
 @pytest.mark.parametrize(
@@ -955,7 +954,7 @@ def test_fix_super(s, expected):
     ),
 )
 def test_fix_classes_noop(s):
-    assert _fix_six_and_classes(s) == s
+    assert _fix_py3_plus(s) == s
 
 
 @pytest.mark.parametrize(
@@ -1065,7 +1064,7 @@ def test_fix_classes_noop(s):
     ),
 )
 def test_fix_classes(s, expected):
-    assert _fix_six_and_classes(s) == expected
+    assert _fix_py3_plus(s) == expected
 
 
 @pytest.mark.parametrize(
@@ -1105,7 +1104,7 @@ def test_fix_classes(s, expected):
     )
 )
 def test_fix_six_noop(s):
-    assert _fix_six_and_classes(s) == s
+    assert _fix_py3_plus(s) == s
 
 
 @pytest.mark.parametrize(
@@ -1280,7 +1279,7 @@ def test_fix_six_noop(s):
     ),
 )
 def test_fix_six(s, expected):
-    assert _fix_six_and_classes(s) == expected
+    assert _fix_py3_plus(s) == expected
 
 
 @pytest.mark.xfail(sys.version_info < (3,), reason='py3+ metaclass')
@@ -1310,7 +1309,7 @@ def test_fix_six(s, expected):
     ),
 )
 def test_fix_classes_py3only(s, expected):
-    assert _fix_six_and_classes(s) == expected
+    assert _fix_py3_plus(s) == expected
 
 
 @pytest.mark.parametrize(

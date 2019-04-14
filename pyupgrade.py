@@ -868,89 +868,6 @@ def _fix_percent_format(contents_text):
 ARGATTR = 'id' if str is bytes else 'arg'
 
 
-class FindSuper(ast.NodeVisitor):
-
-    class ClassInfo:
-        def __init__(self, name):
-            self.name = name
-            self.def_depth = 0
-            self.first_arg_name = ''
-
-    def __init__(self):
-        self.class_info_stack = []
-        self.found = {}
-        self.in_comp = 0
-
-    def visit_ClassDef(self, node):
-        self.class_info_stack.append(FindSuper.ClassInfo(node.name))
-        self.generic_visit(node)
-        self.class_info_stack.pop()
-
-    def _visit_func(self, node):
-        if self.class_info_stack:
-            class_info = self.class_info_stack[-1]
-            class_info.def_depth += 1
-            if class_info.def_depth == 1 and node.args.args:
-                class_info.first_arg_name = getattr(node.args.args[0], ARGATTR)
-            self.generic_visit(node)
-            class_info.def_depth -= 1
-        else:
-            self.generic_visit(node)
-
-    visit_FunctionDef = visit_Lambda = _visit_func
-
-    def _visit_comp(self, node):
-        self.in_comp += 1
-        self.generic_visit(node)
-        self.in_comp -= 1
-
-    visit_ListComp = visit_SetComp = _visit_comp
-    visit_DictComp = visit_GeneratorExp = _visit_comp
-
-    def visit_Call(self, node):
-        if (
-                not self.in_comp and
-                self.class_info_stack and
-                self.class_info_stack[-1].def_depth == 1 and
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'super' and
-                len(node.args) == 2 and
-                all(isinstance(arg, ast.Name) for arg in node.args) and
-                node.args[0].id == self.class_info_stack[-1].name and
-                node.args[1].id == self.class_info_stack[-1].first_arg_name
-        ):
-            self.found[_ast_to_offset(node)] = node
-
-        self.generic_visit(node)
-
-
-def _fix_super(contents_text):
-    try:
-        ast_obj = ast_parse(contents_text)
-    except SyntaxError:
-        return contents_text
-
-    visitor = FindSuper()
-    visitor.visit(ast_obj)
-
-    if not visitor.found:
-        return contents_text
-
-    tokens = src_to_tokens(contents_text)
-    for i, token in reversed_enumerate(tokens):
-        call = visitor.found.get(token.offset)
-        if not call:
-            continue
-
-        while tokens[i].name != 'OP':
-            i += 1
-
-        victims = _victims(tokens, i, call, gen=False)
-        del tokens[victims.starts[0] + 1:victims.ends[-1]]
-
-    return tokens_to_src(tokens)
-
-
 SIX_SIMPLE_ATTRS = {
     'text_type': 'str',
     'binary_type': 'bytes',
@@ -1002,9 +919,14 @@ SIX_RAISES = {
 SIX_UNICODE_COMPATIBLE = 'python_2_unicode_compatible'
 
 
-class FindSixAndClassesUsage(ast.NodeVisitor):
+class FindPy3Plus(ast.NodeVisitor):
+    class ClassInfo:
+        def __init__(self, name):
+            self.name = name
+            self.def_depth = 0
+            self.first_arg_name = ''
+
     def __init__(self):
-        super(FindSixAndClassesUsage, self).__init__()
         self.call_attrs = {}
         self.call_names = {}
         self.classes = set()
@@ -1019,6 +941,10 @@ class FindSixAndClassesUsage(ast.NodeVisitor):
         self.with_metaclass_names = set()
         self.with_metaclass_attrs = set()
         self._previous_node = None
+
+        self.class_info_stack = []
+        self.super_calls = {}
+        self.in_comp = 0
 
     def visit_ImportFrom(self, node):
         if node.module == 'six':
@@ -1077,7 +1003,30 @@ class FindSixAndClassesUsage(ast.NodeVisitor):
             ):
                 self.with_metaclass_attrs.add(_ast_to_offset(node.bases[0]))
 
+        self.class_info_stack.append(FindPy3Plus.ClassInfo(node.name))
         self.generic_visit(node)
+        self.class_info_stack.pop()
+
+    def _visit_func(self, node):
+        if self.class_info_stack:
+            class_info = self.class_info_stack[-1]
+            class_info.def_depth += 1
+            if class_info.def_depth == 1 and node.args.args:
+                class_info.first_arg_name = getattr(node.args.args[0], ARGATTR)
+            self.generic_visit(node)
+            class_info.def_depth -= 1
+        else:
+            self.generic_visit(node)
+
+    visit_FunctionDef = visit_Lambda = _visit_func
+
+    def _visit_comp(self, node):
+        self.in_comp += 1
+        self.generic_visit(node)
+        self.in_comp -= 1
+
+    visit_ListComp = visit_SetComp = _visit_comp
+    visit_DictComp = visit_GeneratorExp = _visit_comp
 
     def _is_six_attr(self, node):
         return (
@@ -1143,12 +1092,24 @@ class FindSixAndClassesUsage(ast.NodeVisitor):
                 node.func.id in self.six_from_imports
         ):
             self.raise_names[_ast_to_offset(node)] = node
+        elif (
+                not self.in_comp and
+                self.class_info_stack and
+                self.class_info_stack[-1].def_depth == 1 and
+                isinstance(node.func, ast.Name) and
+                node.func.id == 'super' and
+                len(node.args) == 2 and
+                all(isinstance(arg, ast.Name) for arg in node.args) and
+                node.args[0].id == self.class_info_stack[-1].name and
+                node.args[1].id == self.class_info_stack[-1].first_arg_name
+        ):
+            self.super_calls[_ast_to_offset(node)] = node
 
         self.generic_visit(node)
 
     def generic_visit(self, node):
         self._previous_node = node
-        super(FindSixAndClassesUsage, self).generic_visit(node)
+        super(FindPy3Plus, self).generic_visit(node)
 
 
 def _parse_call_args(tokens, i):
@@ -1191,13 +1152,13 @@ def _replace_call(tokens, start, end, args, tmpl):
     tokens[start:end] = [Token('CODE', src)]
 
 
-def _fix_six_and_classes(contents_text):
+def _fix_py3_plus(contents_text):
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    visitor = FindSixAndClassesUsage()
+    visitor = FindPy3Plus()
     visitor.visit(ast_obj)
 
     if not any((
@@ -1213,6 +1174,7 @@ def _fix_six_and_classes(contents_text):
             visitor.raise_attrs,
             visitor.with_metaclass_names,
             visitor.with_metaclass_attrs,
+            visitor.super_calls,
     )):
         return contents_text
 
@@ -1341,6 +1303,13 @@ def _fix_six_and_classes(contents_text):
             ):
                 func_args, end = _parse_call_args(tokens, i + 3)
                 _replace_call(tokens, i, end, func_args, WITH_METACLASS_TMPL)
+        elif token.offset in visitor.super_calls:
+            while tokens[i].name != 'OP':
+                i += 1
+
+            call = visitor.super_calls[token.offset]
+            victims = _victims(tokens, i, call, gen=False)
+            del tokens[victims.starts[0] + 1:victims.ends[-1]]
 
     return tokens_to_src(tokens)
 
@@ -1484,8 +1453,7 @@ def fix_file(filename, args):
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)
     if args.py3_plus:
-        contents_text = _fix_super(contents_text)
-        contents_text = _fix_six_and_classes(contents_text)
+        contents_text = _fix_py3_plus(contents_text)
     if args.py36_plus:
         contents_text = _fix_fstrings(contents_text)
 
