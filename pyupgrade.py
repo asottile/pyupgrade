@@ -994,6 +994,7 @@ SIX_CALLS = {
     'assertRaisesRegex': '{args[0]}.assertRaisesRegex({rest})',
     'assertRegex': '{args[0]}.assertRegex({rest})',
 }
+WITH_METACLASS_TMPL = '{rest}, metaclass={args[0]}'
 SIX_RAISES = {
     'raise_from': 'raise {args[0]} from {rest}',
     'reraise': 'raise {args[1]}.with_traceback({args[2]})',
@@ -1015,6 +1016,8 @@ class FindSixAndClassesUsage(ast.NodeVisitor):
         self.type_ctx_names = {}
         self.remove_decorators = set()
         self.six_from_imports = set()
+        self.with_metaclass_names = set()
+        self.with_metaclass_attrs = set()
         self._previous_node = None
 
     def visit_ImportFrom(self, node):
@@ -1056,6 +1059,23 @@ class FindSixAndClassesUsage(ast.NodeVisitor):
                     base.attr == 'Iterator'
             ):
                 self.classes.add(_ast_to_offset(base))
+
+        if len(node.bases) == 1:
+            if (
+                    isinstance(base, ast.Call) and
+                    isinstance(base.func, ast.Name) and
+                    base.func.id == 'with_metaclass' and
+                    base.func.id in self.six_from_imports
+            ):
+                self.with_metaclass_names.add(_ast_to_offset(node.bases[0]))
+            elif (
+                    isinstance(base, ast.Call) and
+                    isinstance(base.func, ast.Attribute) and
+                    isinstance(base.func.value, ast.Name) and
+                    base.func.value.id == 'six' and
+                    base.func.attr == 'with_metaclass'
+            ):
+                self.with_metaclass_attrs.add(_ast_to_offset(node.bases[0]))
 
         self.generic_visit(node)
 
@@ -1191,6 +1211,8 @@ def _fix_six_and_classes(contents_text):
             visitor.call_attrs,
             visitor.raise_names,
             visitor.raise_attrs,
+            visitor.with_metaclass_names,
+            visitor.with_metaclass_attrs,
     )):
         return contents_text
 
@@ -1307,6 +1329,18 @@ def _fix_six_and_classes(contents_text):
                 func_args, end = _parse_call_args(tokens, i + 3)
                 template = SIX_RAISES[node.func.attr]
                 _replace_call(tokens, i, end, func_args, template)
+        elif token.offset in visitor.with_metaclass_names:
+            if tokens[i + 1].src == '(':
+                func_args, end = _parse_call_args(tokens, i + 1)
+                _replace_call(tokens, i, end, func_args, WITH_METACLASS_TMPL)
+        elif token.offset in visitor.with_metaclass_attrs:
+            if (
+                    tokens[i + 1].src == '.' and
+                    tokens[i + 2].src == 'with_metaclass' and
+                    tokens[i + 3].src == '('
+            ):
+                func_args, end = _parse_call_args(tokens, i + 3)
+                _replace_call(tokens, i, end, func_args, WITH_METACLASS_TMPL)
 
     return tokens_to_src(tokens)
 

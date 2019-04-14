@@ -1092,12 +1092,16 @@ def test_fix_classes(s, expected):
         'from six import u\nu ("bar")',
         'six.raise_from (exc, exc_from)',
         'from six import raise_from\nraise_from (exc, exc_from)',
+        'class C(six.with_metaclass (M, B)): pass',
+        'from six import with_metaclass\nclass C(with_metaclass (M, B)): pass',
         # don't rewrite things that would become `raise` in non-statements
         'print(six.raise_from(exc, exc_from))',
         # non-ascii bytestring
         'print(six.b("£"))',
         # extra whitespace
         'print(six.b(   "123"))',
+        # intentionally not handling this case due to it being a bug (?)
+        'class C(six.with_metaclass(Meta, B), D): pass',
     )
 )
 def test_fix_six_noop(s):
@@ -1260,6 +1264,18 @@ def test_fix_six_noop(s):
             '   tb,\n'
             ')\n',
             'raise exc.with_traceback(tb)\n',
+        ),
+        (
+            'class C(six.with_metaclass(M, B)): pass',
+
+            'class C(B, metaclass=M): pass',
+        ),
+        (
+            'from six import with_metaclass\n'
+            'class C(with_metaclass(M, B)): pass\n',
+
+            'from six import with_metaclass\n'
+            'class C(B, metaclass=M): pass\n'
         ),
     ),
 )
