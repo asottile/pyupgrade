@@ -195,9 +195,7 @@ else:  # pragma: no cover (<py38)
             # list element.
             if isinstance(arg.elts[0], ast.Tuple):
                 i = _search_until(tokens, i, arg)
-                while tokens[i].src != '(':
-                    i += 1
-                return i
+                return _find_open_paren(tokens, i)
             else:
                 return _search_until(tokens, i, arg.elts[0])
             # others' start position points at their first child node already
@@ -266,6 +264,12 @@ def _victims(tokens, start, arg, gen):
             ends = sorted(set(ends + [i]))
 
     return Victims(starts, ends, first_comma_index, arg_index)
+
+
+def _find_open_paren(tokens, i):
+    while tokens[i].src != '(':
+        i += 1
+    return i
 
 
 def _is_on_a_line_by_self(tokens, i):
@@ -351,7 +355,7 @@ class Py2CompatibleVisitor(ast.NodeVisitor):
         self.set_empty_literals = {}
         self.is_literal = {}
 
-    def visit_Call(self, node):  # type: (ast.AST) -> None
+    def visit_Call(self, node):  # type: (ast.Call) -> None
         if (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'set' and
@@ -378,7 +382,7 @@ class Py2CompatibleVisitor(ast.NodeVisitor):
             self.dicts[_ast_to_offset(node.func)] = arg
         self.generic_visit(node)
 
-    def visit_Compare(self, node):  # type: (ast.AST) -> None
+    def visit_Compare(self, node):  # type: (ast.Compare) -> None
         left = node.left
         for op, right in zip(node.ops, node.comparators):
             if (
@@ -664,7 +668,7 @@ class FindPercentFormats(ast.NodeVisitor):
     def __init__(self):
         self.found = {}
 
-    def visit_BinOp(self, node):
+    def visit_BinOp(self, node):  # type: (ast.BinOp) -> None
         if isinstance(node.op, ast.Mod) and isinstance(node.left, ast.Str):
             for _, fmt in parse_percent_format(node.left.s):
                 if not fmt:
@@ -882,15 +886,13 @@ SIX_SIMPLE_ATTRS = {
     'next': 'next',
     'callable': 'callable',
 }
-SIX_TYPE_CTX_ATTRS = dict(
-    SIX_SIMPLE_ATTRS,
-    class_types='type',
-    string_types='str',
-    integer_types='int',
-)
+SIX_TYPE_CTX_ATTRS = {
+    'class_types': 'type',
+    'string_types': 'str',
+    'integer_types': 'int',
+}
 SIX_CALLS = {
     'u': '{args[0]}',
-    'b': 'b{args[0]}',
     'byte2int': '{arg0}[0]',
     'indexbytes': '{args[0]}[{rest}]',
     'iteritems': '{args[0]}.items()',
@@ -911,12 +913,12 @@ SIX_CALLS = {
     'assertRaisesRegex': '{args[0]}.assertRaisesRegex({rest})',
     'assertRegex': '{args[0]}.assertRegex({rest})',
 }
+SIX_B_TMPL = 'b{args[0]}'
 WITH_METACLASS_TMPL = '{rest}, metaclass={args[0]}'
 SIX_RAISES = {
     'raise_from': 'raise {args[0]} from {rest}',
     'reraise': 'raise {args[1]}.with_traceback({args[2]})',
 }
-SIX_UNICODE_COMPATIBLE = 'python_2_unicode_compatible'
 
 
 class FindPy3Plus(ast.NodeVisitor):
@@ -927,89 +929,66 @@ class FindPy3Plus(ast.NodeVisitor):
             self.first_arg_name = ''
 
     def __init__(self):
-        self.call_attrs = {}
-        self.call_names = {}
-        self.classes = set()
-        self.raise_attrs = {}
-        self.raise_names = {}
-        self.simple_attrs = {}
-        self.simple_names = {}
-        self.type_ctx_attrs = {}
-        self.type_ctx_names = {}
-        self.remove_decorators = set()
-        self.six_from_imports = set()
-        self.with_metaclass_names = set()
-        self.with_metaclass_attrs = set()
+        self.bases_to_remove = set()
+
+        self._six_from_imports = set()
+        self.six_b = set()
+        self.six_calls = {}
         self._previous_node = None
+        self.six_raises = {}
+        self.six_remove_decorators = set()
+        self.six_simple = {}
+        self.six_type_ctx = {}
+        self.six_with_metaclass = set()
 
-        self.class_info_stack = []
+        self._class_info_stack = []
+        self._in_comp = 0
         self.super_calls = {}
-        self.in_comp = 0
 
-    def visit_ImportFrom(self, node):
+    def _is_six(self, node, names):
+        return (
+            isinstance(node, ast.Name) and
+            node.id in names and
+            node.id in self._six_from_imports
+        ) or (
+            isinstance(node, ast.Attribute) and
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'six' and
+            node.attr in names
+        )
+
+    def visit_ImportFrom(self, node):  # type: (ast.ImportFrom) -> None
         if node.module == 'six':
             for name in node.names:
                 if not name.asname:
-                    self.six_from_imports.add(name.name)
+                    self._six_from_imports.add(name.name)
         self.generic_visit(node)
 
-    def visit_ClassDef(self, node):
+    def visit_ClassDef(self, node):  # type: (ast.ClassDef) -> None
         for decorator in node.decorator_list:
-            if (
-                    (
-                        isinstance(decorator, ast.Name) and
-                        decorator.id in self.six_from_imports and
-                        decorator.id == SIX_UNICODE_COMPATIBLE
-                    ) or (
-                        isinstance(decorator, ast.Attribute) and
-                        isinstance(decorator.value, ast.Name) and
-                        decorator.value.id == 'six' and
-                        decorator.attr == SIX_UNICODE_COMPATIBLE
-                    )
-            ):
-                self.remove_decorators.add(_ast_to_offset(decorator))
+            if self._is_six(decorator, ('python_2_unicode_compatible',)):
+                self.six_remove_decorators.add(_ast_to_offset(decorator))
 
-        for i, base in enumerate(node.bases):
+        for base in node.bases:
             if isinstance(base, ast.Name) and base.id == 'object':
-                self.classes.add(_ast_to_offset(base))
-            elif (
-                    isinstance(base, ast.Name) and
-                    base.id == 'Iterator' and
-                    base.id in self.six_from_imports
-            ):
-                self.classes.add(_ast_to_offset(base))
-            elif (
-                    isinstance(base, ast.Attribute) and
-                    isinstance(base.value, ast.Name) and
-                    base.value.id == 'six' and
-                    base.attr == 'Iterator'
-            ):
-                self.classes.add(_ast_to_offset(base))
+                self.bases_to_remove.add(_ast_to_offset(base))
+            elif self._is_six(base, ('Iterator',)):
+                self.bases_to_remove.add(_ast_to_offset(base))
 
-        if len(node.bases) == 1:
-            if (
-                    isinstance(base, ast.Call) and
-                    isinstance(base.func, ast.Name) and
-                    base.func.id == 'with_metaclass' and
-                    base.func.id in self.six_from_imports
-            ):
-                self.with_metaclass_names.add(_ast_to_offset(node.bases[0]))
-            elif (
-                    isinstance(base, ast.Call) and
-                    isinstance(base.func, ast.Attribute) and
-                    isinstance(base.func.value, ast.Name) and
-                    base.func.value.id == 'six' and
-                    base.func.attr == 'with_metaclass'
-            ):
-                self.with_metaclass_attrs.add(_ast_to_offset(node.bases[0]))
+        if (
+                len(node.bases) == 1 and
+                isinstance(node.bases[0], ast.Call) and
+                self._is_six(node.bases[0].func, ('with_metaclass',))
+        ):
+            self.six_with_metaclass.add(_ast_to_offset(node.bases[0]))
 
-        self.class_info_stack.append(FindPy3Plus.ClassInfo(node.name))
+        self._class_info_stack.append(FindPy3Plus.ClassInfo(node.name))
         self.generic_visit(node)
-        self.class_info_stack.pop()
+        self._class_info_stack.pop()
 
     def _visit_func(self, node):
-        if self.class_info_stack:
-            class_info = self.class_info_stack[-1]
+        if self._class_info_stack:
+            class_info = self._class_info_stack[-1]
             class_info.def_depth += 1
             if class_info.def_depth == 1 and node.args.args:
                 class_info.first_arg_name = getattr(node.args.args[0], ARGATTR)
@@ -1021,87 +1000,47 @@ class FindPy3Plus(ast.NodeVisitor):
     visit_FunctionDef = visit_Lambda = _visit_func
 
     def _visit_comp(self, node):
-        self.in_comp += 1
+        self._in_comp += 1
         self.generic_visit(node)
-        self.in_comp -= 1
+        self._in_comp -= 1
 
     visit_ListComp = visit_SetComp = _visit_comp
     visit_DictComp = visit_GeneratorExp = _visit_comp
 
-    def _is_six_attr(self, node):
-        return (
-            isinstance(node, ast.Attribute) and
-            isinstance(node.value, ast.Name) and
-            node.value.id == 'six' and
-            node.attr in SIX_SIMPLE_ATTRS
-        )
-
-    def _is_six_name(self, node):
-        return (
-            isinstance(node, ast.Name) and
-            node.id in SIX_SIMPLE_ATTRS and
-            node.id in self.six_from_imports
-        )
-
-    def visit_Name(self, node):
-        if self._is_six_name(node):
-            self.simple_names[_ast_to_offset(node)] = node
+    def _visit_simple(self, node):
+        if self._is_six(node, SIX_SIMPLE_ATTRS):
+            self.six_simple[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
-    def visit_Attribute(self, node):
-        if self._is_six_attr(node):
-            self.simple_attrs[_ast_to_offset(node)] = node
-        self.generic_visit(node)
+    visit_Name = visit_Attribute = _visit_simple
 
-    def visit_Call(self, node):
+    def visit_Call(self, node):  # type: (ast.Call) -> None
         if (
                 isinstance(node.func, ast.Name) and
                 node.func.id in {'isinstance', 'issubclass'} and
-                len(node.args) == 2
+                len(node.args) == 2 and
+                self._is_six(node.args[1], SIX_TYPE_CTX_ATTRS)
         ):
-            type_arg = node.args[1]
-            if self._is_six_attr(type_arg):
-                self.type_ctx_attrs[_ast_to_offset(type_arg)] = type_arg
-            elif self._is_six_name(type_arg):
-                self.type_ctx_names[_ast_to_offset(type_arg)] = type_arg
-        elif (
-                isinstance(node.func, ast.Attribute) and
-                isinstance(node.func.value, ast.Name) and
-                node.func.value.id == 'six' and
-                node.func.attr in SIX_CALLS
-        ):
-            self.call_attrs[_ast_to_offset(node)] = node
-        elif (
-                isinstance(node.func, ast.Name) and
-                node.func.id in SIX_CALLS and
-                node.func.id in self.six_from_imports
-        ):
-            self.call_names[_ast_to_offset(node)] = node
+            self.six_type_ctx[_ast_to_offset(node.args[1])] = node.args[1]
+        elif self._is_six(node.func, ('b',)):
+            self.six_b.add(_ast_to_offset(node))
+        elif self._is_six(node.func, SIX_CALLS):
+            self.six_calls[_ast_to_offset(node)] = node
         elif (
                 isinstance(self._previous_node, ast.Expr) and
-                isinstance(node.func, ast.Attribute) and
-                isinstance(node.func.value, ast.Name) and
-                node.func.value.id == 'six' and
-                node.func.attr in SIX_RAISES
+                self._is_six(node.func, SIX_RAISES)
         ):
-            self.raise_attrs[_ast_to_offset(node)] = node
+            self.six_raises[_ast_to_offset(node)] = node
         elif (
-                isinstance(self._previous_node, ast.Expr) and
-                isinstance(node.func, ast.Name) and
-                node.func.id in SIX_RAISES and
-                node.func.id in self.six_from_imports
-        ):
-            self.raise_names[_ast_to_offset(node)] = node
-        elif (
-                not self.in_comp and
-                self.class_info_stack and
-                self.class_info_stack[-1].def_depth == 1 and
+                not self._in_comp and
+                self._class_info_stack and
+                self._class_info_stack[-1].def_depth == 1 and
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'super' and
                 len(node.args) == 2 and
                 all(isinstance(arg, ast.Name) for arg in node.args) and
-                node.args[0].id == self.class_info_stack[-1].name and
-                node.args[1].id == self.class_info_stack[-1].first_arg_name
+                node.args[0].id == self._class_info_stack[-1].name and
+                node.args[1].id == self._class_info_stack[-1].first_arg_name
         ):
             self.super_calls[_ast_to_offset(node)] = node
 
@@ -1110,6 +1049,57 @@ class FindPy3Plus(ast.NodeVisitor):
     def generic_visit(self, node):
         self._previous_node = node
         super(FindPy3Plus, self).generic_visit(node)
+
+
+def _remove_base_class(tokens, i):
+    # look forward and backward to find commas / parens
+    brace_stack = []
+    j = i
+    while tokens[j].src not in {',', ':'}:
+        if tokens[j].src == ')':
+            brace_stack.append(j)
+        j += 1
+    right = j
+
+    if tokens[right].src == ':':
+        brace_stack.pop()
+    else:
+        # if there's a close-paren after a trailing comma
+        j = right + 1
+        while tokens[j].name in NON_CODING_TOKENS:
+            j += 1
+        if tokens[j].src == ')':
+            while tokens[j].src != ':':
+                j += 1
+            right = j
+
+    if brace_stack:
+        last_part = brace_stack[-1]
+    else:
+        last_part = i
+
+    j = i
+    while brace_stack:
+        if tokens[j].src == '(':
+            brace_stack.pop()
+        j -= 1
+
+    while tokens[j].src not in {',', '('}:
+        j -= 1
+    left = j
+
+    # single base, remove the entire bases
+    if tokens[left].src == '(' and tokens[right].src == ':':
+        del tokens[left:right]
+    # multiple bases, base is first
+    elif tokens[left].src == '(' and tokens[right].src != ':':
+        # if there's space / comment afterwards remove that too
+        while tokens[right + 1].name in {UNIMPORTANT_WS, 'COMMENT'}:
+            right += 1
+        del tokens[left + 1:right + 1]
+    # multiple bases, base is not first
+    else:
+        del tokens[left:last_part + 1]
 
 
 def _parse_call_args(tokens, i):
@@ -1137,6 +1127,13 @@ def _parse_call_args(tokens, i):
     return args, i
 
 
+def _get_tmpl(mapping, node):
+    if isinstance(node, ast.Name):
+        return mapping[node.id]
+    else:
+        return mapping[node.attr]
+
+
 def _replace_call(tokens, start, end, args, tmpl):
     arg_strs = [tokens_to_src(tokens[slice(*arg)]).strip() for arg in args]
 
@@ -1162,164 +1159,76 @@ def _fix_py3_plus(contents_text):
     visitor.visit(ast_obj)
 
     if not any((
-            visitor.classes,
-            visitor.type_ctx_names,
-            visitor.type_ctx_attrs,
-            visitor.simple_names,
-            visitor.simple_attrs,
-            visitor.remove_decorators,
-            visitor.call_names,
-            visitor.call_attrs,
-            visitor.raise_names,
-            visitor.raise_attrs,
-            visitor.with_metaclass_names,
-            visitor.with_metaclass_attrs,
+            visitor.bases_to_remove,
+            visitor.six_b,
+            visitor.six_calls,
+            visitor.six_raises,
+            visitor.six_remove_decorators,
+            visitor.six_simple,
+            visitor.six_type_ctx,
+            visitor.six_with_metaclass,
             visitor.super_calls,
     )):
         return contents_text
 
-    def _replace_name(i, mapping, node):
-        tokens[i] = Token('CODE', mapping[node.id])
-
-    def _replace_attr(i, mapping, node):
-        if tokens[i + 1].src == '.' and tokens[i + 2].src == node.attr:
-            tokens[i:i + 3] = [Token('CODE', mapping[node.attr])]
+    def _replace(i, mapping, node):
+        new_token = Token('CODE', _get_tmpl(mapping, node))
+        if isinstance(node, ast.Name):
+            tokens[i] = new_token
+        else:
+            j = i
+            while tokens[j].src != node.attr:
+                j += 1
+            tokens[i:j + 1] = [new_token]
 
     tokens = src_to_tokens(contents_text)
     for i, token in reversed_enumerate(tokens):
-        if token.offset in visitor.classes:
-            # look forward and backward to find commas / parens
-            brace_stack = []
-            j = i
-            while tokens[j].src not in {',', ':'}:
-                if tokens[j].src == ')':
-                    brace_stack.append(j)
-                j += 1
-            right = j
-
-            if tokens[right].src == ':':
-                brace_stack.pop()
-            else:
-                # if there's a close-paren after a trailing comma
-                j = right + 1
-                while tokens[j].name in NON_CODING_TOKENS:
-                    j += 1
-                if tokens[j].src == ')':
-                    while tokens[j].src != ':':
-                        j += 1
-                    right = j
-
-            if brace_stack:
-                last_part = brace_stack[-1]
-            else:
-                last_part = i
-
-            j = i
-            while brace_stack:
-                if tokens[j].src == '(':
-                    brace_stack.pop()
-                j -= 1
-
-            while tokens[j].src not in {',', '('}:
-                j -= 1
-            left = j
-
-            # single base, remove the entire bases
-            if tokens[left].src == '(' and tokens[right].src == ':':
-                del tokens[left:right]
-            # multiple bases, base is first
-            elif tokens[left].src == '(' and tokens[right].src != ':':
-                # if there's space / comment afterwards remove that too
-                while tokens[right + 1].name in {UNIMPORTANT_WS, 'COMMENT'}:
-                    right += 1
-                del tokens[left + 1:right + 1]
-            # multiple bases, base is not first
-            else:
-                del tokens[left:last_part + 1]
-
-        if token.offset in visitor.type_ctx_names:
-            node = visitor.type_ctx_names[token.offset]
-            _replace_name(i, SIX_TYPE_CTX_ATTRS, node)
-        elif token.offset in visitor.type_ctx_attrs:
-            node = visitor.type_ctx_attrs[token.offset]
-            _replace_attr(i, SIX_TYPE_CTX_ATTRS, node)
-        elif token.offset in visitor.simple_names:
-            node = visitor.simple_names[token.offset]
-            _replace_name(i, SIX_SIMPLE_ATTRS, node)
-        elif token.offset in visitor.simple_attrs:
-            node = visitor.simple_attrs[token.offset]
-            _replace_attr(i, SIX_SIMPLE_ATTRS, node)
-        elif token.offset in visitor.remove_decorators:
+        if not token.src:
+            continue
+        elif token.offset in visitor.bases_to_remove:
+            _remove_base_class(tokens, i)
+        elif token.offset in visitor.six_type_ctx:
+            _replace(i, SIX_TYPE_CTX_ATTRS, visitor.six_type_ctx[token.offset])
+        elif token.offset in visitor.six_simple:
+            _replace(i, SIX_SIMPLE_ATTRS, visitor.six_simple[token.offset])
+        elif token.offset in visitor.six_remove_decorators:
             if tokens[i - 1].src == '@':
                 end = i + 1
                 while tokens[end].name != 'NEWLINE':
                     end += 1
                 del tokens[i - 1:end + 1]
-        elif token.offset in visitor.call_names:
-            node = visitor.call_names[token.offset]
+        elif token.offset in visitor.six_b:
+            j = _find_open_paren(tokens, i)
             if (
-                    tokens[i + 1].src == '(' and
-                    (tokens[i].src != 'b' or _valid_six_b(tokens, i))
+                    tokens[j + 1].name == 'STRING' and
+                    _is_ascii(tokens[j + 1].src) and
+                    tokens[j + 2].src == ')'
             ):
-                func_args, end = _parse_call_args(tokens, i + 1)
-                template = SIX_CALLS[node.func.id]
-                _replace_call(tokens, i, end, func_args, template)
-        elif token.offset in visitor.call_attrs:
-            node = visitor.call_attrs[token.offset]
-            if (
-                    tokens[i + 1].src == '.' and
-                    tokens[i + 2].src == node.func.attr and
-                    tokens[i + 3].src == '(' and
-                    (tokens[i + 2].src != 'b' or _valid_six_b(tokens, i + 2))
-            ):
-                func_args, end = _parse_call_args(tokens, i + 3)
-                template = SIX_CALLS[node.func.attr]
-                _replace_call(tokens, i, end, func_args, template)
-        elif token.offset in visitor.raise_names:
-            node = visitor.raise_names[token.offset]
-            if tokens[i + 1].src == '(':
-                func_args, end = _parse_call_args(tokens, i + 1)
-                template = SIX_RAISES[node.func.id]
-                _replace_call(tokens, i, end, func_args, template)
-        elif token.offset in visitor.raise_attrs:
-            node = visitor.raise_attrs[token.offset]
-            if (
-                    tokens[i + 1].src == '.' and
-                    tokens[i + 2].src == node.func.attr and
-                    tokens[i + 3].src == '('
-            ):
-                func_args, end = _parse_call_args(tokens, i + 3)
-                template = SIX_RAISES[node.func.attr]
-                _replace_call(tokens, i, end, func_args, template)
-        elif token.offset in visitor.with_metaclass_names:
-            if tokens[i + 1].src == '(':
-                func_args, end = _parse_call_args(tokens, i + 1)
-                _replace_call(tokens, i, end, func_args, WITH_METACLASS_TMPL)
-        elif token.offset in visitor.with_metaclass_attrs:
-            if (
-                    tokens[i + 1].src == '.' and
-                    tokens[i + 2].src == 'with_metaclass' and
-                    tokens[i + 3].src == '('
-            ):
-                func_args, end = _parse_call_args(tokens, i + 3)
-                _replace_call(tokens, i, end, func_args, WITH_METACLASS_TMPL)
+                func_args, end = _parse_call_args(tokens, j)
+                _replace_call(tokens, i, end, func_args, SIX_B_TMPL)
+        elif token.offset in visitor.six_calls:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            node = visitor.six_calls[token.offset]
+            template = _get_tmpl(SIX_CALLS, node.func)
+            _replace_call(tokens, i, end, func_args, template)
+        elif token.offset in visitor.six_raises:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            node = visitor.six_raises[token.offset]
+            template = _get_tmpl(SIX_RAISES, node.func)
+            _replace_call(tokens, i, end, func_args, template)
+        elif token.offset in visitor.six_with_metaclass:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            _replace_call(tokens, i, end, func_args, WITH_METACLASS_TMPL)
         elif token.offset in visitor.super_calls:
-            while tokens[i].name != 'OP':
-                i += 1
-
+            i = _find_open_paren(tokens, i)
             call = visitor.super_calls[token.offset]
             victims = _victims(tokens, i, call, gen=False)
             del tokens[victims.starts[0] + 1:victims.ends[-1]]
 
     return tokens_to_src(tokens)
-
-
-def _valid_six_b(tokens, b_i):
-    return (
-        tokens[b_i + 2].name == 'STRING' and
-        _is_ascii(tokens[b_i + 2].src) and
-        tokens[b_i + 3].src == ')'
-    )
 
 
 def _simple_arg(arg):
@@ -1346,7 +1255,7 @@ class FindSimpleFormats(ast.NodeVisitor):
     def __init__(self):
         self.found = {}
 
-    def visit_Call(self, node):
+    def visit_Call(self, node):  # type: (ast.Call) -> None
         if (
                 isinstance(node.func, ast.Attribute) and
                 isinstance(node.func.value, ast.Str) and

@@ -1072,8 +1072,6 @@ def test_fix_classes(s, expected):
     (
         # syntax error
         'x = (',
-        # weird attributes
-        'isinstance(s, six   .    string_types)',
         # weird space at beginning of decorator
         '@  six.python_2_unicode_compatible\n'
         'class C: pass',
@@ -1086,13 +1084,6 @@ def test_fix_classes(s, expected):
         # renaming things for weird reasons
         'from six import StringIO as text_type\n'
         'isinstance(s, text_type)\n',
-        # weird spaces at begining of calls
-        'six.u ("bar")',
-        'from six import u\nu ("bar")',
-        'six.raise_from (exc, exc_from)',
-        'from six import raise_from\nraise_from (exc, exc_from)',
-        'class C(six.with_metaclass (M, B)): pass',
-        'from six import with_metaclass\nclass C(with_metaclass (M, B)): pass',
         # don't rewrite things that would become `raise` in non-statements
         'print(six.raise_from(exc, exc_from))',
         # non-ascii bytestring
@@ -1114,21 +1105,10 @@ def test_fix_six_noop(s):
             'isinstance(s, six.text_type)',
             'isinstance(s, str)',
         ),
-        (
-            'isinstance(s, six.b("123"))',
-            'isinstance(s, b"123")',
-        ),
-        (
-            'isinstance(s, six.b(r"123"))',
-            'isinstance(s, br"123")',
-        ),
-        (
-            r'isinstance(s, six.b("\x12\xef"))',
-            r'isinstance(s, b"\x12\xef")',
-        ),
-        (
-            'from six import b\n\n' + r'b("\x12\xef")',
-            'from six import b\n\n' + r'b"\x12\xef"',
+        pytest.param(
+            'isinstance(s, six   .    string_types)',
+            'isinstance(s, str)',
+            id='weird spacing on six.attr',
         ),
         (
             'isinstance(s, six.string_types)',
@@ -1155,6 +1135,22 @@ def test_fix_six_noop(s):
 
             'from six import string_types\n'
             'STRING_TYPES = (str,)\n',
+        ),
+        (
+            'six.b("123")',
+            'b"123"',
+        ),
+        (
+            'six.b(r"123")',
+            'br"123"',
+        ),
+        (
+            r'six.b("\x12\xef")',
+            r'b"\x12\xef"',
+        ),
+        (
+            'from six import b\n\n' r'b("\x12\xef")',
+            'from six import b\n\n' r'b"\x12\xef"',
         ),
         (
             '@six.python_2_unicode_compatible\n'
@@ -1241,6 +1237,16 @@ def test_fix_six_noop(s):
             '   (1, 2, 3),\n'
             ')',
         ),
+        pytest.param(
+            'six.u ("bar")',
+            '"bar"',
+            id='weird spacing six.u',
+        ),
+        pytest.param(
+            'from six import u\nu ("bar")',
+            'from six import u\n"bar"',
+            id='weird spacing u',
+        ),
         (
             'six.raise_from(exc, exc_from)\n',
             'raise exc from exc_from\n',
@@ -1264,6 +1270,16 @@ def test_fix_six_noop(s):
             ')\n',
             'raise exc.with_traceback(tb)\n',
         ),
+        pytest.param(
+            'six.raise_from (exc, exc_from)',
+            'raise exc from exc_from',
+            id='weird spacing six.raise_from',
+        ),
+        pytest.param(
+            'from six import raise_from\nraise_from (exc, exc_from)',
+            'from six import raise_from\nraise exc from exc_from',
+            id='weird spacing raise_from',
+        ),
         (
             'class C(six.with_metaclass(M, B)): pass',
 
@@ -1275,6 +1291,20 @@ def test_fix_six_noop(s):
 
             'from six import with_metaclass\n'
             'class C(B, metaclass=M): pass\n'
+        ),
+        pytest.param(
+            'class C(six.with_metaclass (M, B)): pass',
+            'class C(B, metaclass=M): pass',
+            id='weird spacing six.with_metaclass',
+        ),
+        pytest.param(
+            'from six import with_metaclass\n'
+            'class C(with_metaclass (M, B)): pass',
+
+            'from six import with_metaclass\n'
+            'class C(B, metaclass=M): pass',
+
+            id='weird spacing with_metaclass',
         ),
     ),
 )
