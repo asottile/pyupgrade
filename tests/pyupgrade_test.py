@@ -1281,6 +1281,11 @@ def test_fix_six_noop(s):
             id='weird spacing raise_from',
         ),
         (
+            'class C(six.with_metaclass(M)): pass',
+
+            'class C(metaclass=M): pass',
+        ),
+        (
             'class C(six.with_metaclass(M, B)): pass',
 
             'class C(B, metaclass=M): pass',
