@@ -914,7 +914,8 @@ SIX_CALLS = {
     'assertRegex': '{args[0]}.assertRegex({rest})',
 }
 SIX_B_TMPL = 'b{args[0]}'
-WITH_METACLASS_TMPL = '{rest}, metaclass={args[0]}'
+WITH_METACLASS_NO_BASES_TMPL = 'metaclass={args[0]}'
+WITH_METACLASS_BASES_TMPL = '{rest}, metaclass={args[0]}'
 SIX_RAISES = {
     'raise_from': 'raise {args[0]} from {rest}',
     'reraise': 'raise {args[1]}.with_traceback({args[2]})',
@@ -1221,7 +1222,11 @@ def _fix_py3_plus(contents_text):
         elif token.offset in visitor.six_with_metaclass:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
-            _replace_call(tokens, i, end, func_args, WITH_METACLASS_TMPL)
+            if len(func_args) == 1:
+                tmpl = WITH_METACLASS_NO_BASES_TMPL
+            else:
+                tmpl = WITH_METACLASS_BASES_TMPL
+            _replace_call(tokens, i, end, func_args, tmpl)
         elif token.offset in visitor.super_calls:
             i = _find_open_paren(tokens, i)
             call = visitor.super_calls[token.offset]
