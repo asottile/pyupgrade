@@ -1366,6 +1366,7 @@ def test_fix_classes_py3only(s, expected):
         'b"{} {}".format(a, b)',
         # for now, too difficult to rewrite correctly
         '"{:{}}".format(x, y)',
+        '"{a[b]}".format(a=a)',
     ),
 )
 def test_fix_fstrings_noop(s):

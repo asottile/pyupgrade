@@ -1279,6 +1279,9 @@ class FindSimpleFormats(ast.NodeVisitor):
                     # timid: could make the f-string longer
                     if candidate and candidate in seen:
                         break
+                    # timid: bracketed
+                    elif '[' in candidate:
+                        break
                     seen.add(candidate)
             else:
                 self.found[_ast_to_offset(node)] = node
