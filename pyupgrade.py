@@ -1280,7 +1280,7 @@ class FindSimpleFormats(ast.NodeVisitor):
                     if candidate and candidate in seen:
                         break
                     # timid: bracketed
-                    elif '[' in candidate:
+                    elif '[' in name:
                         break
                     seen.add(candidate)
             else:
