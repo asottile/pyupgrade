@@ -1433,6 +1433,119 @@ def test_fix_classes_py3only(s, expected):
     assert _fix_py3_plus(s) == expected
 
 
+@pytest.mark.xfail(sys.version_info < (3,), reason='py3+ yield from')
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        (
+            'def f():\n'
+            '    for x in y:\n'
+            '        yield x  # Comment one\n'
+            '\n\n'
+            'def g():\n'
+            '    print(3)',
+            'def f():\n'
+            '    # Comment one\n'
+            '    yield from y\n'
+            '\n\n'
+            'def g():\n'
+            '    print(3)',
+        ),
+        (
+            'def f():\n'
+            '    for x in [1, 2, 3]:\n'
+            '        yield x',
+            'def f():\n'
+            '    yield from [1, 2, 3]',
+        ),
+        (
+            'def f():\n'
+            '    for x in {x for x in y}:\n'
+            '        yield x',
+            'def f():\n'
+            '    yield from {x for x in y}',
+        ),
+        (
+            'def f():\n'
+            '    for x in (1, 2, 3):\n'
+            '        yield x',
+            'def f():\n'
+            '    yield from (1, 2, 3)',
+        ),
+        (
+            'def f():\n'
+            '    for x, y in {3: "x", 6: "y"}:\n'
+            '        yield x, y',
+            'def f():\n'
+            '    yield from {3: "x", 6: "y"}',
+        ),
+        (
+            'def f():  # Comment one\n'
+            '    # Comment two\n'
+            '    for x, y in {  # Comment three\n'
+            '       3: "x",  # Comment four\n'
+            '       # Comment five\n'
+            '       6: "y"  # Comment six\n'
+            '    }:  # Comment seven\n'
+            '       # Comment eight\n'
+            '       yield x, y  # Comment nine\n'
+            '       # Comment ten',
+            'def f():  # Comment one\n'
+            '    # Comment two\n'
+            '    # Comment eight\n'
+            '    # Comment nine\n'
+            '    yield from {  # Comment three\n'
+            '       3: "x",  # Comment four\n'
+            '       # Comment five\n'
+            '       6: "y"  # Comment six\n'
+            '    }  # Comment seven\n'
+            '    # Comment ten',
+        ),
+        (
+            'def f():\n'
+            '    for x, y in [{3: (3, [44, "long ss"]), 6: "y"}]:\n'
+            '        yield x, y',
+            'def f():\n'
+            '    yield from [{3: (3, [44, "long ss"]), 6: "y"}]',
+        ),
+        (
+            'def f():\n'
+            '    for x, y in z():\n'
+            '        yield x, y',
+            'def f():\n'
+            '    yield from z()',
+        ),
+        (
+            'def f():\n'
+            '    def func():\n'
+            '        # This comment is preserved\n'
+            '\n'
+            '        for x, y in z():  # Comment one\n'
+            '\n'
+            '            # Commment two\n'
+            '            yield x, y  # Comment three\n'
+            '            # Comment four\n'
+            '\n\n'
+            'def g():\n'
+            '    print(3)',
+            'def f():\n'
+            '    def func():\n'
+            '        # This comment is preserved\n'
+            '\n'
+            '        # Commment two\n'
+            '        # Comment three\n'
+            '        yield from z()  # Comment one\n'
+            '        # Comment four\n'
+            '\n\n'
+            'def g():\n'
+            '    print(3)',
+        ),
+    ),
+)
+def test_fix_yield_from_py3only(s, expected):
+    assert _fix_py3_plus(s) == expected
+
+
 @pytest.mark.parametrize(
     's',
     (

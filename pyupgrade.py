@@ -270,10 +270,20 @@ def _victims(tokens, start, arg, gen):
     return Victims(starts, ends, first_comma_index, arg_index)
 
 
-def _find_open_paren(tokens, i):
-    while tokens[i].src != '(':
+def _find_token(tokens, i, token):
+    while tokens[i].src != token:
         i += 1
     return i
+
+
+def _find_token_by_name(tokens, i, name):
+    while tokens[i].name != name:
+        i += 1
+    return i
+
+
+def _find_open_paren(tokens, i):
+    return _find_token(tokens, i, '(')
 
 
 def _is_on_a_line_by_self(tokens, i):
@@ -941,6 +951,44 @@ SIX_RAISES = {
     'raise_from': 'raise {args[0]} from {rest}',
     'reraise': 'raise {args[1]}.with_traceback({args[2]})',
 }
+YIELD_FROM_TMPL = 'yield from {0}'
+
+
+def _all_isinstance(vals, tp):
+    return all(isinstance(v, tp) for v in vals)
+
+
+def fields_same(n1, n2):
+    for (a1, v1), (a2, v2) in zip(ast.iter_fields(n1), ast.iter_fields(n2)):
+        # ignore ast attributes, they'll be covered by walk
+        if a1 != a2:
+            return False
+        elif _all_isinstance((v1, v2), ast.AST):
+            continue
+        elif _all_isinstance((v1, v2), (list, tuple)):
+            if len(v1) != len(v2):
+                return False
+            # ignore sequences which are all-ast, they'll be covered by walk
+            elif _all_isinstance(v1, ast.AST) and _all_isinstance(v2, ast.AST):
+                continue
+            elif v1 != v2:
+                return False
+        elif v1 != v2:
+            return False
+    return True
+
+
+def targets_same(target, yield_value):
+    for t1, t2 in zip(ast.walk(target), ast.walk(yield_value)):
+        # ignore `ast.Load` / `ast.Store`
+        if _all_isinstance((t1, t2), ast.expr_context):
+            continue
+        elif type(t1) != type(t2):
+            return False
+        elif not fields_same(t1, t2):
+            return False
+    else:
+        return True
 
 
 def _is_utf8_codec(encoding):
@@ -981,6 +1029,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack = []
         self._in_comp = 0
         self.super_calls = {}
+        self.yield_from_container = {}
 
     def _is_six(self, node, names):
         return (
@@ -1134,6 +1183,17 @@ class FindPy3Plus(ast.NodeVisitor):
                     )
             ):
                 self.if_py3_blocks.add(_ast_to_offset(node))
+        self.generic_visit(node)
+
+    def visit_For(self, node):  # type: (ast.For) -> None
+        if (
+            len(node.body) == 1 and
+            isinstance(node.body[0], ast.Expr) and
+            isinstance(node.body[0].value, ast.Yield) and
+            targets_same(node.target, node.body[0].value.value)
+        ):
+            self.yield_from_container[_ast_to_offset(node)] = node
+
         self.generic_visit(node)
 
     def generic_visit(self, node):  # type: (ast.AST) -> None
@@ -1379,6 +1439,58 @@ def _replace_call(tokens, start, end, args, tmpl):
     tokens[start:end] = [Token('CODE', src)]
 
 
+def _replace_yield(tokens, node, i):
+    def remove_colon(start_idx):
+        while tokens[start_idx].src != ':':
+            start_idx -= 1
+        del tokens[start_idx]
+
+    def generate_comment_tokens(indent, comments):
+        return [
+            token for comment in comments for token in [
+                Token('INDENT', indent),
+                comment,
+                Token('NEWLINE', '\n')
+            ]
+        ]
+
+    in_token = _find_token(tokens, i, 'in')
+    iterable_end = _find_token_by_name(tokens, in_token, 'NEWLINE')
+
+    remove_colon(iterable_end)
+
+    yield_begin = _find_token(tokens, iterable_end, 'yield')
+    yield_end = _find_token_by_name(tokens, yield_begin, 'NEWLINE')
+    comments = [tok for tok in tokens[iterable_end:yield_end]
+                if tok.name == 'COMMENT']
+
+    loop_body_end = _find_token_by_name(tokens, yield_end, 'DEDENT')
+
+    # Omit NL
+    while tokens[loop_body_end].name not in ['COMMENT', 'NEWLINE']:
+        loop_body_end -= 1
+
+    trailing_comments = [tok for tok in tokens[yield_end:loop_body_end + 1]
+                         if tok.name == 'COMMENT']
+
+    # Start adding from the back
+    comment_indent = tokens[i - 1].src
+    tokens[yield_end + 1:loop_body_end + 1] = generate_comment_tokens(
+        comment_indent,
+        trailing_comments
+    )[:-1]  # Omit last NEWLINE
+
+    container = tokens_to_src(tokens[in_token + 1:iterable_end])
+    src = YIELD_FROM_TMPL.format(container.strip())
+    tokens[i:yield_end] = [Token('CODE', src)]
+
+    comment_pos = i - 1
+    tokens[comment_pos:comment_pos] = generate_comment_tokens(
+        comment_indent,
+        comments
+    )
+
+
 def _fix_py3_plus(contents_text):
     try:
         ast_obj = ast_parse(contents_text)
@@ -1403,6 +1515,7 @@ def _fix_py3_plus(contents_text):
             visitor.six_type_ctx,
             visitor.six_with_metaclass,
             visitor.super_calls,
+            visitor.yield_from_container,
     )):
         return contents_text
 
@@ -1525,6 +1638,9 @@ def _fix_py3_plus(contents_text):
             if any(tok.name == 'NL' for tok in tokens[i:end]):
                 continue
             _replace_call(tokens, i, end, func_args, '{args[0]}')
+        elif token.offset in visitor.yield_from_container:
+            node = visitor.yield_from_container[token.offset]
+            _replace_yield(tokens, node, i)
 
     return tokens_to_src(tokens)
 
