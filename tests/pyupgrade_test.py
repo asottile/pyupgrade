@@ -1159,6 +1159,10 @@ def test_fix_six_noop(s):
             'from six import b\n\n' r'b"\x12\xef"',
         ),
         (
+            'six.byte2int(b"f")',
+            'b"f"[0]',
+        ),
+        (
             '@six.python_2_unicode_compatible\n'
             'class C: pass',
 
@@ -1350,6 +1354,31 @@ def test_fix_six(s, expected):
     ),
 )
 def test_fix_classes_py3only(s, expected):
+    assert _fix_py3_plus(s) == expected
+
+
+@pytest.mark.parametrize(
+    's',
+    (
+        'str(1)',
+        'str("foo"\n"bar")',  # creates a syntax error
+        'str(*a)', 'str("foo", *a)',
+        'str(**k)', 'str("foo", **k)',
+        'str("foo", encoding="UTF-8")',
+    ),
+)
+def test_fix_native_literals_noop(s):
+    assert _fix_py3_plus(s) == s
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        ('str("foo")', '"foo"'),
+        ('str("""\nfoo""")', '"""\nfoo"""'),
+    ),
+)
+def test_fix_native_literals(s, expected):
     assert _fix_py3_plus(s) == expected
 
 
