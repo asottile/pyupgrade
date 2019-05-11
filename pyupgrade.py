@@ -456,11 +456,9 @@ ESCAPE_STARTS = frozenset((
     '\n', '\r', '\\', "'", '"', 'a', 'b', 'f', 'n', 'r', 't', 'v',
     '0', '1', '2', '3', '4', '5', '6', '7',  # octal escapes
     'x',  # hex escapes
-    # only valid in non-bytestrings
-    'N', 'u', 'U',
 ))
-ESCAPE_STARTS_BYTES = ESCAPE_STARTS - frozenset(('N', 'u', 'U'))
 ESCAPE_RE = re.compile(r'\\.', re.DOTALL)
+NAMED_ESCAPE_NAME = re.compile(r'\{[^}]+\}')
 
 
 def _parse_string_literal(s):
@@ -475,18 +473,31 @@ def _fix_escape_sequences(token):
     if 'r' in actual_prefix or '\\' not in rest:
         return token
 
-    if 'b' in actual_prefix:
-        valid_escapes = ESCAPE_STARTS_BYTES
-    else:
-        valid_escapes = ESCAPE_STARTS
+    is_bytestring = 'b' in actual_prefix
 
-    escape_sequences = {m[1] for m in ESCAPE_RE.findall(rest)}
-    has_valid_escapes = escape_sequences & valid_escapes
-    has_invalid_escapes = escape_sequences - valid_escapes
+    def _is_valid_escape(match):
+        c = match.group()[1]
+        return (
+            c in ESCAPE_STARTS or
+            (not is_bytestring and c in 'uU') or
+            (
+                not is_bytestring and
+                c == 'N' and
+                bool(NAMED_ESCAPE_NAME.match(rest, match.end()))
+            )
+        )
+
+    has_valid_escapes = False
+    has_invalid_escapes = False
+    for match in ESCAPE_RE.finditer(rest):
+        if _is_valid_escape(match):
+            has_valid_escapes = True
+        else:
+            has_invalid_escapes = True
 
     def cb(match):
         matched = match.group()
-        if matched[1] in valid_escapes:
+        if _is_valid_escape(match):
             return matched
         else:
             return r'\{}'.format(matched)
