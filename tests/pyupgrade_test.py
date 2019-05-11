@@ -432,6 +432,8 @@ def test_fix_ur_literals_gets_fixed_before_u_removed():
         '"\\u2603"',
         # don't touch already valid escapes
         r'"\r\n"',
+        # python3.3+ named unicode escapes
+        r'"\N{SNOWMAN}"',
         # don't touch escaped newlines
         '"""\\\n"""', '"""\\\r\n"""', '"""\\\r"""',
     ),
@@ -459,6 +461,10 @@ def test_fix_escape_sequences_noop(s):
         ('"""\\\n\\q"""', '"""\\\n\\\\q"""'),
         ('"""\\\r\n\\q"""', '"""\\\r\n\\\\q"""'),
         ('"""\\\r\\q"""', '"""\\\r\\\\q"""'),
+        # python2.x allows \N, in python3.3+ this is a syntax error
+        (r'"\N"', r'r"\N"'), (r'"\N\n"', r'"\\N\n"'),
+        (r'"\N{SNOWMAN}\q"', r'"\N{SNOWMAN}\\q"'),
+        (r'b"\N{SNOWMAN}"', r'br"\N{SNOWMAN}"'),
     ),
 )
 def test_fix_escape_sequences(s, expected):
