@@ -904,7 +904,7 @@ SIX_TYPE_CTX_ATTRS = {
 }
 SIX_CALLS = {
     'u': '{args[0]}',
-    'byte2int': '{arg0}[0]',
+    'byte2int': '{args[0]}[0]',
     'indexbytes': '{args[0]}[{rest}]',
     'iteritems': '{args[0]}.items()',
     'iterkeys': '{args[0]}.keys()',
@@ -942,6 +942,8 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def __init__(self):
         self.bases_to_remove = set()
+
+        self.native_literals = set()
 
         self._six_from_imports = set()
         self.six_b = set()
@@ -1055,6 +1057,15 @@ class FindPy3Plus(ast.NodeVisitor):
                 node.args[1].id == self._class_info_stack[-1].first_arg_name
         ):
             self.super_calls[_ast_to_offset(node)] = node
+        elif (
+                isinstance(node.func, ast.Name) and
+                node.func.id == 'str' and
+                len(node.args) == 1 and
+                isinstance(node.args[0], ast.Str) and
+                not node.keywords and
+                not _starargs(node)
+        ):
+            self.native_literals.add(_ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1172,6 +1183,7 @@ def _fix_py3_plus(contents_text):
 
     if not any((
             visitor.bases_to_remove,
+            visitor.native_literals,
             visitor.six_b,
             visitor.six_calls,
             visitor.six_raises,
@@ -1243,6 +1255,12 @@ def _fix_py3_plus(contents_text):
             call = visitor.super_calls[token.offset]
             victims = _victims(tokens, i, call, gen=False)
             del tokens[victims.starts[0] + 1:victims.ends[-1]]
+        elif token.offset in visitor.native_literals:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            if any(tok.name == 'NL' for tok in tokens[i:end]):
+                continue
+            _replace_call(tokens, i, end, func_args, '{args[0]}')
 
     return tokens_to_src(tokens)
 
