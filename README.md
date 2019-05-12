@@ -170,6 +170,15 @@ class C(object): pass     # class C: pass
 class C(B, object): pass  # class C(B): pass
 ```
 
+### forced `str("native")` literals
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```python
+str("foo")  # "foo"
+```
+
 ### remove `six` compatibility code
 
 Availability:
