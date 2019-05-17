@@ -104,7 +104,10 @@ def _rewrite_string_literal(literal):
 
 
 def _fix_format_literals(contents_text):
-    tokens = src_to_tokens(contents_text)
+    try:
+        tokens = src_to_tokens(contents_text)
+    except tokenize.TokenError:
+        return contents_text
 
     to_replace = []
     string_start = None
@@ -413,7 +416,10 @@ def _fix_py2_compatible(contents_text):
     )):
         return contents_text
 
-    tokens = src_to_tokens(contents_text)
+    try:
+        tokens = src_to_tokens(contents_text)
+    except tokenize.TokenError:  # pragma: no cover (bpo-2180)
+        return contents_text
     for i, token in reversed_enumerate(tokens):
         if token.offset in visitor.dicts:
             _process_dict_comp(tokens, i, visitor.dicts[token.offset])
@@ -859,7 +865,10 @@ def _fix_percent_format(contents_text):
     if not visitor.found:
         return contents_text
 
-    tokens = src_to_tokens(contents_text)
+    try:
+        tokens = src_to_tokens(contents_text)
+    except tokenize.TokenError:  # pragma: no cover (bpo-2180)
+        return contents_text
 
     for i, token in reversed_enumerate(tokens):
         node = visitor.found.get(token.offset)
@@ -1195,6 +1204,11 @@ def _fix_py3_plus(contents_text):
     )):
         return contents_text
 
+    try:
+        tokens = src_to_tokens(contents_text)
+    except tokenize.TokenError:  # pragma: no cover (bpo-2180)
+        return contents_text
+
     def _replace(i, mapping, node):
         new_token = Token('CODE', _get_tmpl(mapping, node))
         if isinstance(node, ast.Name):
@@ -1205,7 +1219,6 @@ def _fix_py3_plus(contents_text):
                 j += 1
             tokens[i:j + 1] = [new_token]
 
-    tokens = src_to_tokens(contents_text)
     for i, token in reversed_enumerate(tokens):
         if not token.src:
             continue
@@ -1357,7 +1370,10 @@ def _fix_fstrings(contents_text):
     if not visitor.found:
         return contents_text
 
-    tokens = src_to_tokens(contents_text)
+    try:
+        tokens = src_to_tokens(contents_text)
+    except tokenize.TokenError:  # pragma: no cover (bpo-2180)
+        return contents_text
     for i, token in reversed_enumerate(tokens):
         node = visitor.found.get(token.offset)
         if node is None:
