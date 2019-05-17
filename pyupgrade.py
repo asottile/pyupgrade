@@ -1001,7 +1001,8 @@ class FindPy3Plus(ast.NodeVisitor):
         if (
                 len(node.bases) == 1 and
                 isinstance(node.bases[0], ast.Call) and
-                self._is_six(node.bases[0].func, ('with_metaclass',))
+                self._is_six(node.bases[0].func, ('with_metaclass',)) and
+                not _starargs(node.bases[0])
         ):
             self.six_with_metaclass.add(_ast_to_offset(node.bases[0]))
 
@@ -1047,11 +1048,12 @@ class FindPy3Plus(ast.NodeVisitor):
             self.six_type_ctx[_ast_to_offset(node.args[1])] = node.args[1]
         elif self._is_six(node.func, ('b',)):
             self.six_b.add(_ast_to_offset(node))
-        elif self._is_six(node.func, SIX_CALLS):
+        elif self._is_six(node.func, SIX_CALLS) and not _starargs(node):
             self.six_calls[_ast_to_offset(node)] = node
         elif (
                 isinstance(self._previous_node, ast.Expr) and
-                self._is_six(node.func, SIX_RAISES)
+                self._is_six(node.func, SIX_RAISES) and
+                not _starargs(node)
         ):
             self.six_raises[_ast_to_offset(node)] = node
         elif (

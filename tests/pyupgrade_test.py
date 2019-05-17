@@ -1098,6 +1098,9 @@ def test_fix_classes(s, expected):
         'print(six.b(   "123"))',
         # intentionally not handling this case due to it being a bug (?)
         'class C(six.with_metaclass(Meta, B), D): pass',
+        # cannot determine args to rewrite them
+        'six.reraise(*err)', 'six.b(*a)', 'six.u(*a)',
+        'class C(six.with_metaclass(*a)): pass',
     )
 )
 def test_fix_six_noop(s):
