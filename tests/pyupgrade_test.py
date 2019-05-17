@@ -1524,3 +1524,18 @@ def test_py36_plus_fstrings(tmpdir):
     assert f.read() == '"{} {}".format(hello, world)'
     assert main((f.strpath, '--py36-plus')) == 1
     assert f.read() == 'f"{hello} {world}"'
+
+
+def test_noop_token_error(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write(
+        # force some rewrites (ast is ok https://bugs.python.org/issue2180)
+        'set(())\n'
+        '"%s" % (1,)\n'
+        'six.b("foo")\n'
+        '"{}".format(a)\n'
+        # token error
+        'x = \\\n'
+        '5\\\n'
+    )
+    assert main((f.strpath, '--py36-plus')) == 0
