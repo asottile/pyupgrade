@@ -1078,9 +1078,6 @@ def test_fix_classes(s, expected):
     (
         # syntax error
         'x = (',
-        # weird space at beginning of decorator
-        '@  six.python_2_unicode_compatible\n'
-        'class C: pass',
         # unrelated
         'from os import path',
         'from six import moves',
@@ -1101,6 +1098,8 @@ def test_fix_classes(s, expected):
         # cannot determine args to rewrite them
         'six.reraise(*err)', 'six.b(*a)', 'six.u(*a)',
         'class C(six.with_metaclass(*a)): pass',
+        '@six.add_metaclass(*a)\n'
+        'class C: pass\n',
     )
 )
 def test_fix_six_noop(s):
@@ -1178,6 +1177,14 @@ def test_fix_six_noop(s):
 
             '@other_decorator\n'
             'class C: pass',
+        ),
+        pytest.param(
+            '@  six.python_2_unicode_compatible\n'
+            'class C: pass\n',
+
+            'class C: pass\n',
+
+            id='weird spacing at the beginning python_2_unicode_compatible',
         ),
         (
             'from six import python_2_unicode_compatible\n'
@@ -1323,6 +1330,62 @@ def test_fix_six_noop(s):
             'class C(B, metaclass=M): pass',
 
             id='weird spacing with_metaclass',
+        ),
+        pytest.param(
+            '@six.add_metaclass(M)\n'
+            'class C: pass\n',
+
+            'class C(metaclass=M): pass\n',
+
+            id='basic six.add_metaclass',
+        ),
+        pytest.param(
+            'from six import add_metaclass\n'
+            '@add_metaclass(M)\n'
+            'class C: pass\n',
+
+            'from six import add_metaclass\n'
+            'class C(metaclass=M): pass\n',
+
+            id='basic add_metaclass',
+        ),
+        pytest.param(
+            '@six.add_metaclass(M)\n'
+            'class C(): pass\n',
+
+            'class C(metaclass=M): pass\n',
+
+            id='basic six.add_metaclass, no bases but parens',
+        ),
+        pytest.param(
+            '@six.add_metaclass(M)\n'
+            'class C(A): pass\n',
+
+            'class C(A, metaclass=M): pass\n',
+
+            id='add_metaclass, one base',
+        ),
+        pytest.param(
+            '@six.add_metaclass(M)\n'
+            'class C(\n'
+            '    A,\n'
+            '): pass\n',
+
+            'class C(\n'
+            '    A, metaclass=M,\n'
+            '): pass\n',
+
+            id='add_metaclass, base with trailing comma',
+        ),
+        pytest.param(
+            'x = (object,)\n'
+            '@six.add_metaclass(M)\n'
+            'class C(x[:][0]): pass\n',
+
+            'x = (object,)\n'
+            'class C(x[:][0], metaclass=M): pass\n',
+
+            id='add_metaclass, weird base that contains a :',
         ),
     ),
 )
