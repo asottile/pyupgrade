@@ -955,6 +955,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.native_literals = set()
 
         self._six_from_imports = set()
+        self.six_add_metaclass = set()
         self.six_b = set()
         self.six_calls = {}
         self._previous_node = None
@@ -991,6 +992,12 @@ class FindPy3Plus(ast.NodeVisitor):
         for decorator in node.decorator_list:
             if self._is_six(decorator, ('python_2_unicode_compatible',)):
                 self.six_remove_decorators.add(_ast_to_offset(decorator))
+            elif (
+                    isinstance(decorator, ast.Call) and
+                    self._is_six(decorator.func, ('add_metaclass',)) and
+                    not _starargs(decorator)
+            ):
+                self.six_add_metaclass.add(_ast_to_offset(decorator))
 
         for base in node.bases:
             if isinstance(base, ast.Name) and base.id == 'object':
@@ -1085,6 +1092,15 @@ class FindPy3Plus(ast.NodeVisitor):
         super(FindPy3Plus, self).generic_visit(node)
 
 
+def _remove_decorator(tokens, i):
+    while tokens[i - 1].src != '@':
+        i -= 1
+    end = i + 1
+    while tokens[end].name != 'NEWLINE':
+        end += 1
+    del tokens[i - 1:end + 1]
+
+
 def _remove_base_class(tokens, i):
     # look forward and backward to find commas / parens
     brace_stack = []
@@ -1168,8 +1184,12 @@ def _get_tmpl(mapping, node):
         return mapping[node.attr]
 
 
+def _arg_str(tokens, start, end):
+    return tokens_to_src(tokens[start:end]).strip()
+
+
 def _replace_call(tokens, start, end, args, tmpl):
-    arg_strs = [tokens_to_src(tokens[slice(*arg)]).strip() for arg in args]
+    arg_strs = [_arg_str(tokens, *arg) for arg in args]
 
     start_rest = args[0][1] + 1
     while (
@@ -1195,6 +1215,7 @@ def _fix_py3_plus(contents_text):
     if not any((
             visitor.bases_to_remove,
             visitor.native_literals,
+            visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
             visitor.six_raises,
@@ -1231,11 +1252,7 @@ def _fix_py3_plus(contents_text):
         elif token.offset in visitor.six_simple:
             _replace(i, SIX_SIMPLE_ATTRS, visitor.six_simple[token.offset])
         elif token.offset in visitor.six_remove_decorators:
-            if tokens[i - 1].src == '@':
-                end = i + 1
-                while tokens[end].name != 'NEWLINE':
-                    end += 1
-                del tokens[i - 1:end + 1]
+            _remove_decorator(tokens, i)
         elif token.offset in visitor.six_b:
             j = _find_open_paren(tokens, i)
             if (
@@ -1257,6 +1274,40 @@ def _fix_py3_plus(contents_text):
             node = visitor.six_raises[token.offset]
             template = _get_tmpl(SIX_RAISES, node.func)
             _replace_call(tokens, i, end, func_args, template)
+        elif token.offset in visitor.six_add_metaclass:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            metaclass = 'metaclass={}'.format(_arg_str(tokens, *func_args[0]))
+            # insert `metaclass={args[0]}` into `class:`
+            # search forward for the `class` token
+            j = i + 1
+            while tokens[j].src != 'class':
+                j += 1
+            # then search forward for a `:` token, not inside a brace
+            depth = 0
+            last_paren = -1
+            while depth or tokens[j].src != ':':
+                if tokens[j].src == '(':
+                    depth += 1
+                elif tokens[j].src == ')':
+                    depth -= 1
+                    last_paren = j
+                j += 1
+
+            if last_paren == -1:
+                tokens.insert(j, Token('CODE', '({})'.format(metaclass)))
+            else:
+                insert = last_paren - 1
+                while tokens[insert].name in NON_CODING_TOKENS:
+                    insert -= 1
+                if tokens[insert].src == '(':  # no bases
+                    src = metaclass
+                elif tokens[insert].src != ',':
+                    src = ', {}'.format(metaclass)
+                else:
+                    src = ' {},'.format(metaclass)
+                tokens.insert(insert + 1, Token('CODE', src))
+            _remove_decorator(tokens, i)
         elif token.offset in visitor.six_with_metaclass:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
