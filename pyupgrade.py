@@ -1461,24 +1461,28 @@ def _replace_yield(tokens, node, i):
 
     yield_begin = _find_token(tokens, iterable_end, 'yield')
     yield_end = _find_token_by_name(tokens, yield_begin, 'NEWLINE')
-    comments = [tok for tok in tokens[iterable_end:yield_end]
-                if tok.name == 'COMMENT']
+    comments = [
+        tok for tok in tokens[iterable_end:yield_end]
+        if tok.name == 'COMMENT'
+    ]
 
     loop_body_end = _find_token_by_name(tokens, yield_end, 'DEDENT')
 
-    # Omit NL
+    # Skip NL
     while tokens[loop_body_end].name not in ['COMMENT', 'NEWLINE']:
         loop_body_end -= 1
 
-    trailing_comments = [tok for tok in tokens[yield_end:loop_body_end + 1]
-                         if tok.name == 'COMMENT']
+    trailing_comments = [
+        tok for tok in tokens[yield_end:loop_body_end + 1]
+        if tok.name == 'COMMENT'
+    ]
 
     # Start adding from the back
     comment_indent = tokens[i - 1].src
     tokens[yield_end + 1:loop_body_end + 1] = generate_comment_tokens(
         comment_indent,
         trailing_comments
-    )[:-1]  # Omit last NEWLINE
+    )[:-1]  # Skip last NEWLINE
 
     container = tokens_to_src(tokens[in_token + 1:iterable_end])
     src = YIELD_FROM_TMPL.format(container.strip())
