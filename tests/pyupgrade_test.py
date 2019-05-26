@@ -17,9 +17,11 @@ from pyupgrade import _imports_unicode_literals
 from pyupgrade import _is_bytestring
 from pyupgrade import _percent_to_format
 from pyupgrade import _simplify_conversion_flag
+from pyupgrade import fields_same
 from pyupgrade import main
 from pyupgrade import parse_format
 from pyupgrade import parse_percent_format
+from pyupgrade import targets_same
 from pyupgrade import unparse_parsed_string
 
 
@@ -1546,6 +1548,38 @@ def test_fix_yield_from_py3only(s, expected):
     assert _fix_py3_plus(s) == expected
 
 
+@pytest.mark.xfail(sys.version_info < (3,), reason='py3+ yield from')
+@pytest.mark.parametrize(
+    's',
+    (
+        'def f():\n'
+        '    for x in z:\n'
+        '        yield y',
+        'def f():\n'
+        '    for x, y in z:\n'
+        '        yield x',
+        'def f():\n'
+        '    for x, y in z:\n'
+        '        yield y',
+        'def f():\n'
+        '    for a, b in z:\n'
+        '        yield x, y',
+        'def f():\n'
+        '    for x, y in z:\n'
+        '        yield y, x',
+        'def f():\n'
+        '    for x, y, c in z:\n'
+        '        yield x, y',
+        'def f():\n'
+        '    for x in z:\n'
+        '        x = 22\n'
+        '        yield x',
+    )
+)
+def test_fix_yield_from_noop(s):
+    assert _fix_py3_plus(s) == s
+
+
 @pytest.mark.parametrize(
     's',
     (
@@ -2031,3 +2065,14 @@ def test_noop_token_error(tmpdir):
         '5\\\n',
     )
     assert main((f.strpath, '--py36-plus')) == 0
+
+
+def test_targets_same():
+    assert targets_same(ast.parse('global a, b'), ast.parse('global a, b'))
+    assert not targets_same(ast.parse('global a'), ast.parse('global b'))
+
+
+def test_fields_same():
+    def get_body(expr):
+        return ast.parse(expr).body[0].value
+    assert not fields_same(get_body('x'), get_body('1'))
