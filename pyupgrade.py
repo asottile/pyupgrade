@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 
 import argparse
 import ast
+import codecs
 import collections
 import io
 import keyword
@@ -942,6 +943,13 @@ SIX_RAISES = {
 }
 
 
+def _is_utf8_codec(encoding):
+    try:
+        return codecs.lookup(encoding).name == 'utf-8'
+    except LookupError:
+        return False
+
+
 class FindPy3Plus(ast.NodeVisitor):
     class ClassInfo:
         def __init__(self, name):
@@ -952,6 +960,7 @@ class FindPy3Plus(ast.NodeVisitor):
     def __init__(self):
         self.bases_to_remove = set()
 
+        self.encode_calls = {}
         self.native_literals = set()
 
         self._six_from_imports = set()
@@ -1084,6 +1093,16 @@ class FindPy3Plus(ast.NodeVisitor):
                 not _starargs(node)
         ):
             self.native_literals.add(_ast_to_offset(node))
+        elif (
+                isinstance(node.func, ast.Attribute) and
+                isinstance(node.func.value, ast.Str) and
+                node.func.attr == 'encode' and
+                not _starargs(node) and
+                len(node.args) == 1 and
+                isinstance(node.args[0], ast.Str) and
+                _is_utf8_codec(node.args[0].s)
+        ):
+            self.encode_calls[_ast_to_offset(node)] = node
 
         self.generic_visit(node)
 
@@ -1214,6 +1233,7 @@ def _fix_py3_plus(contents_text):
 
     if not any((
             visitor.bases_to_remove,
+            visitor.encode_calls,
             visitor.native_literals,
             visitor.six_add_metaclass,
             visitor.six_b,
@@ -1319,6 +1339,11 @@ def _fix_py3_plus(contents_text):
         elif token.offset in visitor.super_calls:
             i = _find_open_paren(tokens, i)
             call = visitor.super_calls[token.offset]
+            victims = _victims(tokens, i, call, gen=False)
+            del tokens[victims.starts[0] + 1:victims.ends[-1]]
+        elif token.offset in visitor.encode_calls:
+            i = _find_open_paren(tokens, i)
+            call = visitor.encode_calls[token.offset]
             victims = _victims(tokens, i, call, gen=False)
             del tokens[victims.starts[0] + 1:victims.ends[-1]]
         elif token.offset in visitor.native_literals:
