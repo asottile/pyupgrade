@@ -21,6 +21,10 @@ repos:
     rev: v1.3.5
     hooks:
     -   id: reorder-python-imports
+-   repo: https://github.com/asottile/add-trailing-comma
+    rev: v1.0.0
+    hooks:
+    -   id: add-trailing-comma
 -   repo: https://github.com/asottile/pyupgrade
     rev: v1.17.1
     hooks:
