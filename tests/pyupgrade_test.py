@@ -27,7 +27,7 @@ from pyupgrade import unparse_parsed_string
     's',
     (
         '', 'foo', '{}', '{0}', '{named}', '{!r}', '{:>5}', '{{', '}}',
-        '{0!s:15}'
+        '{0!s:15}',
     ),
 )
 def test_roundtrip_text(s):
@@ -211,7 +211,7 @@ def test_sets_generators_trailing_commas(s, expected):
             '        a: b for a, b in y\n'
             '    }\n'
             ')',
-        )
+        ),
     ),
 )
 def test_dictcomps(s, expected):
@@ -333,7 +333,7 @@ def test_fix_is_compare_to_literal(s, expected):
             '    "bar {1}".format(1, 2)',
             'x = "foo {}" \\\n'
             '    "bar {}".format(1, 2)',
-        )
+        ),
     ),
 )
 def test_format_literals(s, expected):
@@ -639,7 +639,7 @@ def test_is_bytestring_false(s):
             '"%*d"', (
                 ('"', (None, None, '*', None, 'd')),
                 ('"', None),
-            )
+            ),
         ),
         (
             '"%.f"', (
@@ -932,7 +932,7 @@ def test_fix_super_noop(s):
             'class C(Base):\n'
             '    f = lambda self: super(C, self).f()\n',
             'class C(Base):\n'
-            '    f = lambda self: super().f()\n'
+            '    f = lambda self: super().f()\n',
         ),
         (
             'class C(Base):\n'
@@ -1100,7 +1100,7 @@ def test_fix_classes(s, expected):
         'class C(six.with_metaclass(*a)): pass',
         '@six.add_metaclass(*a)\n'
         'class C: pass\n',
-    )
+    ),
 )
 def test_fix_six_noop(s):
     assert _fix_py3_plus(s) == s
@@ -1315,7 +1315,7 @@ def test_fix_six_noop(s):
             'class C(with_metaclass(M, B)): pass\n',
 
             'from six import with_metaclass\n'
-            'class C(B, metaclass=M): pass\n'
+            'class C(B, metaclass=M): pass\n',
         ),
         pytest.param(
             'class C(six.with_metaclass (M, B)): pass',
@@ -1602,6 +1602,6 @@ def test_noop_token_error(tmpdir):
         '"{}".format(a)\n'
         # token error
         'x = \\\n'
-        '5\\\n'
+        '5\\\n',
     )
     assert main((f.strpath, '--py36-plus')) == 0
