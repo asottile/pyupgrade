@@ -179,6 +179,15 @@ Availability:
 str("foo")  # "foo"
 ```
 
+### `.encode("utf-8")`
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```python
+"foo".encode("utf-8")  # "foo".encode()
+```
+
 ### remove `six` compatibility code
 
 Availability:
