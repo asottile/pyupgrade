@@ -1442,16 +1442,9 @@ def test_fix_classes_py3only(s, expected):
         (
             'def f():\n'
             '    for x in y:\n'
-            '        yield x  # Comment one\n'
-            '\n\n'
-            'def g():\n'
-            '    print(3)',
+            '        yield x',
             'def f():\n'
-            '    # Comment one\n'
-            '    yield from y\n'
-            '\n\n'
-            'def g():\n'
-            '    print(3)',
+            '    yield from y',
         ),
         (
             'def f():\n'
@@ -1494,14 +1487,12 @@ def test_fix_classes_py3only(s, expected):
             '       # Comment ten',
             'def f():  # Comment one\n'
             '    # Comment two\n'
-            '    # Comment eight\n'
-            '    # Comment nine\n'
             '    yield from {  # Comment three\n'
             '       3: "x",  # Comment four\n'
             '       # Comment five\n'
             '       6: "y"  # Comment six\n'
             '    }  # Comment seven\n'
-            '    # Comment ten',
+            '       # Comment ten',
         ),
         (
             'def f():\n'
@@ -1528,17 +1519,17 @@ def test_fix_classes_py3only(s, expected):
             '            yield x, y  # Comment three\n'
             '            # Comment four\n'
             '\n\n'
+            '# Comment\n'
             'def g():\n'
             '    print(3)',
             'def f():\n'
             '    def func():\n'
             '        # This comment is preserved\n'
             '\n'
-            '        # Commment two\n'
-            '        # Comment three\n'
             '        yield from z()  # Comment one\n'
-            '        # Comment four\n'
+            '            # Comment four\n'
             '\n\n'
+            '# Comment\n'
             'def g():\n'
             '    print(3)',
         ),
