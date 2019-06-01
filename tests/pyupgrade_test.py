@@ -1565,7 +1565,7 @@ def test_fix_yield_from_py3only(s, expected):
         '    for x in z:\n'
         '        x = 22\n'
         '        yield x',
-    )
+    ),
 )
 def test_fix_yield_from_noop(s):
     assert _fix_py3_plus(s) == s
