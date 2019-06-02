@@ -188,6 +188,39 @@ Availability:
 "foo".encode("utf-8")  # "foo".encode()
 ```
 
+### `yield` => `yield from`
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```python
+def f():
+    for x in y:       # yield from x
+        yield y
+
+    for a, b in c:    # yield from c
+        yield (a, b)
+```
+
+### `if PY2` blocks
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```python
+# input
+if six.PY2:      # also understands `six.PY3` and `not`
+    print('py2')
+else:
+    print('py3')
+# output
+print('py3')
+```
+
+_note_: this is a work in progress, see [#152]
+
+[#152]: https://github.com/asottile/pyupgrade/issues/152
+
 ### remove `six` compatibility code
 
 Availability:
@@ -218,6 +251,9 @@ class C:
 class C(six.Iterator): pass              # class C: pass
 
 class C(six.with_metaclass(M, B)): pass  # class C(B, metaclass=M): pass
+
+@six.add_metaclass(M)   # class C(B, metaclass=M): pass
+class C(B): pass
 
 isinstance(..., six.class_types)    # isinstance(..., type)
 issubclass(..., six.integer_types)  # issubclass(..., int)
