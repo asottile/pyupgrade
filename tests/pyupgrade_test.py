@@ -1387,6 +1387,16 @@ def test_fix_six_noop(s):
 
             id='add_metaclass, weird base that contains a :',
         ),
+        pytest.param(
+            'if True:\n'
+            '    @six.add_metaclass(M)\n'
+            '    class C: pass\n',
+
+            'if True:\n'
+            '    class C(metaclass=M): pass\n',
+
+            id='add_metaclass, indented',
+        ),
     ),
 )
 def test_fix_six(s, expected):
