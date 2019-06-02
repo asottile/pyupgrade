@@ -270,10 +270,14 @@ def _victims(tokens, start, arg, gen):
     return Victims(starts, ends, first_comma_index, arg_index)
 
 
-def _find_open_paren(tokens, i):
-    while tokens[i].src != '(':
+def _find_token(tokens, i, token):
+    while tokens[i].src != token:
         i += 1
     return i
+
+
+def _find_open_paren(tokens, i):
+    return _find_token(tokens, i, '(')
 
 
 def _is_on_a_line_by_self(tokens, i):
@@ -943,6 +947,43 @@ SIX_RAISES = {
 }
 
 
+def _all_isinstance(vals, tp):
+    return all(isinstance(v, tp) for v in vals)
+
+
+def fields_same(n1, n2):
+    for (a1, v1), (a2, v2) in zip(ast.iter_fields(n1), ast.iter_fields(n2)):
+        # ignore ast attributes, they'll be covered by walk
+        if a1 != a2:
+            return False
+        elif _all_isinstance((v1, v2), ast.AST):
+            continue
+        elif _all_isinstance((v1, v2), (list, tuple)):
+            if len(v1) != len(v2):
+                return False
+            # ignore sequences which are all-ast, they'll be covered by walk
+            elif _all_isinstance(v1, ast.AST) and _all_isinstance(v2, ast.AST):
+                continue
+            elif v1 != v2:
+                return False
+        elif v1 != v2:
+            return False
+    return True
+
+
+def targets_same(target, yield_value):
+    for t1, t2 in zip(ast.walk(target), ast.walk(yield_value)):
+        # ignore `ast.Load` / `ast.Store`
+        if _all_isinstance((t1, t2), ast.expr_context):
+            continue
+        elif type(t1) != type(t2):
+            return False
+        elif not fields_same(t1, t2):
+            return False
+    else:
+        return True
+
+
 def _is_utf8_codec(encoding):
     try:
         return codecs.lookup(encoding).name == 'utf-8'
@@ -981,6 +1022,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack = []
         self._in_comp = 0
         self.super_calls = {}
+        self.yield_from_fors = set()
 
     def _is_six(self, node, names):
         return (
@@ -1136,6 +1178,18 @@ class FindPy3Plus(ast.NodeVisitor):
                 self.if_py3_blocks.add(_ast_to_offset(node))
         self.generic_visit(node)
 
+    def visit_For(self, node):  # type: (ast.For) -> None
+        if (
+            len(node.body) == 1 and
+            isinstance(node.body[0], ast.Expr) and
+            isinstance(node.body[0].value, ast.Yield) and
+            targets_same(node.target, node.body[0].value.value) and
+            not node.orelse
+        ):
+            self.yield_from_fors.add(_ast_to_offset(node))
+
+        self.generic_visit(node)
+
     def generic_visit(self, node):  # type: (ast.AST) -> None
         self._previous_node = node
         super(FindPy3Plus, self).generic_visit(node)
@@ -1159,7 +1213,10 @@ def _fixup_dedent_tokens(tokens):
 def _find_block_start(tokens, i):
     depth = 0
     while depth or tokens[i].src != ':':
-        depth += {'(': 1, ')': -1}.get(tokens[i].src, 0)
+        if tokens[i].src in OPENING:
+            depth += 1
+        elif tokens[i].src in CLOSING:
+            depth -= 1
         i += 1
     return i
 
@@ -1379,6 +1436,14 @@ def _replace_call(tokens, start, end, args, tmpl):
     tokens[start:end] = [Token('CODE', src)]
 
 
+def _replace_yield(tokens, i):
+    in_token = _find_token(tokens, i, 'in')
+    colon = _find_block_start(tokens, i)
+    block = Block.find(tokens, i, trim_end=True)
+    container = tokens_to_src(tokens[in_token + 1:colon]).strip()
+    tokens[i:block.end] = [Token('CODE', 'yield from {}\n'.format(container))]
+
+
 def _fix_py3_plus(contents_text):
     try:
         ast_obj = ast_parse(contents_text)
@@ -1403,6 +1468,7 @@ def _fix_py3_plus(contents_text):
             visitor.six_type_ctx,
             visitor.six_with_metaclass,
             visitor.super_calls,
+            visitor.yield_from_fors,
     )):
         return contents_text
 
@@ -1525,6 +1591,8 @@ def _fix_py3_plus(contents_text):
             if any(tok.name == 'NL' for tok in tokens[i:end]):
                 continue
             _replace_call(tokens, i, end, func_args, '{args[0]}')
+        elif token.offset in visitor.yield_from_fors:
+            _replace_yield(tokens, i)
 
     return tokens_to_src(tokens)
 
