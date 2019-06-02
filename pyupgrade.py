@@ -276,12 +276,6 @@ def _find_token(tokens, i, token):
     return i
 
 
-def _find_token_by_name(tokens, i, names):
-    while tokens[i].name not in names:
-        i += 1
-    return i
-
-
 def _find_open_paren(tokens, i):
     return _find_token(tokens, i, '(')
 
@@ -951,7 +945,6 @@ SIX_RAISES = {
     'raise_from': 'raise {args[0]} from {rest}',
     'reraise': 'raise {args[1]}.with_traceback({args[2]})',
 }
-YIELD_FROM_TMPL = 'yield from {0}'
 
 
 def _all_isinstance(vals, tp):
@@ -1029,7 +1022,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack = []
         self._in_comp = 0
         self.super_calls = {}
-        self.yield_from_container = {}
+        self.yield_from_fors = set()
 
     def _is_six(self, node, names):
         return (
@@ -1190,9 +1183,10 @@ class FindPy3Plus(ast.NodeVisitor):
             len(node.body) == 1 and
             isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Yield) and
-            targets_same(node.target, node.body[0].value.value)
+            targets_same(node.target, node.body[0].value.value) and
+            not node.orelse
         ):
-            self.yield_from_container[_ast_to_offset(node)] = node
+            self.yield_from_fors.add(_ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1219,7 +1213,10 @@ def _fixup_dedent_tokens(tokens):
 def _find_block_start(tokens, i):
     depth = 0
     while depth or tokens[i].src != ':':
-        depth += {'(': 1, ')': -1}.get(tokens[i].src, 0)
+        if tokens[i].src in OPENING:
+            depth += 1
+        elif tokens[i].src in CLOSING:
+            depth -= 1
         i += 1
     return i
 
@@ -1439,23 +1436,12 @@ def _replace_call(tokens, start, end, args, tmpl):
     tokens[start:end] = [Token('CODE', src)]
 
 
-def _replace_yield(tokens, node, i):
-    def remove_colon(start_idx):
-        while tokens[start_idx].src != ':':
-            start_idx -= 1
-        del tokens[start_idx]
-
+def _replace_yield(tokens, i):
     in_token = _find_token(tokens, i, 'in')
-    iterable_end = _find_token_by_name(tokens, in_token, ['NEWLINE'])
-
-    remove_colon(iterable_end)
-
-    yield_begin = _find_token(tokens, iterable_end, 'yield')
-    yield_end = _find_token_by_name(tokens, yield_begin, ['NEWLINE', 'DEDENT'])
-
-    container = tokens_to_src(tokens[in_token + 1:iterable_end])
-    src = YIELD_FROM_TMPL.format(container.strip())
-    tokens[i:yield_end] = [Token('CODE', src)]
+    colon = _find_block_start(tokens, i)
+    block = Block.find(tokens, i, trim_end=True)
+    container = tokens_to_src(tokens[in_token + 1:colon]).strip()
+    tokens[i:block.end] = [Token('CODE', 'yield from {}\n'.format(container))]
 
 
 def _fix_py3_plus(contents_text):
@@ -1482,7 +1468,7 @@ def _fix_py3_plus(contents_text):
             visitor.six_type_ctx,
             visitor.six_with_metaclass,
             visitor.super_calls,
-            visitor.yield_from_container,
+            visitor.yield_from_fors,
     )):
         return contents_text
 
@@ -1605,9 +1591,8 @@ def _fix_py3_plus(contents_text):
             if any(tok.name == 'NL' for tok in tokens[i:end]):
                 continue
             _replace_call(tokens, i, end, func_args, '{args[0]}')
-        elif token.offset in visitor.yield_from_container:
-            node = visitor.yield_from_container[token.offset]
-            _replace_yield(tokens, node, i)
+        elif token.offset in visitor.yield_from_fors:
+            _replace_yield(tokens, i)
 
     return tokens_to_src(tokens)
 

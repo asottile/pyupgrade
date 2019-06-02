@@ -1435,7 +1435,6 @@ def test_fix_classes_py3only(s, expected):
     assert _fix_py3_plus(s) == expected
 
 
-@pytest.mark.xfail(sys.version_info < (3,), reason='py3+ yield from')
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
@@ -1444,35 +1443,35 @@ def test_fix_classes_py3only(s, expected):
             '    for x in y:\n'
             '        yield x',
             'def f():\n'
-            '    yield from y',
+            '    yield from y\n',
         ),
         (
             'def f():\n'
             '    for x in [1, 2, 3]:\n'
             '        yield x',
             'def f():\n'
-            '    yield from [1, 2, 3]',
+            '    yield from [1, 2, 3]\n',
         ),
         (
             'def f():\n'
             '    for x in {x for x in y}:\n'
             '        yield x',
             'def f():\n'
-            '    yield from {x for x in y}',
+            '    yield from {x for x in y}\n',
         ),
         (
             'def f():\n'
             '    for x in (1, 2, 3):\n'
             '        yield x',
             'def f():\n'
-            '    yield from (1, 2, 3)',
+            '    yield from (1, 2, 3)\n',
         ),
         (
             'def f():\n'
             '    for x, y in {3: "x", 6: "y"}:\n'
             '        yield x, y',
             'def f():\n'
-            '    yield from {3: "x", 6: "y"}',
+            '    yield from {3: "x", 6: "y"}\n',
         ),
         (
             'def f():  # Comment one\n'
@@ -1491,22 +1490,21 @@ def test_fix_classes_py3only(s, expected):
             '       3: "x",  # Comment four\n'
             '       # Comment five\n'
             '       6: "y"  # Comment six\n'
-            '    }  # Comment seven\n'
-            '       # Comment ten',
+            '    }\n',
         ),
         (
             'def f():\n'
             '    for x, y in [{3: (3, [44, "long ss"]), 6: "y"}]:\n'
             '        yield x, y',
             'def f():\n'
-            '    yield from [{3: (3, [44, "long ss"]), 6: "y"}]',
+            '    yield from [{3: (3, [44, "long ss"]), 6: "y"}]\n',
         ),
         (
             'def f():\n'
             '    for x, y in z():\n'
             '        yield x, y',
             'def f():\n'
-            '    yield from z()',
+            '    yield from z()\n',
         ),
         (
             'def f():\n'
@@ -1526,8 +1524,7 @@ def test_fix_classes_py3only(s, expected):
             '    def func():\n'
             '        # This comment is preserved\n'
             '\n'
-            '        yield from z()  # Comment one\n'
-            '            # Comment four\n'
+            '        yield from z()\n'
             '\n\n'
             '# Comment\n'
             'def g():\n'
@@ -1535,11 +1532,10 @@ def test_fix_classes_py3only(s, expected):
         ),
     ),
 )
-def test_fix_yield_from_py3only(s, expected):
+def test_fix_yield_from(s, expected):
     assert _fix_py3_plus(s) == expected
 
 
-@pytest.mark.xfail(sys.version_info < (3,), reason='py3+ yield from')
 @pytest.mark.parametrize(
     's',
     (
@@ -1565,6 +1561,11 @@ def test_fix_yield_from_py3only(s, expected):
         '    for x in z:\n'
         '        x = 22\n'
         '        yield x',
+        'def f():\n'
+        '    for x in z:\n'
+        '        yield x\n'
+        '    else:\n'
+        '        print("boom!")\n',
     ),
 )
 def test_fix_yield_from_noop(s):
