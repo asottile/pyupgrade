@@ -1114,6 +1114,8 @@ class FindPy3Plus(ast.NodeVisitor):
 def _remove_decorator(tokens, i):
     while tokens[i - 1].src != '@':
         i -= 1
+    if i > 1 and tokens[i - 2].name not in {'NEWLINE', 'NL'}:
+        i -= 1
     end = i + 1
     while tokens[end].name != 'NEWLINE':
         end += 1
