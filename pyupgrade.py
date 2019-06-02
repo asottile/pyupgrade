@@ -961,6 +961,10 @@ class FindPy3Plus(ast.NodeVisitor):
         self.bases_to_remove = set()
 
         self.encode_calls = {}
+
+        self.if_py2_blocks = set()
+        self.if_py3_blocks = set()
+
         self.native_literals = set()
 
         self._six_from_imports = set()
@@ -1106,9 +1110,160 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def generic_visit(self, node):
+    def visit_If(self, node):  # type: (ast.If) -> None
+        if node.orelse and not isinstance(node.orelse[0], ast.If):
+            if (
+                    # if six.PY2:
+                    self._is_six(node.test, ('PY2',)) or
+                    # if not six.PY3:
+                    (
+                        isinstance(node.test, ast.UnaryOp) and
+                        isinstance(node.test.op, ast.Not) and
+                        self._is_six(node.test.operand, ('PY3',))
+                    )
+            ):
+                self.if_py2_blocks.add(_ast_to_offset(node))
+            elif (
+                    # if six.PY3:
+                    self._is_six(node.test, 'PY3') or
+                    # if not six.PY2:
+                    (
+                        isinstance(node.test, ast.UnaryOp) and
+                        isinstance(node.test.op, ast.Not) and
+                        self._is_six(node.test.operand, ('PY2',))
+                    )
+            ):
+                self.if_py3_blocks.add(_ast_to_offset(node))
+        self.generic_visit(node)
+
+    def generic_visit(self, node):  # type: (ast.AST) -> None
         self._previous_node = node
         super(FindPy3Plus, self).generic_visit(node)
+
+
+def _fixup_dedent_tokens(tokens):
+    """For whatever reason the DEDENT / UNIMPORTANT_WS tokens are misordered
+
+    | if True:
+    |     if True:
+    |         pass
+    |     else:
+    |^    ^- DEDENT
+    |+----UNIMPORTANT_WS
+    """
+    for i, token in enumerate(tokens):
+        if token.name == UNIMPORTANT_WS and tokens[i + 1].name == 'DEDENT':
+            tokens[i], tokens[i + 1] = tokens[i + 1], tokens[i]
+
+
+def _find_block_start(tokens, i):
+    depth = 0
+    while depth or tokens[i].src != ':':
+        depth += {'(': 1, ')': -1}.get(tokens[i].src, 0)
+        i += 1
+    return i
+
+
+class Block(
+        collections.namedtuple('Block', ('start', 'block', 'end', 'line')),
+):
+    __slots__ = ()
+
+    def _initial_indent(self, tokens):
+        if tokens[self.start].src.isspace():
+            return len(tokens[self.start].src)
+        else:
+            return 0
+
+    def _minimum_indent(self, tokens):
+        block_indent = None
+        for i in range(self.block, self.end):
+            if (
+                    tokens[i - 1].name in ('NL', 'NEWLINE') and
+                    tokens[i].name in ('INDENT', UNIMPORTANT_WS)
+            ):
+                token_indent = len(tokens[i].src)
+                if block_indent is None:
+                    block_indent = token_indent
+                else:
+                    block_indent = min(block_indent, token_indent)
+        return block_indent
+
+    def dedent(self, tokens):
+        if self.line:
+            return
+        diff = self._minimum_indent(tokens) - self._initial_indent(tokens)
+        for i in range(self.block, self.end):
+            if (
+                    tokens[i - 1].name in ('NL', 'NEWLINE') and
+                    tokens[i].name in ('INDENT', UNIMPORTANT_WS)
+            ):
+                tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
+
+    def _trim_end(self, tokens):
+        """the tokenizer reports the end of the block at the beginning of
+        the next block
+        """
+        i = last_token = self.end - 1
+        while tokens[i].name in NON_CODING_TOKENS | {'DEDENT', 'NEWLINE'}:
+            # if we find an indented comment inside our block, keep it
+            if (
+                    tokens[i].name in {'NL', 'NEWLINE'} and
+                    tokens[i + 1].name == UNIMPORTANT_WS and
+                    len(tokens[i + 1].src) > self._initial_indent(tokens)
+            ):
+                break
+            # otherwise we've found another line to remove
+            elif tokens[i].name in {'NL', 'NEWLINE'}:
+                last_token = i
+            i -= 1
+        return self._replace(end=last_token + 1)
+
+    @classmethod
+    def find(cls, tokens, i, trim_end=False):
+        if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
+            i -= 1
+        start = i
+        colon = _find_block_start(tokens, i)
+
+        j = colon + 1
+        while (
+                tokens[j].name != 'NEWLINE' and
+                tokens[j].name in NON_CODING_TOKENS
+        ):
+            j += 1
+
+        if tokens[j].name == 'NEWLINE':  # multi line block
+            block = j + 1
+            while tokens[j].name != 'INDENT':
+                j += 1
+            level = 1
+            j += 1
+            while level:
+                level += {'INDENT': 1, 'DEDENT': -1}.get(tokens[j].name, 0)
+                j += 1
+            if trim_end:
+                return cls(start, block, j, line=False)._trim_end(tokens)
+            else:
+                return cls(start, block, j, line=False)
+        else:  # single line block
+            block = j
+            # search forward until the NEWLINE token
+            while tokens[j].name not in {'NEWLINE', 'ENDMARKER'}:
+                j += 1
+            # we also want to include the newline in the block
+            if tokens[j].name == 'NEWLINE':  # pragma: no branch (PY2 only)
+                j += 1
+            return cls(start, block, j, line=True)
+
+
+def _find_if_else_block(tokens, i):
+    if_block = Block.find(tokens, i)
+    i = if_block.end
+    while tokens[i].src != 'else':
+        i += 1
+    else_block = Block.find(tokens, i, trim_end=True)
+    return if_block, else_block
 
 
 def _remove_decorator(tokens, i):
@@ -1236,6 +1391,8 @@ def _fix_py3_plus(contents_text):
     if not any((
             visitor.bases_to_remove,
             visitor.encode_calls,
+            visitor.if_py2_blocks,
+            visitor.if_py3_blocks,
             visitor.native_literals,
             visitor.six_add_metaclass,
             visitor.six_b,
@@ -1254,6 +1411,8 @@ def _fix_py3_plus(contents_text):
     except tokenize.TokenError:  # pragma: no cover (bpo-2180)
         return contents_text
 
+    _fixup_dedent_tokens(tokens)
+
     def _replace(i, mapping, node):
         new_token = Token('CODE', _get_tmpl(mapping, node))
         if isinstance(node, ast.Name):
@@ -1269,6 +1428,21 @@ def _fix_py3_plus(contents_text):
             continue
         elif token.offset in visitor.bases_to_remove:
             _remove_base_class(tokens, i)
+        elif token.offset in visitor.if_py2_blocks:
+            if tokens[i].src != 'if':
+                continue
+            if_block, else_block = _find_if_else_block(tokens, i)
+
+            else_block.dedent(tokens)
+            del tokens[if_block.start:else_block.block]
+        elif token.offset in visitor.if_py3_blocks:
+            if tokens[i].src != 'if':
+                continue
+            if_block, else_block = _find_if_else_block(tokens, i)
+
+            if_block.dedent(tokens)
+            del tokens[if_block.end:else_block.end]
+            del tokens[if_block.start:if_block.block]
         elif token.offset in visitor.six_type_ctx:
             _replace(i, SIX_TYPE_CTX_ATTRS, visitor.six_type_ctx[token.offset])
         elif token.offset in visitor.six_simple:
@@ -1305,16 +1479,13 @@ def _fix_py3_plus(contents_text):
             j = i + 1
             while tokens[j].src != 'class':
                 j += 1
+            class_token = j
             # then search forward for a `:` token, not inside a brace
-            depth = 0
+            j = _find_block_start(tokens, j)
             last_paren = -1
-            while depth or tokens[j].src != ':':
-                if tokens[j].src == '(':
-                    depth += 1
-                elif tokens[j].src == ')':
-                    depth -= 1
-                    last_paren = j
-                j += 1
+            for k in range(class_token, j):
+                if tokens[k].src == ')':
+                    last_paren = k
 
             if last_paren == -1:
                 tokens.insert(j, Token('CODE', '({})'.format(metaclass)))
