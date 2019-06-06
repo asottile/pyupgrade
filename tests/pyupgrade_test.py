@@ -1655,6 +1655,17 @@ def test_fix_encode_noop(s):
         '    pass\n'
         'else:\n'
         '    pass\n',
+        # don't rewrite version compares with not 3.0 compares
+        'if sys.version_info >= (3, 6):\n'
+        '    3.6\n'
+        'else:\n'
+        '    3.5\n',
+        # don't try and think about `sys.version`
+        'from sys import version\n'
+        'if sys.version[0] > "2":\n'
+        '    3\n'
+        'else:\n'
+        '    2\n',
     ),
 )
 def test_fix_py2_block_noop(s):
@@ -1893,6 +1904,78 @@ def test_fix_py2_block_noop(s):
             '    # comment\n',
 
             id='six.PY3, comment after',
+        ),
+        pytest.param(
+            'if sys.version_info == 2:\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            '3\n',
+
+            id='sys.version_info == 2',
+        ),
+        pytest.param(
+            'if sys.version_info < (3,):\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            '3\n',
+
+            id='sys.version_info < (3,)',
+        ),
+        pytest.param(
+            'if sys.version_info < (3, 0):\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            '3\n',
+
+            id='sys.version_info < (3, 0)',
+        ),
+        pytest.param(
+            'if sys.version_info == 3:\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            '3\n',
+
+            id='sys.version_info == 3',
+        ),
+        pytest.param(
+            'if sys.version_info > (3,):\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            '3\n',
+
+            id='sys.version_info > (3,)',
+        ),
+        pytest.param(
+            'if sys.version_info >= (3,):\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            '3\n',
+
+            id='sys.version_info >= (3,)',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info > (3,):\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            'from sys import version_info\n'
+            '3\n',
+
+            id='from sys import version_info, > (3,)',
         ),
     ),
 )
