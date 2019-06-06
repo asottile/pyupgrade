@@ -195,8 +195,8 @@ Availability:
 
 ```python
 def f():
-    for x in y:       # yield from x
-        yield y
+    for x in y:       # yield from y
+        yield x
 
     for a, b in c:    # yield from c
         yield (a, b)
