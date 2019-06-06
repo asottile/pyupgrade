@@ -1003,6 +1003,7 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.encode_calls = {}
 
+        self._version_info_imported = False
         self.if_py2_blocks = set()
         self.if_py3_blocks = set()
 
@@ -1036,11 +1037,28 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr in names
         )
 
+    def _is_version_info(self, node):
+        return (
+            isinstance(node, ast.Name) and
+            node.id == 'version_info' and
+            self._version_info_imported
+        ) or (
+            isinstance(node, ast.Attribute) and
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'sys' and
+            node.attr == 'version_info'
+        )
+
     def visit_ImportFrom(self, node):  # type: (ast.ImportFrom) -> None
         if node.module == 'six':
             for name in node.names:
                 if not name.asname:
                     self._six_from_imports.add(name.name)
+        elif node.module == 'sys' and any(
+            name.name == 'version_info' and not name.asname
+            for name in node.names
+        ):
+            self._version_info_imported = True
         self.generic_visit(node)
 
     def visit_ClassDef(self, node):  # type: (ast.ClassDef) -> None
@@ -1152,6 +1170,25 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.generic_visit(node)
 
+    @staticmethod
+    def _eq(test, n):  # type: (ast.Compare, int) -> bool
+        return (
+            isinstance(test.ops[0], ast.Eq) and
+            isinstance(test.comparators[0], ast.Num) and
+            test.comparators[0].n == n
+        )
+
+    @staticmethod
+    def _compare_to_3(test, op):
+        return (
+            isinstance(test.ops[0], op) and
+            isinstance(test.comparators[0], ast.Tuple) and
+            len(test.comparators[0].elts) >= 1 and
+            all(isinstance(n, ast.Num) for n in test.comparators[0].elts) and
+            test.comparators[0].elts[0].n == 3 and
+            all(n.n == 0 for n in test.comparators[0].elts[1:])
+        )
+
     def visit_If(self, node):  # type: (ast.If) -> None
         if node.orelse and not isinstance(node.orelse[0], ast.If):
             if (
@@ -1162,6 +1199,15 @@ class FindPy3Plus(ast.NodeVisitor):
                         isinstance(node.test, ast.UnaryOp) and
                         isinstance(node.test.op, ast.Not) and
                         self._is_six(node.test.operand, ('PY3',))
+                    ) or
+                    # sys.version_info == 2 or < (3,)
+                    (
+                        isinstance(node.test, ast.Compare) and
+                        self._is_version_info(node.test.left) and
+                        len(node.test.ops) == 1 and (
+                            self._eq(node.test, 2) or
+                            self._compare_to_3(node.test, ast.Lt)
+                        )
                     )
             ):
                 self.if_py2_blocks.add(_ast_to_offset(node))
@@ -1173,6 +1219,15 @@ class FindPy3Plus(ast.NodeVisitor):
                         isinstance(node.test, ast.UnaryOp) and
                         isinstance(node.test.op, ast.Not) and
                         self._is_six(node.test.operand, ('PY2',))
+                    ) or
+                    # sys.version_info == 3 or >= (3,) or > (3,)
+                    (
+                        isinstance(node.test, ast.Compare) and
+                        self._is_version_info(node.test.left) and
+                        len(node.test.ops) == 1 and (
+                            self._eq(node.test, 3) or
+                            self._compare_to_3(node.test, (ast.Gt, ast.GtE))
+                        )
                     )
             ):
                 self.if_py3_blocks.add(_ast_to_offset(node))

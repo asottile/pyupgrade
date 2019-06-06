@@ -209,17 +209,13 @@ Availability:
 
 ```python
 # input
-if six.PY2:      # also understands `six.PY3` and `not`
+if six.PY2:      # also understands `six.PY3` and `not` and `sys.version_info`
     print('py2')
 else:
     print('py3')
 # output
 print('py3')
 ```
-
-_note_: this is a work in progress, see [#152]
-
-[#152]: https://github.com/asottile/pyupgrade/issues/152
 
 ### remove `six` compatibility code
 
