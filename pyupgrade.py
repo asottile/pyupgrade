@@ -1541,6 +1541,9 @@ def _fix_py3_plus(contents_text):
         else:
             j = i
             while tokens[j].src != node.attr:
+                # timid: if we see a parenthesis here, skip it
+                if tokens[j].src == ')':
+                    return
                 j += 1
             tokens[i:j + 1] = [new_token]
 

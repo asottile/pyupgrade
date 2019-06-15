@@ -1102,6 +1102,10 @@ def test_fix_classes(s, expected):
         'class C(six.with_metaclass(*a)): pass',
         '@six.add_metaclass(*a)\n'
         'class C: pass\n',
+        # parenthesized part of attribute
+        '(\n'
+        '    six\n'
+        ').text_type(u)\n',
     ),
 )
 def test_fix_six_noop(s):
