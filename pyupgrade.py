@@ -1672,6 +1672,15 @@ def _starargs(call):
     )
 
 
+def _format_params(call):
+    params = {}
+    for i, arg in enumerate(call.args):
+        params[str(i)] = _unparse(arg)
+    for kwd in call.keywords:
+        params[kwd.arg] = _unparse(kwd.value)
+    return params
+
+
 class FindSimpleFormats(ast.NodeVisitor):
     def __init__(self):
         self.found = {}
@@ -1685,7 +1694,9 @@ class FindSimpleFormats(ast.NodeVisitor):
                 all(_simple_arg(k.value) for k in node.keywords) and
                 not _starargs(node)
         ):
+            params = _format_params(node)
             seen = set()
+            i = 0
             for _, name, spec, _ in parse_format(node.func.value.s):
                 # timid: difficult to rewrite correctly
                 if spec is not None and '{' in spec:
@@ -1699,6 +1710,13 @@ class FindSimpleFormats(ast.NodeVisitor):
                     elif '[' in name:
                         break
                     seen.add(candidate)
+
+                    key = candidate or str(i)
+                    # their .format() call is broken currently
+                    if key not in params:
+                        break
+                    if not candidate:
+                        i += 1
             else:
                 self.found[_ast_to_offset(node)] = node
 
@@ -1715,11 +1733,7 @@ def _unparse(node):
 
 
 def _to_fstring(src, call):
-    params = {}
-    for i, arg in enumerate(call.args):
-        params[str(i)] = _unparse(arg)
-    for kwd in call.keywords:
-        params[kwd.arg] = _unparse(kwd.value)
+    params = _format_params(call)
 
     parts = []
     i = 0
@@ -1727,7 +1741,8 @@ def _to_fstring(src, call):
         if name is not None:
             k, dot, rest = name.partition('.')
             name = ''.join((params[k or str(i)], dot, rest))
-            i += 1
+            if not k:  # named and auto params can be in different orders
+                i += 1
         parts.append((s, name, spec, conv))
     return unparse_parsed_string(parts)
 

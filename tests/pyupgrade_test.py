@@ -2004,6 +2004,8 @@ def test_fix_py2_blocks(s, expected):
         '"{:{}}".format(x, y)',
         '"{a[b]}".format(a=a)',
         '"{a.a[b]}".format(a=a)',
+        # not enough placeholders / placeholders missing
+        '"{}{}".format(a)', '"{a}{b}".format(a=a)',
     ),
 )
 def test_fix_fstrings_noop(s):
@@ -2020,7 +2022,7 @@ def test_fix_fstrings_noop(s):
         ('"{} {}".format(a.b, c.d)', 'f"{a.b} {c.d}"'),
         ('"hello {}!".format(name)', 'f"hello {name}!"'),
         ('"{}{{}}{}".format(escaped, y)', 'f"{escaped}{{}}{y}"'),
-
+        ('"{}{b}{}".format(a, c, b=b)', 'f"{a}{b}{c}"'),
         # TODO: poor man's f-strings?
         # '"{foo}".format(**locals())'
     ),
