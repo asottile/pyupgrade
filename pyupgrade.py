@@ -1022,6 +1022,7 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self._class_info_stack = []
         self._in_comp = 0
+        self._in_async_def = False
         self.super_calls = {}
         self.yield_from_fors = set()
 
@@ -1101,7 +1102,17 @@ class FindPy3Plus(ast.NodeVisitor):
         else:
             self.generic_visit(node)
 
-    visit_FunctionDef = visit_Lambda = _visit_func
+    def _visit_sync_func(self, node):
+        self._in_async_def, orig = False, self._in_async_def
+        self._visit_func(node)
+        self._in_async_def = orig
+
+    visit_FunctionDef = visit_Lambda = _visit_sync_func
+
+    def visit_AsyncFunctionDef(self, node):
+        self._in_async_def, orig = True, self._in_async_def
+        self._visit_func(node)
+        self._in_async_def = orig
 
     def _visit_comp(self, node):
         self._in_comp += 1
@@ -1235,6 +1246,7 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_For(self, node):  # type: (ast.For) -> None
         if (
+            not self._in_async_def and
             len(node.body) == 1 and
             isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Yield) and

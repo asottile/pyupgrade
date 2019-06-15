@@ -1536,6 +1536,44 @@ def test_fix_yield_from(s, expected):
     assert _fix_py3_plus(s) == expected
 
 
+@pytest.mark.xfail(
+    sys.version_info < (3, 4),
+    reason='async introduced in python 3.4',
+)
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        (
+            'async def f():\n'
+            '    for x in [1, 2]:\n'
+            '        yield x\n'
+            '\n'
+            '    def g():\n'
+            '        for x in [1, 2, 3]:\n'
+            '            yield x\n'
+            '\n'
+            '    for x in [1, 2]:\n'
+            '        yield x\n'
+            '\n'
+            '    return g',
+            'async def f():\n'
+            '    for x in [1, 2]:\n'
+            '        yield x\n'
+            '\n'
+            '    def g():\n'
+            '        yield from [1, 2, 3]\n'
+            '\n'
+            '    for x in [1, 2]:\n'
+            '        yield x\n'
+            '\n'
+            '    return g',
+        ),
+    ),
+)
+def test_fix_async_yield_from(s, expected):
+    assert _fix_py3_plus(s) == expected
+
+
 @pytest.mark.parametrize(
     's',
     (
@@ -1569,6 +1607,27 @@ def test_fix_yield_from(s, expected):
     ),
 )
 def test_fix_yield_from_noop(s):
+    assert _fix_py3_plus(s) == s
+
+
+@pytest.mark.xfail(
+    sys.version_info < (3, 4),
+    reason='async introduced in python 3.4',
+)
+@pytest.mark.parametrize(
+    's',
+    (
+        'async def f():\n'
+        '    for x in [1, 2, 3]:\n'
+        '        yield x',
+        'async def f():\n'
+        '    def g():\n'
+        '        async def z():\n'
+        '            for x in [1, 2, 3]:\n'
+        '                yield x',
+    ),
+)
+def test_fix_async_yield_from_noop(s):
     assert _fix_py3_plus(s) == s
 
 
