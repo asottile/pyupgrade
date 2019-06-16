@@ -26,6 +26,6 @@ repos:
     hooks:
     -   id: add-trailing-comma
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v1.18.0
+    rev: v1.19.0
     hooks:
     -   id: pyupgrade
