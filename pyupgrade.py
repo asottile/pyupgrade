@@ -1022,8 +1022,8 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self._class_info_stack = []
         self._in_comp = 0
-        self._in_async_def = False
         self.super_calls = {}
+        self._in_async_def = False
         self.yield_from_fors = set()
 
     def _is_six(self, node, names):
@@ -1109,6 +1109,7 @@ class FindPy3Plus(ast.NodeVisitor):
 
     visit_FunctionDef = visit_Lambda = _visit_sync_func
 
+    # pragma: no cover (py35+)
     def visit_AsyncFunctionDef(self, node):
         self._in_async_def, orig = True, self._in_async_def
         self._visit_func(node)
