@@ -13,8 +13,9 @@ import sys
 import tokenize
 import warnings
 
-from tokenize_rt import ESCAPED_NL
+from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
+from tokenize_rt import parse_string_literal
 from tokenize_rt import reversed_enumerate
 from tokenize_rt import src_to_tokens
 from tokenize_rt import Token
@@ -54,9 +55,6 @@ def unparse_parsed_string(parsed):
         return ret
 
     return j.join(_convert_tup(tup) for tup in parsed)
-
-
-NON_CODING_TOKENS = frozenset(('COMMENT', ESCAPED_NL, 'NL', UNIMPORTANT_WS))
 
 
 def _ast_to_offset(node):
@@ -461,7 +459,6 @@ def _imports_unicode_literals(contents_text):
             return False
 
 
-STRING_PREFIXES_RE = re.compile('^([^\'"]*)(.*)$', re.DOTALL)
 # https://docs.python.org/3/reference/lexical_analysis.html
 ESCAPE_STARTS = frozenset((
     '\n', '\r', '\\', "'", '"', 'a', 'b', 'f', 'n', 'r', 't', 'v',
@@ -472,13 +469,8 @@ ESCAPE_RE = re.compile(r'\\.', re.DOTALL)
 NAMED_ESCAPE_NAME = re.compile(r'\{[^}]+\}')
 
 
-def _parse_string_literal(s):
-    match = STRING_PREFIXES_RE.match(s)
-    return match.group(1), match.group(2)
-
-
 def _fix_escape_sequences(token):
-    prefix, rest = _parse_string_literal(token.src)
+    prefix, rest = parse_string_literal(token.src)
     actual_prefix = prefix.lower()
 
     if 'r' in actual_prefix or '\\' not in rest:
@@ -522,16 +514,16 @@ def _fix_escape_sequences(token):
 
 
 def _remove_u_prefix(token):
-    prefix, rest = _parse_string_literal(token.src)
+    prefix, rest = parse_string_literal(token.src)
     if 'u' not in prefix.lower():
         return token
     else:
         new_prefix = prefix.replace('u', '').replace('U', '')
-        return Token('STRING', new_prefix + rest)
+        return token._replace(src=new_prefix + rest)
 
 
 def _fix_ur_literals(token):
-    prefix, rest = _parse_string_literal(token.src)
+    prefix, rest = parse_string_literal(token.src)
     if prefix.lower() != 'ur':
         return token
     else:
@@ -558,10 +550,6 @@ def _fix_octal(s):
         return s[1:]
     else:  # pragma: no cover (py2 only)
         return '0o' + s[1:]
-
-
-def _is_string_prefix(token):
-    return token.name == 'NAME' and set(token.src.lower()) <= set('bfru')
 
 
 def _fix_extraneous_parens(tokens, i):
@@ -611,12 +599,6 @@ def _fix_tokens(contents_text, py3_plus):
         if token.name == 'NUMBER':
             tokens[i] = token._replace(src=_fix_long(_fix_octal(token.src)))
         elif token.name == 'STRING':
-            # when a string prefix is not recognized, the tokenizer produces a
-            # NAME token followed by a STRING token
-            if i > 0 and _is_string_prefix(tokens[i - 1]):
-                tokens[i] = token._replace(src=tokens[i - 1].src + token.src)
-                tokens[i - 1] = tokens[i - 1]._replace(src='')
-
             tokens[i] = _fix_ur_literals(tokens[i])
             if remove_u_prefix:
                 tokens[i] = _remove_u_prefix(tokens[i])
