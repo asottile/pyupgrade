@@ -278,6 +278,20 @@ six.assertRaisesRegex(self, e, r, fn)   # self.assertRaisesRegex(e, r, fn)
 six.assertRegex(self, s, r)             # self.assertRegex(s, r)
 ```
 
+### `OSError` aliases
+
+Availability (_currently unreleased_):
+- `--py3-plus` is passed on the commandline.
+
+```python
+# input
+x = EnvironmentError('boom')        # also understands IOError and WindowsError
+raise EnvironmentError('boom')
+# output
+x = OSError('boom')
+raise OSError('boom')
+```
+
 ### f-strings
 
 Availability:

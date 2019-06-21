@@ -974,6 +974,12 @@ def _is_utf8_codec(encoding):
 
 
 class FindPy3Plus(ast.NodeVisitor):
+    OS_ERROR_ALIASES = frozenset((
+        'EnvironmentError',
+        'IOError',
+        'WindowsError',
+    ))
+
     class ClassInfo:
         def __init__(self, name):
             self.name = name
@@ -990,6 +996,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.if_py3_blocks = set()
 
         self.native_literals = set()
+        self.simple_ids = {}
 
         self._six_from_imports = set()
         self.six_add_metaclass = set()
@@ -1109,7 +1116,12 @@ class FindPy3Plus(ast.NodeVisitor):
             self.six_simple[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
-    visit_Name = visit_Attribute = _visit_simple
+    visit_Attribute = _visit_simple
+
+    def visit_Name(self, node):  # type: (ast.Name) -> None
+        if node.id in self.OS_ERROR_ALIASES:
+            self.simple_ids[_ast_to_offset(node)] = node
+        self._visit_simple(node)
 
     def visit_Call(self, node):  # type: (ast.Call) -> None
         if (
@@ -1508,6 +1520,7 @@ def _fix_py3_plus(contents_text):
             visitor.if_py2_blocks,
             visitor.if_py3_blocks,
             visitor.native_literals,
+            visitor.simple_ids,
             visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
@@ -1643,6 +1656,13 @@ def _fix_py3_plus(contents_text):
             if any(tok.name == 'NL' for tok in tokens[i:end]):
                 continue
             _replace_call(tokens, i, end, func_args, '{args[0]}')
+        elif token.offset in visitor.simple_ids:
+            tokens[i] = Token(
+                token.name,
+                'OSError',
+                token.line,
+                token.utf8_byte_offset,
+            )
         elif token.offset in visitor.yield_from_fors:
             _replace_yield(tokens, i)
 
