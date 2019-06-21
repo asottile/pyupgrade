@@ -18,6 +18,7 @@ from pyupgrade import _is_bytestring
 from pyupgrade import _percent_to_format
 from pyupgrade import _simplify_conversion_flag
 from pyupgrade import fields_same
+from pyupgrade import FindPy3Plus
 from pyupgrade import main
 from pyupgrade import parse_format
 from pyupgrade import parse_percent_format
@@ -2073,6 +2074,45 @@ def test_fix_fstrings(s, expected):
     assert _fix_fstrings(s) == expected
 
 
+@pytest.mark.parametrize(
+    ('tpl', 'expected'),
+    (
+        ('x = {alias}', 'x = OSError'),
+        ('x = {alias}()', 'x = OSError()'),
+        ('x = {alias}(1, 2)', 'x = OSError(1, 2)'),
+        (
+            'x = {alias}(\n'
+            '    1,\n'
+            '    2,\n'
+            ')',
+            'x = OSError(\n'
+            '    1,\n'
+            '    2,\n'
+            ')',
+        ),
+        ('raise {alias}', 'raise OSError'),
+        ('raise {alias}()', 'raise OSError()'),
+        ('raise {alias}(1, 2)', 'raise OSError(1, 2)'),
+        (
+            'raise {alias}(\n'
+            '    1,\n'
+            '    2,\n'
+            ')',
+            'raise OSError(\n'
+            '    1,\n'
+            '    2,\n'
+            ')',
+        ),
+    ),
+)
+@pytest.mark.parametrize(
+    'alias', FindPy3Plus.OS_ERROR_ALIASES,
+)
+def test_fix_oserror_aliases(alias, tpl, expected):
+    s = tpl.format(alias=alias)
+    assert _fix_py3_plus(s) == expected
+
+
 def test_main_trivial():
     assert main(()) == 0
 
@@ -2160,6 +2200,15 @@ def test_py3_plus_new_style_classes(tmpdir):
     assert f.read() == 'class C(object): pass\n'
     assert main((f.strpath, '--py3-plus')) == 1
     assert f.read() == 'class C: pass\n'
+
+
+def test_py3_plus_oserror(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('raise EnvironmentError(1, 2)\n')
+    assert main((f.strpath,)) == 0
+    assert f.read() == 'raise EnvironmentError(1, 2)\n'
+    assert main((f.strpath, '--py3-plus')) == 1
+    assert f.read() == 'raise OSError(1, 2)\n'
 
 
 def test_py36_plus_fstrings(tmpdir):
