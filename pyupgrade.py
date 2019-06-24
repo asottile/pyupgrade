@@ -1246,6 +1246,7 @@ class FindPy3Plus(ast.NodeVisitor):
             len(node.body) == 1 and
             isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Yield) and
+            node.body[0].value.value is not None and
             targets_same(node.target, node.body[0].value.value) and
             not node.orelse
         ):

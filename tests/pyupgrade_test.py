@@ -1585,6 +1585,9 @@ def test_fix_async_yield_from(s, expected):
     (
         'def f():\n'
         '    for x in z:\n'
+        '        yield',
+        'def f():\n'
+        '    for x in z:\n'
         '        yield y',
         'def f():\n'
         '    for x, y in z:\n'
