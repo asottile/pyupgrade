@@ -435,7 +435,7 @@ def _fix_py2_compatible(contents_text):
     return tokens_to_src(tokens)
 
 
-def _imports_unicode_literals(contents_text):
+def _imports_unicode_literals(contents_text):  # type: (str) -> bool
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -457,6 +457,8 @@ def _imports_unicode_literals(contents_text):
                 return False
         else:
             return False
+
+    return False
 
 
 # https://docs.python.org/3/reference/lexical_analysis.html

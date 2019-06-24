@@ -347,6 +347,7 @@ def test_format_literals(s, expected):
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
+        ('', False),
         ('import x', False),
         ('from foo import bar', False),
         ('x = 5', False),
