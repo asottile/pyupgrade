@@ -19,7 +19,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v1.19.0
+    rev: v1.20.0
     hooks:
     -   id: pyupgrade
 ```
@@ -275,7 +275,7 @@ six.assertRegex(self, s, r)             # self.assertRegex(s, r)
 
 ### `OSError` aliases
 
-Availability (_currently unreleased_):
+Availability:
 - `--py3-plus` is passed on the commandline.
 
 ```python
