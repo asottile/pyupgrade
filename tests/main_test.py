@@ -2,6 +2,11 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import io
+import sys
+
+import mock
+
 from pyupgrade import main
 
 
@@ -20,8 +25,8 @@ def test_main_changes_a_file(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write('x = set((1, 2, 3))\n')
     assert main((f.strpath,)) == 1
-    out, _ = capsys.readouterr()
-    assert out == 'Rewriting {}\n'.format(f.strpath)
+    out, err = capsys.readouterr()
+    assert err == 'Rewriting {}\n'.format(f.strpath)
     assert f.read() == 'x = {1, 2, 3}\n'
 
 
@@ -133,3 +138,19 @@ def test_main_exit_zero_even_if_changed(tmpdir):
     assert not main((str(f), '--exit-zero-even-if-changed'))
     assert f.read() == '{1, 2}\n'
     assert not main((str(f), '--exit-zero-even-if-changed'))
+
+
+def test_main_stdin_no_changes(capsys):
+    stdin = io.TextIOWrapper(io.BytesIO(b'{1, 2}\n'), 'UTF-8')
+    with mock.patch.object(sys, 'stdin', stdin):
+        assert main(('-',)) == 0
+    out, err = capsys.readouterr()
+    assert out == '{1, 2}\n'
+
+
+def test_main_stdin_with_changes(capsys):
+    stdin = io.TextIOWrapper(io.BytesIO(b'set((1, 2))\n'), 'UTF-8')
+    with mock.patch.object(sys, 'stdin', stdin):
+        assert main(('-',)) == 1
+    out, err = capsys.readouterr()
+    assert out == '{1, 2}\n'
