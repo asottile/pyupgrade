@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from __future__ import print_function
 from __future__ import unicode_literals
 
 import argparse
@@ -1896,8 +1897,11 @@ def _fix_fstrings(contents_text):  # type: (str) -> str
 
 
 def fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
-    with open(filename, 'rb') as fb:
-        contents_bytes = fb.read()
+    if filename == '-':
+        contents_bytes = getattr(sys.stdin, 'buffer', sys.stdin).read()
+    else:
+        with open(filename, 'rb') as fb:
+            contents_bytes = fb.read()
 
     try:
         contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
@@ -1915,8 +1919,10 @@ def fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
     if args.py36_plus:
         contents_text = _fix_fstrings(contents_text)
 
-    if contents_text != contents_text_orig:
-        print('Rewriting {}'.format(filename))
+    if filename == '-':
+        print(contents_text, end='')
+    elif contents_text != contents_text_orig:
+        print('Rewriting {}'.format(filename), file=sys.stderr)
         with io.open(filename, 'w', encoding='UTF-8', newline='') as f:
             f.write(contents_text)
 
