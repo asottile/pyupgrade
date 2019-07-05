@@ -118,9 +118,6 @@ ur'\U0001f643'  # u'\U0001f643'
 
 ### Long literals
 
-Availability:
-- If `pyupgrade` is running in python 2.
-
 ```python
 5L                            # 5
 5l                            # 5
@@ -129,8 +126,6 @@ Availability:
 
 ### Octal literals
 
-Availability:
-- If `pyupgrade` is running in python 2.
 ```
 0755  # 0o755
 05    # 5
