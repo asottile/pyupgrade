@@ -125,3 +125,11 @@ def test_noop_token_error(tmpdir):
         '5\\\n',
     )
     assert main((f.strpath, '--py36-plus')) == 0
+
+
+def test_main_exit_zero_even_if_changed(tmpdir):
+    f = tmpdir.join('t.py')
+    f.write('set((1, 2))\n')
+    assert not main((str(f), '--exit-zero-even-if-changed'))
+    assert f.read() == '{1, 2}\n'
+    assert not main((str(f), '--exit-zero-even-if-changed'))

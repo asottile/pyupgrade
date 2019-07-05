@@ -1919,14 +1919,17 @@ def fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
         print('Rewriting {}'.format(filename))
         with io.open(filename, 'w', encoding='UTF-8', newline='') as f:
             f.write(contents_text)
-        return 1
 
-    return 0
+    if args.exit_zero_even_if_changed:
+        return 0
+    else:
+        return contents_text != contents_text_orig
 
 
 def main(argv=None):  # type: (Optional[Sequence[str]]) -> int
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
+    parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--py3-plus', '--py3-only', action='store_true')
     parser.add_argument('--py36-plus', action='store_true')
