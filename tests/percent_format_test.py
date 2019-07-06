@@ -184,15 +184,11 @@ def test_percent_format_noop(s):
     assert _fix_percent_format(s) == s
 
 
-def _get_body(expr):
-    body = ast.parse(expr).body[0]
-    assert isinstance(body, ast.Expr)
-    return body.value
-
-
 def _has_16806_bug():
     # See https://bugs.python.org/issue16806
-    return _get_body('"""\n"""').col_offset == -1
+    body = ast.parse('"""\n"""').body[0]
+    assert isinstance(body, ast.Expr)
+    return body.value.col_offset == -1
 
 
 @pytest.mark.xfail(not _has_16806_bug(), reason='multiline string parse bug')
