@@ -32,6 +32,7 @@ from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
 from tokenize_rt import parse_string_literal
 from tokenize_rt import reversed_enumerate
+from tokenize_rt import rfind_string_parts
 from tokenize_rt import src_to_tokens
 from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
@@ -109,69 +110,6 @@ def inty(s):  # type: (str) -> bool
         return True
     except (ValueError, TypeError):
         return False
-
-
-def _rewrite_string_literal(literal):  # type: (str) -> str
-    try:
-        parsed_fmt = parse_format(literal)
-    except ValueError:
-        # Well, the format literal was malformed, so skip it
-        return literal
-
-    last_int = -1
-    # The last segment will always be the end of the string and not a format
-    # We slice it off here to avoid a "None" format key
-    for _, fmtkey, spec, _ in parsed_fmt[:-1]:
-        if (
-                fmtkey is not None and inty(fmtkey) and
-                int(fmtkey) == last_int + 1 and
-                spec is not None and '{' not in spec
-        ):
-            last_int += 1
-        else:
-            return literal
-
-    def _remove_fmt(tup):  # type: (DotFormatPart) -> DotFormatPart
-        if tup[1] is None:
-            return tup
-        else:
-            return (tup[0], '', tup[2], tup[3])
-
-    removed = [_remove_fmt(tup) for tup in parsed_fmt]
-    return unparse_parsed_string(removed)
-
-
-def _fix_format_literals(contents_text):  # type: (str) -> str
-    try:
-        tokens = src_to_tokens(contents_text)
-    except tokenize.TokenError:
-        return contents_text
-
-    to_replace = []
-    string_start = None
-    string_end = None
-    seen_dot = False
-
-    for i, token in enumerate(tokens):
-        if string_start is None and token.name == 'STRING':
-            string_start = i
-            string_end = i + 1
-        elif string_start is not None and token.name == 'STRING':
-            string_end = i + 1
-        elif string_start is not None and token.src == '.':
-            seen_dot = True
-        elif seen_dot and token.src == 'format':
-            to_replace.append((string_start, string_end))
-            string_start, string_end, seen_dot = None, None, False
-        elif token.name not in NON_CODING_TOKENS:
-            string_start, string_end, seen_dot = None, None, False
-
-    for start, end in reversed(to_replace):
-        src = tokens_to_src(tokens[start:end])
-        new_src = _rewrite_string_literal(src)
-        tokens[start:end] = [Token('STRING', new_src)]
-
-    return tokens_to_src(tokens)
 
 
 def _has_kwargs(call):  # type: (ast.Call) -> bool
@@ -636,6 +574,42 @@ def _fix_extraneous_parens(tokens, i):  # type: (List[Token], int) -> None
         _remove_brace(tokens, start)
 
 
+def _remove_fmt(tup):  # type: (DotFormatPart) -> DotFormatPart
+    if tup[1] is None:
+        return tup
+    else:
+        return (tup[0], '', tup[2], tup[3])
+
+
+def _fix_format_literal(tokens, end):  # type: (List[Token], int) -> None
+    parts = rfind_string_parts(tokens, end)
+    parsed_parts = []
+    last_int = -1
+    for i in parts:
+        try:
+            parsed = parse_format(tokens[i].src)
+        except ValueError:
+            # the format literal was malformed, skip it
+            return
+
+        # The last segment will always be the end of the string and not a
+        # format, slice avoids the `None` format key
+        for _, fmtkey, spec, _ in parsed[:-1]:
+            if (
+                    fmtkey is not None and inty(fmtkey) and
+                    int(fmtkey) == last_int + 1 and
+                    spec is not None and '{' not in spec
+            ):
+                last_int += 1
+            else:
+                return
+
+        parsed_parts.append(tuple(_remove_fmt(tup) for tup in parsed))
+
+    for i, parsed in zip(parts, parsed_parts):
+        tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed))
+
+
 def _fix_tokens(contents_text, py3_plus):  # type: (str, bool) -> str
     remove_u_prefix = py3_plus or _imports_unicode_literals(contents_text)
 
@@ -653,6 +627,8 @@ def _fix_tokens(contents_text, py3_plus):  # type: (str, bool) -> str
             tokens[i] = _fix_escape_sequences(tokens[i])
         elif token.src == '(':
             _fix_extraneous_parens(tokens, i)
+        elif token.src == 'format' and i > 0 and tokens[i - 1].src == '.':
+            _fix_format_literal(tokens, i - 2)
     return tokens_to_src(tokens)
 
 
@@ -1910,7 +1886,6 @@ def fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
         return 1
 
     contents_text = _fix_py2_compatible(contents_text)
-    contents_text = _fix_format_literals(contents_text)
     contents_text = _fix_tokens(contents_text, args.py3_plus)
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)
