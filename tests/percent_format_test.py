@@ -178,6 +178,8 @@ def test_simplify_conversion_flag(s, expected):
         '"%(1)s" % {1: 2, "1": 2}',
         # don't rewrite keyword keys
         '"%(and)s" % {"and": 2}',
+        # invalid string formats
+        '"%" % {}', '"%(hi)" % {}', '"%2" % {}',
     ),
 )
 def test_percent_format_noop(s):

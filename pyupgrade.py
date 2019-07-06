@@ -713,7 +713,10 @@ def parse_percent_format(s):
                 # length modifier is ignored
                 i = _must_match(LENGTH_RE, s, i).end()
 
-                conversion = s[i]
+                try:
+                    conversion = s[i]
+                except IndexError:
+                    raise ValueError('end-of-string while parsing format')
                 i += 1
 
                 fmt = (key, conversion_flag, width, precision, conversion)
@@ -721,6 +724,9 @@ def parse_percent_format(s):
 
                 in_fmt = False
                 string_start = i
+
+        if in_fmt:
+            raise ValueError('end-of-string while parsing format')
 
     return tuple(_parse_inner())
 
@@ -731,34 +737,39 @@ class FindPercentFormats(ast.NodeVisitor):
 
     def visit_BinOp(self, node):  # type: (ast.BinOp) -> None
         if isinstance(node.op, ast.Mod) and isinstance(node.left, ast.Str):
-            for _, fmt in parse_percent_format(node.left.s):
-                if not fmt:
-                    continue
-                key, conversion_flag, width, precision, conversion = fmt
-                # timid: these require out-of-order parameter consumption
-                if width == '*' or precision == '.*':
-                    break
-                # timid: these conversions require modification of parameters
-                if conversion in {'d', 'i', 'u', 'c'}:
-                    break
-                # timid: py2: %#o formats different from {:#o} (TODO: --py3)
-                if '#' in (conversion_flag or '') and conversion == 'o':
-                    break
-                # timid: no equivalent in format
-                if key == '':
-                    break
-                # timid: py2: conversion is subject to modifiers (TODO: --py3)
-                nontrivial_fmt = any((conversion_flag, width, precision))
-                if conversion == '%' and nontrivial_fmt:
-                    break
-                # timid: no equivalent in format
-                if conversion in {'a', 'r'} and nontrivial_fmt:
-                    break
-                # all dict substitutions must be named
-                if isinstance(node.right, ast.Dict) and not key:
-                    break
+            try:
+                parsed = parse_percent_format(node.left.s)
+            except ValueError:
+                pass
             else:
-                self.found[_ast_to_offset(node)] = node
+                for _, fmt in parsed:
+                    if not fmt:
+                        continue
+                    key, conversion_flag, width, precision, conversion = fmt
+                    # timid: these require out-of-order parameter consumption
+                    if width == '*' or precision == '.*':
+                        break
+                    # these conversions require modification of parameters
+                    if conversion in {'d', 'i', 'u', 'c'}:
+                        break
+                    # timid: py2: %#o formats different from {:#o} (--py3?)
+                    if '#' in (conversion_flag or '') and conversion == 'o':
+                        break
+                    # no equivalent in format
+                    if key == '':
+                        break
+                    # timid: py2: conversion is subject to modifiers (--py3?)
+                    nontrivial_fmt = any((conversion_flag, width, precision))
+                    if conversion == '%' and nontrivial_fmt:
+                        break
+                    # no equivalent in format
+                    if conversion in {'a', 'r'} and nontrivial_fmt:
+                        break
+                    # all dict substitutions must be named
+                    if isinstance(node.right, ast.Dict) and not key:
+                        break
+                else:
+                    self.found[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
 
