@@ -1057,7 +1057,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.six_remove_decorators = set()  # type: Set[Offset]
         self.six_simple = {}  # type: Dict[Offset, NameOrAttr]
         self.six_type_ctx = {}  # type: Dict[Offset, NameOrAttr]
-        self.six_with_metaclass = set()  # type: Set[ast.Call]
+        self.six_with_metaclass = set()  # type: Set[Offset]
 
         self._class_info_stack = []  # type: List[FindPy3Plus.ClassInfo]
         self._in_comp = 0
