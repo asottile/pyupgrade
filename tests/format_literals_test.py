@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 
 import pytest
 
-from pyupgrade import _fix_format_literals
+from pyupgrade import _fix_tokens
 from pyupgrade import parse_format
 from pyupgrade import unparse_parsed_string
 
@@ -49,10 +49,14 @@ def test_intentionally_not_round_trip(s, expected):
         "'{0} {0}'.format(1)",
         # Formats can be embedded in formats, leave these alone?
         "'{0:<{1}}'.format(1, 4)",
+        # don't attempt to fix this, garbage in garbage out
+        "'{' '0}'.format(1)",
+        # comment looks like placeholder but is not!
+        '("{0}" # {1}\n"{2}").format(1, 2, 3)',
     ),
 )
 def test_format_literals_noop(s):
-    assert _fix_format_literals(s) == s
+    assert _fix_tokens(s, py3_plus=False) == s
 
 
 @pytest.mark.parametrize(
@@ -95,8 +99,10 @@ def test_format_literals_noop(s):
             'x = "foo {}" \\\n'
             '    "bar {}".format(1, 2)',
         ),
+        # parenthesized string literals
+        ('("{0}").format(1)', '("{}").format(1)'),
     ),
 )
 def test_format_literals(s, expected):
-    ret = _fix_format_literals(s)
+    ret = _fix_tokens(s, py3_plus=False)
     assert ret == expected
