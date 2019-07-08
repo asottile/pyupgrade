@@ -116,6 +116,16 @@ ur'\u2603'      # u'\u2603'
 ur'\U0001f643'  # u'\U0001f643'
 ```
 
+### `.encode()` to bytes literals
+
+```python
+'foo'.encode()           # b'foo'
+'foo'.encode('ascii')    # b'foo'
+'foo'.encode('utf-8')    # b'foo'
+u'foo'.encode()          # b'foo'
+'\xa0'.encode('latin1')  # b'\xa0'
+```
+
 ### Long literals
 
 ```python
