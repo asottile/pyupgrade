@@ -295,7 +295,7 @@ Availability:
 ```python
 '{foo} {bar}'.format(foo=foo, bar=bar)  # f'{foo} {bar}'
 '{} {}'.format(foo, bar)                # f'{foo} {bar}'
-'{} {}'.format(foo.bar, baz.womp}       # f'{foo.bar} {baz.womp}'
+'{} {}'.format(foo.bar, baz.womp)       # f'{foo.bar} {baz.womp}'
 ```
 
 _note_: `pyupgrade` is intentionally timid and will not create an f-string
