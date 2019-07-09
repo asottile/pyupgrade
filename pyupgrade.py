@@ -233,6 +233,8 @@ def _victims(tokens, start, arg, gen):
                 ends.extend((i - 1, i))
             else:
                 ends.append(i)
+            if len(brace_stack) > 1 and tokens[i + 1].src == ',':
+                ends.append(i + 1)
 
         if is_end_brace:
             brace_stack.pop()
@@ -245,9 +247,9 @@ def _victims(tokens, start, arg, gen):
         while tokens[i].name in NON_CODING_TOKENS:
             i -= 1
         if tokens[i].src == ',':
-            ends = sorted(set(ends + [i]))
+            ends.append(i)
 
-    return Victims(starts, ends, first_comma_index, arg_index)
+    return Victims(starts, sorted(set(ends)), first_comma_index, arg_index)
 
 
 def _find_token(tokens, i, token):  # type: (List[Token], int, Token) -> int
