@@ -612,6 +612,59 @@ def _fix_format_literal(tokens, end):  # type: (List[Token], int) -> None
         tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed))
 
 
+def _fix_encode_to_binary(tokens, i):  # type: (List[Token], int) -> None
+    # .encode()
+    if (
+            i + 2 < len(tokens) and
+            tokens[i + 1].src == '(' and
+            tokens[i + 2].src == ')'
+    ):
+        victims = slice(i - 1, i + 3)
+        latin1_ok = False
+    # .encode('encoding')
+    elif (
+            i + 3 < len(tokens) and
+            tokens[i + 1].src == '(' and
+            tokens[i + 2].name == 'STRING' and
+            tokens[i + 3].src == ')'
+    ):
+        victims = slice(i - 1, i + 4)
+        prefix, rest = parse_string_literal(tokens[i + 2].src)
+        if 'f' in prefix.lower():
+            return
+        encoding = ast.literal_eval(prefix + rest)
+        if _is_codec(encoding, 'ascii') or _is_codec(encoding, 'utf-8'):
+            latin1_ok = False
+        elif _is_codec(encoding, 'iso8859-1'):
+            latin1_ok = True
+        else:
+            return
+    else:
+        return
+
+    parts = rfind_string_parts(tokens, i - 2)
+    if not parts:
+        return
+
+    for part in parts:
+        prefix, rest = parse_string_literal(tokens[part].src)
+        escapes = set(ESCAPE_RE.findall(rest))
+        if (
+                not _is_ascii(rest) or
+                '\\u' in escapes or
+                '\\U' in escapes or
+                ('\\x' in escapes and not latin1_ok) or
+                'f' in prefix.lower()
+        ):
+            return
+
+    for part in parts:
+        prefix, rest = parse_string_literal(tokens[part].src)
+        prefix = 'b' + prefix.replace('u', '').replace('U', '')
+        tokens[part] = tokens[part]._replace(src=prefix + rest)
+    del tokens[victims]
+
+
 def _fix_tokens(contents_text, py3_plus):  # type: (str, bool) -> str
     remove_u_prefix = py3_plus or _imports_unicode_literals(contents_text)
 
@@ -631,6 +684,8 @@ def _fix_tokens(contents_text, py3_plus):  # type: (str, bool) -> str
             _fix_extraneous_parens(tokens, i)
         elif token.src == 'format' and i > 0 and tokens[i - 1].src == '.':
             _fix_format_literal(tokens, i - 2)
+        elif token.src == 'encode' and i > 0 and tokens[i - 1].src == '.':
+            _fix_encode_to_binary(tokens, i)
     return tokens_to_src(tokens)
 
 
@@ -1018,9 +1073,9 @@ def targets_same(target, yield_value):  # type: (ast.AST, ast.AST) -> bool
         return True
 
 
-def _is_utf8_codec(encoding):  # type: (str) -> bool
+def _is_codec(encoding, name):  # type: (str, str) -> bool
     try:
-        return codecs.lookup(encoding).name == 'utf-8'
+        return codecs.lookup(encoding).name == name
     except LookupError:
         return False
 
@@ -1229,7 +1284,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 not _starargs(node) and
                 len(node.args) == 1 and
                 isinstance(node.args[0], ast.Str) and
-                _is_utf8_codec(node.args[0].s)
+                _is_codec(node.args[0].s, 'utf-8')
         ):
             self.encode_calls[_ast_to_offset(node)] = node
 
