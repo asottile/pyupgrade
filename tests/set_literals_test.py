@@ -85,6 +85,16 @@ def test_fix_sets_noop(s):
             '    x for x in y\n'
             '}',
         ),
+        (
+            'set(\n'
+            '    [\n'
+            '        99, 100,\n'
+            '    ],\n'
+            ')\n',
+            '{\n'
+            '        99, 100,\n'
+            '}\n',
+        ),
     ),
 )
 def test_sets(s, expected):
