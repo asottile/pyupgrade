@@ -1087,6 +1087,14 @@ class FindPy3Plus(ast.NodeVisitor):
         'WindowsError',
     ))
 
+    OS_ERROR_ALIAS_MODULES = frozenset((
+        'mmap',
+        'select',
+        'socket',
+    ))
+
+    FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union(('six',))
+
     class ClassInfo:
         def __init__(self, name):  # type: (str) -> None
             self.name = name
@@ -1103,9 +1111,13 @@ class FindPy3Plus(ast.NodeVisitor):
         self.if_py3_blocks = set()  # type: Set[ast.If]
 
         self.native_literals = set()  # type: Set[Offset]
-        self.simple_ids = {}  # type: Dict[Offset, ast.Name]
 
-        self._six_from_imports = set()  # type: Set[str]
+        self._from_imported_names = collections.defaultdict(
+            set,
+        )  # type: Dict[str, Set[str]]
+        self.os_error_alias_calls = {}  # type: Dict[Offset, ast.Call]
+        self.os_error_alias_simple = {}  # type: Dict[Offset, NameOrAttr]
+
         self.six_add_metaclass = set()  # type: Set[ast.ClassDef]
         self.six_b = set()  # type: Set[ast.Call]
         self.six_calls = {}  # type: Dict[Offset, ast.Call]
@@ -1127,12 +1139,32 @@ class FindPy3Plus(ast.NodeVisitor):
         return (
             isinstance(node, ast.Name) and
             node.id in names and
-            node.id in self._six_from_imports
+            node.id in self._from_imported_names['six']
         ) or (
             isinstance(node, ast.Attribute) and
             isinstance(node.value, ast.Name) and
             node.value.id == 'six' and
             node.attr in names
+        )
+
+    def _is_os_error_alias(self, node):
+        # type: (ast.expr) -> bool
+        return (
+            isinstance(node, ast.Name) and
+            node.id in self.OS_ERROR_ALIASES
+        ) or (
+            isinstance(node, ast.Name) and
+            node.id == 'error' and
+            (
+                node.id in self._from_imported_names['mmap'] or
+                node.id in self._from_imported_names['select'] or
+                node.id in self._from_imported_names['socket']
+            )
+        ) or (
+            isinstance(node, ast.Attribute) and
+            isinstance(node.value, ast.Name) and
+            node.value.id in self.OS_ERROR_ALIAS_MODULES and
+            node.attr == 'error'
         )
 
     def _is_version_info(self, node):  # type: (ast.expr) -> bool
@@ -1148,10 +1180,10 @@ class FindPy3Plus(ast.NodeVisitor):
         )
 
     def visit_ImportFrom(self, node):  # type: (ast.ImportFrom) -> None
-        if node.module == 'six':
+        if node.module in self.FROM_IMPORTED_MODULES:
             for name in node.names:
                 if not name.asname:
-                    self._six_from_imports.add(name.name)
+                    self._from_imported_names[node.module].add(name.name)
         elif node.module == 'sys' and any(
             name.name == 'version_info' and not name.asname
             for name in node.names
@@ -1227,12 +1259,40 @@ class FindPy3Plus(ast.NodeVisitor):
             self.six_simple[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
-    visit_Attribute = _visit_simple
+    visit_Attribute = visit_Name = _visit_simple
 
-    def visit_Name(self, node):  # type: (ast.Name) -> None
-        if node.id in self.OS_ERROR_ALIASES:
-            self.simple_ids[_ast_to_offset(node)] = node
-        self._visit_simple(node)
+    def visit_Try(self, node):  # type: (ast.Try) -> None
+        for handler in node.handlers:
+            htype = handler.type
+            if htype and self._is_os_error_alias(htype):
+                assert isinstance(htype, (ast.Name, ast.Attribute))
+                self.os_error_alias_simple[_ast_to_offset(htype)] = htype
+            elif isinstance(htype, ast.Tuple):
+                for elt in htype.elts:
+                    if self._is_os_error_alias(elt):
+                        assert isinstance(elt, (ast.Name, ast.Attribute))
+                        self.os_error_alias_simple[_ast_to_offset(elt)] = elt
+
+        self.generic_visit(node)
+
+    visit_TryExcept = visit_Try
+
+    def visit_Raise(self, node):  # type: (ast.Raise) -> None
+        if sys.version_info >= (3,):  # pragma: no cover (py3-only)
+            exc = node.exc
+        else:  # pragma: no cover (py2-only)
+            exc = node.type
+
+        if exc is not None and self._is_os_error_alias(exc):
+            assert isinstance(exc, (ast.Name, ast.Attribute))
+            self.os_error_alias_simple[_ast_to_offset(exc)] = exc
+        elif (
+                isinstance(exc, ast.Call) and
+                self._is_os_error_alias(exc.func)
+        ):
+            self.os_error_alias_calls[_ast_to_offset(exc)] = exc
+
+        self.generic_visit(node)
 
     def visit_Call(self, node):  # type: (ast.Call) -> None
         if (
@@ -1655,7 +1715,8 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             visitor.if_py2_blocks,
             visitor.if_py3_blocks,
             visitor.native_literals,
-            visitor.simple_ids,
+            visitor.os_error_alias_calls,
+            visitor.os_error_alias_simple,
             visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
@@ -1728,16 +1789,16 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
         elif token.offset in visitor.six_calls:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
-            node = visitor.six_calls[token.offset]
-            assert isinstance(node.func, (ast.Name, ast.Attribute))
-            template = _get_tmpl(SIX_CALLS, node.func)
+            call = visitor.six_calls[token.offset]
+            assert isinstance(call.func, (ast.Name, ast.Attribute))
+            template = _get_tmpl(SIX_CALLS, call.func)
             _replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_raises:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
-            node = visitor.six_raises[token.offset]
-            assert isinstance(node.func, (ast.Name, ast.Attribute))
-            template = _get_tmpl(SIX_RAISES, node.func)
+            call = visitor.six_raises[token.offset]
+            assert isinstance(call.func, (ast.Name, ast.Attribute))
+            template = _get_tmpl(SIX_RAISES, call.func)
             _replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_add_metaclass:
             j = _find_open_paren(tokens, i)
@@ -1797,13 +1858,12 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
                 _replace_call(tokens, i, end, func_args, '{args[0]}')
             else:
                 tokens[i:end] = [token._replace(name='STRING', src="''")]
-        elif token.offset in visitor.simple_ids:
-            tokens[i] = Token(
-                token.name,
-                'OSError',
-                token.line,
-                token.utf8_byte_offset,
-            )
+        elif token.offset in visitor.os_error_alias_calls:
+            j = _find_open_paren(tokens, i)
+            tokens[i:j] = [token._replace(name='NAME', src='OSError')]
+        elif token.offset in visitor.os_error_alias_simple:
+            node = visitor.os_error_alias_simple[token.offset]
+            _replace(i, collections.defaultdict(lambda: 'OSError'), node)
         elif token.offset in visitor.yield_from_fors:
             _replace_yield(tokens, i)
 
