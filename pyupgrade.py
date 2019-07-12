@@ -1271,10 +1271,15 @@ class FindPy3Plus(ast.NodeVisitor):
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'str' and
-                len(node.args) == 1 and
-                isinstance(node.args[0], ast.Str) and
                 not node.keywords and
-                not _starargs(node)
+                not _starargs(node) and
+                (
+                    len(node.args) == 0 or
+                    (
+                        len(node.args) == 1 and
+                        isinstance(node.args[0], ast.Str)
+                    )
+                )
         ):
             self.native_literals.add(_ast_to_offset(node))
         elif (
@@ -1788,7 +1793,10 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             func_args, end = _parse_call_args(tokens, j)
             if any(tok.name == 'NL' for tok in tokens[i:end]):
                 continue
-            _replace_call(tokens, i, end, func_args, '{args[0]}')
+            if func_args:
+                _replace_call(tokens, i, end, func_args, '{args[0]}')
+            else:
+                tokens[i:end] = [token._replace(name='STRING', src="''")]
         elif token.offset in visitor.simple_ids:
             tokens[i] = Token(
                 token.name,

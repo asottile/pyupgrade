@@ -181,6 +181,7 @@ Availability:
 - `--py3-plus` is passed on the commandline.
 
 ```python
+str()       # "''"
 str("foo")  # "foo"
 ```
 
