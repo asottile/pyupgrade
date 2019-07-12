@@ -24,6 +24,7 @@ def test_fix_native_literals_noop(s):
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
+        ('str()', "''"),
         ('str("foo")', '"foo"'),
         ('str("""\nfoo""")', '"""\nfoo"""'),
     ),
