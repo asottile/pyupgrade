@@ -1115,6 +1115,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._from_imported_names = collections.defaultdict(
             set,
         )  # type: Dict[str, Set[str]]
+        self.io_open_calls = {}  # type: Dict[Offset, ast.Call]
         self.os_error_alias_calls = {}  # type: Dict[Offset, ast.Call]
         self.os_error_alias_simple = {}  # type: Dict[Offset, NameOrAttr]
 
@@ -1145,6 +1146,15 @@ class FindPy3Plus(ast.NodeVisitor):
             isinstance(node.value, ast.Name) and
             node.value.id == 'six' and
             node.attr in names
+        )
+
+    def _is_io_open(self, node):
+        # type: (ast.expr) -> bool
+        return (
+            isinstance(node, ast.Attribute) and
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'io' and
+            node.attr == 'open'
         )
 
     def _is_os_error_alias(self, node):
@@ -1352,6 +1362,8 @@ class FindPy3Plus(ast.NodeVisitor):
                 _is_codec(node.args[0].s, 'utf-8')
         ):
             self.encode_calls[_ast_to_offset(node)] = node
+        elif self._is_io_open(node.func):
+            self.io_open_calls[_ast_to_offset(node)] = node
 
         self.generic_visit(node)
 
@@ -1715,6 +1727,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             visitor.if_py2_blocks,
             visitor.if_py3_blocks,
             visitor.native_literals,
+            visitor.io_open_calls,
             visitor.os_error_alias_calls,
             visitor.os_error_alias_simple,
             visitor.six_add_metaclass,
@@ -1858,6 +1871,9 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
                 _replace_call(tokens, i, end, func_args, '{args[0]}')
             else:
                 tokens[i:end] = [token._replace(name='STRING', src="''")]
+        elif token.offset in visitor.io_open_calls:
+            j = _find_open_paren(tokens, i)
+            tokens[i:j] = [token._replace(name='NAME', src='open')]
         elif token.offset in visitor.os_error_alias_calls:
             j = _find_open_paren(tokens, i)
             tokens[i:j] = [token._replace(name='NAME', src='OSError')]

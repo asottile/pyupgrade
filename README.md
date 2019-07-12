@@ -284,6 +284,20 @@ six.assertRaisesRegex(self, e, r, fn)   # self.assertRaisesRegex(e, r, fn)
 six.assertRegex(self, s, r)             # self.assertRegex(s, r)
 ```
 
+### `open` alias
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```python
+# input
+with io.open('f.txt') as f:
+    pass
+# output
+with open('f.txt') as f:
+    pass
+```
+
 ### `OSError` aliases
 
 Availability:
