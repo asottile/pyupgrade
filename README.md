@@ -291,11 +291,23 @@ Availability:
 
 ```python
 # input
-x = EnvironmentError('boom')        # also understands IOError and WindowsError
-raise EnvironmentError('boom')
+
+# also understands:
+# - IOError
+# - WindowsError
+# - mmap.error and uses of `from mmap import error`
+# - select.error and uses of `from select import error`
+# - socket.error and uses of `from socket import error`
+
+try:
+    raise EnvironmentError('boom')
+except EnvironmentError:
+    raise
 # output
-x = OSError('boom')
-raise OSError('boom')
+try:
+    raise OSError('boom')
+except OSError:
+    raise
 ```
 
 ### f-strings
