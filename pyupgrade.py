@@ -1112,12 +1112,13 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.native_literals = set()  # type: Set[Offset]
 
-        self._from_imported_names = collections.defaultdict(
+        self.from_imported_names = collections.defaultdict(
             set,
         )  # type: Dict[str, Set[str]]
         self.io_open_calls = {}  # type: Dict[Offset, ast.Call]
         self.os_error_alias_calls = {}  # type: Dict[Offset, ast.Call]
         self.os_error_alias_simple = {}  # type: Dict[Offset, NameOrAttr]
+        self.os_error_alias_excepts = {}  # type: Dict[Offset, ast.Tuple]
 
         self.six_add_metaclass = set()  # type: Set[ast.ClassDef]
         self.six_b = set()  # type: Set[ast.Call]
@@ -1140,7 +1141,7 @@ class FindPy3Plus(ast.NodeVisitor):
         return (
             isinstance(node, ast.Name) and
             node.id in names and
-            node.id in self._from_imported_names['six']
+            node.id in self.from_imported_names['six']
         ) or (
             isinstance(node, ast.Attribute) and
             isinstance(node.value, ast.Name) and
@@ -1158,7 +1159,7 @@ class FindPy3Plus(ast.NodeVisitor):
         )
 
     def _is_os_error_alias(self, node):
-        # type: (ast.expr) -> bool
+        # type: (Optional[ast.expr]) -> bool
         return (
             isinstance(node, ast.Name) and
             node.id in self.OS_ERROR_ALIASES
@@ -1166,9 +1167,9 @@ class FindPy3Plus(ast.NodeVisitor):
             isinstance(node, ast.Name) and
             node.id == 'error' and
             (
-                node.id in self._from_imported_names['mmap'] or
-                node.id in self._from_imported_names['select'] or
-                node.id in self._from_imported_names['socket']
+                node.id in self.from_imported_names['mmap'] or
+                node.id in self.from_imported_names['select'] or
+                node.id in self.from_imported_names['socket']
             )
         ) or (
             isinstance(node, ast.Attribute) and
@@ -1193,7 +1194,7 @@ class FindPy3Plus(ast.NodeVisitor):
         if node.module in self.FROM_IMPORTED_MODULES:
             for name in node.names:
                 if not name.asname:
-                    self._from_imported_names[node.module].add(name.name)
+                    self.from_imported_names[node.module].add(name.name)
         elif node.module == 'sys' and any(
             name.name == 'version_info' and not name.asname
             for name in node.names
@@ -1274,14 +1275,17 @@ class FindPy3Plus(ast.NodeVisitor):
     def visit_Try(self, node):  # type: (ast.Try) -> None
         for handler in node.handlers:
             htype = handler.type
-            if htype and self._is_os_error_alias(htype):
+            if self._is_os_error_alias(htype):
                 assert isinstance(htype, (ast.Name, ast.Attribute))
                 self.os_error_alias_simple[_ast_to_offset(htype)] = htype
-            elif isinstance(htype, ast.Tuple):
-                for elt in htype.elts:
-                    if self._is_os_error_alias(elt):
-                        assert isinstance(elt, (ast.Name, ast.Attribute))
-                        self.os_error_alias_simple[_ast_to_offset(elt)] = elt
+            elif (
+                    isinstance(htype, ast.Tuple) and
+                    any(
+                        self._is_os_error_alias(elt)
+                        for elt in htype.elts
+                    )
+            ):
+                self.os_error_alias_excepts[_ast_to_offset(htype)] = htype
 
         self.generic_visit(node)
 
@@ -1730,6 +1734,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             visitor.io_open_calls,
             visitor.os_error_alias_calls,
             visitor.os_error_alias_simple,
+            visitor.os_error_alias_excepts,
             visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
@@ -1880,6 +1885,61 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
         elif token.offset in visitor.os_error_alias_simple:
             node = visitor.os_error_alias_simple[token.offset]
             _replace(i, collections.defaultdict(lambda: 'OSError'), node)
+        elif token.offset in visitor.os_error_alias_excepts:
+            line, utf8_byte_offset = token.line, token.utf8_byte_offset
+
+            # find all the arg strs in the tuple
+            except_index = i
+            while tokens[except_index].src != 'except':
+                except_index -= 1
+            start = _find_open_paren(tokens, except_index)
+            func_args, end = _parse_call_args(tokens, start)
+
+            # save the exceptions and remove the block
+            arg_strs = [_arg_str(tokens, *arg) for arg in func_args]
+            del tokens[start:end]
+
+            # rewrite the block without dupes
+            args = []
+            for arg in arg_strs:
+                left, part, right = arg.partition('.')
+                if (
+                        left in visitor.OS_ERROR_ALIAS_MODULES and
+                        part == '.' and
+                        right == 'error'
+                ):
+                    args.append('OSError')
+                elif (
+                        left in visitor.OS_ERROR_ALIASES and
+                        part == right == ''
+                ):
+                    args.append('OSError')
+                elif (
+                        left == 'error' and
+                        part == right == '' and
+                        (
+                            'error' in visitor.from_imported_names['mmap'] or
+                            'error' in visitor.from_imported_names['select'] or
+                            'error' in visitor.from_imported_names['socket']
+                        )
+                ):
+                    args.append('OSError')
+                else:
+                    args.append(arg)
+
+            unique_args = tuple(collections.OrderedDict.fromkeys(args))
+
+            if len(unique_args) > 1:
+                joined = '({})'.format(', '.join(unique_args))
+            elif tokens[start - 1].name != 'UNIMPORTANT_WS':
+                joined = ' {}'.format(unique_args[0])
+            else:
+                joined = unique_args[0]
+
+            new = Token('CODE', joined, line, utf8_byte_offset)
+            tokens.insert(start, new)
+
+            visitor.os_error_alias_excepts.pop(token.offset)
         elif token.offset in visitor.yield_from_fors:
             _replace_yield(tokens, i)
 
