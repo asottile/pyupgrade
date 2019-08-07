@@ -12,6 +12,8 @@ from pyupgrade import _fix_fstrings
     (
         # syntax error
         '(',
+        # invalid format strings
+        "'{'.format(a)", "'}'.format(a)",
         # weird syntax
         '"{}" . format(x)',
         # spans multiple lines
