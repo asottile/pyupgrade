@@ -1982,18 +1982,12 @@ class FindSimpleFormats(ast.NodeVisitor):
         self.found = {}  # type: Dict[Offset, ast.Call]
 
     def visit_Call(self, node):  # type: (ast.Call) -> None
-        if (
-                isinstance(node.func, ast.Attribute) and
-                isinstance(node.func.value, ast.Str) and
-                node.func.attr == 'format' and
-                all(_simple_arg(arg) for arg in node.args) and
-                all(_simple_arg(k.value) for k in node.keywords) and
-                not _starargs(node)
-        ):
+        parsed = self._parse_call(node)
+        if parsed is not None:
             params = _format_params(node)
             seen = set()  # type: Set[str]
             i = 0
-            for _, name, spec, _ in parse_format(node.func.value.s):
+            for _, name, spec, _ in parsed:
                 # timid: difficult to rewrite correctly
                 if spec is not None and '{' in spec:
                     break
@@ -2017,6 +2011,23 @@ class FindSimpleFormats(ast.NodeVisitor):
                 self.found[_ast_to_offset(node)] = node
 
         self.generic_visit(node)
+
+    def _parse_call(self, node):
+        # type: (ast.Call) -> Optional[Tuple[DotFormatPart, ...]]
+        if not (
+                isinstance(node.func, ast.Attribute) and
+                isinstance(node.func.value, ast.Str) and
+                node.func.attr == 'format' and
+                all(_simple_arg(arg) for arg in node.args) and
+                all(_simple_arg(k.value) for k in node.keywords) and
+                not _starargs(node)
+        ):
+            return None
+
+        try:
+            return parse_format(node.func.value.s)
+        except ValueError:
+            return None
 
 
 def _unparse(node):  # type: (ast.expr) -> str
