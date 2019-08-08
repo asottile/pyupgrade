@@ -2095,6 +2095,18 @@ def _fix_fstrings(contents_text):  # type: (str) -> str
     return tokens_to_src(tokens)
 
 
+def format_str(src_contents, args):  # type: (str, argparse.Namespace) -> str
+    src_contents = _fix_py2_compatible(src_contents)
+    src_contents = _fix_tokens(src_contents, args.py3_plus)
+    if not args.keep_percent_format:
+        src_contents = _fix_percent_format(src_contents)
+    if args.py3_plus:
+        src_contents = _fix_py3_plus(src_contents)
+    if args.py36_plus:
+        src_contents = _fix_fstrings(src_contents)
+    return src_contents
+
+
 def fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
     if filename == '-':
         contents_bytes = getattr(sys.stdin, 'buffer', sys.stdin).read()
@@ -2108,14 +2120,7 @@ def fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
-    contents_text = _fix_py2_compatible(contents_text)
-    contents_text = _fix_tokens(contents_text, args.py3_plus)
-    if not args.keep_percent_format:
-        contents_text = _fix_percent_format(contents_text)
-    if args.py3_plus:
-        contents_text = _fix_py3_plus(contents_text)
-    if args.py36_plus:
-        contents_text = _fix_fstrings(contents_text)
+    contents_text = format_str(contents_text, args)
 
     if filename == '-':
         print(contents_text, end='')
