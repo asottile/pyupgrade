@@ -2109,7 +2109,7 @@ def _fix_fstrings(contents_text):  # type: (str) -> str
     return tokens_to_src(tokens)
 
 
-def fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
+def _fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
     if filename == '-':
         contents_bytes = getattr(sys.stdin, 'buffer', sys.stdin).read()
     else:
@@ -2158,7 +2158,7 @@ def main(argv=None):  # type: (Optional[Sequence[str]]) -> int
 
     ret = 0
     for filename in args.filenames:
-        ret |= fix_file(filename, args)
+        ret |= _fix_file(filename, args)
     return ret
 
 
