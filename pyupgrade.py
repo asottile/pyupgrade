@@ -93,6 +93,10 @@ def unparse_parsed_string(parsed):  # type: (Sequence[DotFormatPart]) -> str
     return j.join(_convert_tup(tup) for tup in parsed)
 
 
+# if py3+ use tokenize.cookie_re
+cookie_re = re.compile('^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)')
+
+
 def _ast_to_offset(node):  # type: (Union[ast.expr, ast.stmt]) -> Offset
     return Offset(node.lineno, node.col_offset)
 
@@ -686,6 +690,16 @@ def _fix_tokens(contents_text, py3_plus):  # type: (str, bool) -> str
             _fix_format_literal(tokens, i - 2)
         elif token.src == 'encode' and i > 0 and tokens[i - 1].src == '.':
             _fix_encode_to_binary(tokens, i)
+        elif (
+                py3_plus and
+                token.utf8_byte_offset == 0 and
+                token.line < 3 and
+                token.name == 'COMMENT' and
+                cookie_re.match(token.src)
+        ):
+            del tokens[i]
+            if tokens[i].name == 'NL':  # pragma: no branch (old PY2)
+                del tokens[i]
     return tokens_to_src(tokens)
 
 
