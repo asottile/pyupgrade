@@ -194,6 +194,20 @@ Availability:
 "foo".encode("utf-8")  # "foo".encode()
 ```
 
+### `# coding: ...` comment
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+as of [PEP 3120], the default encoding for python source is UTF-8
+
+```diff
+-# coding: utf-8
+ x = 1
+```
+
+[PEP 3120]: https://www.python.org/dev/peps/pep-3120/
+
 ### `yield` => `yield from`
 
 Availability:
