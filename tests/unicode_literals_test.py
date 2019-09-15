@@ -33,41 +33,40 @@ def test_imports_unicode_literals(s, expected):
 
 
 @pytest.mark.parametrize(
-    ('s', 'py3_plus'),
+    ('s', 'min_version'),
     (
         # Syntax errors are unchanged
-        ('(', False),
+        ('(', (2, 7)),
         # Without py3-plus, no replacements
-        ("u''", False),
+        ("u''", (2, 7)),
         # Regression: string containing newline
-        ('"""with newline\n"""', True),
+        ('"""with newline\n"""', (3,)),
         pytest.param(
             'def f():\n'
             '    return"foo"\n',
-            True,
+            (3,),
             id='Regression: no space between return and string',
         ),
     ),
 )
-def test_unicode_literals_noop(s, py3_plus):
-    assert _fix_tokens(s, py3_plus=py3_plus) == s
+def test_unicode_literals_noop(s, min_version):
+    assert _fix_tokens(s, min_version=min_version) == s
 
 
 @pytest.mark.parametrize(
-    ('s', 'py3_plus', 'expected'),
+    ('s', 'min_version', 'expected'),
     (
         # With py3-plus, it removes u prefix
-        ("u''", True, "''"),
+        ("u''", (3,), "''"),
         # Importing unicode_literals also cause it to remove it
         (
             'from __future__ import unicode_literals\n'
             'u""\n',
-            False,
+            (2, 7),
             'from __future__ import unicode_literals\n'
             '""\n',
         ),
     ),
 )
-def test_unicode_literals(s, py3_plus, expected):
-    ret = _fix_tokens(s, py3_plus=py3_plus)
-    assert ret == expected
+def test_unicode_literals(s, min_version, expected):
+    assert _fix_tokens(s, min_version=min_version) == expected

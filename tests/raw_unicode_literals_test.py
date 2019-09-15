@@ -18,9 +18,8 @@ from pyupgrade import _fix_tokens
     ),
 )
 def test_fix_ur_literals(s, expected):
-    ret = _fix_tokens(s, py3_plus=False)
-    assert ret == expected
+    assert _fix_tokens(s, min_version=(2, 7)) == expected
 
 
 def test_fix_ur_literals_gets_fixed_before_u_removed():
-    assert _fix_tokens("ur'\\s\\u2603'", py3_plus=True) == "'\\\\s\\u2603'"
+    assert _fix_tokens("ur'\\s\\u2603'", min_version=(3,)) == "'\\\\s\\u2603'"
