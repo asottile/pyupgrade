@@ -16,4 +16,4 @@ from pyupgrade import _fix_tokens
     ),
 )
 def test_long_literals(s, expected):
-    assert _fix_tokens(s, py3_plus=False) == expected
+    assert _fix_tokens(s, min_version=(2, 7)) == expected

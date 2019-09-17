@@ -56,7 +56,7 @@ def test_intentionally_not_round_trip(s, expected):
     ),
 )
 def test_format_literals_noop(s):
-    assert _fix_tokens(s, py3_plus=False) == s
+    assert _fix_tokens(s, min_version=(2, 7)) == s
 
 
 @pytest.mark.parametrize(
@@ -104,5 +104,4 @@ def test_format_literals_noop(s):
     ),
 )
 def test_format_literals(s, expected):
-    ret = _fix_tokens(s, py3_plus=False)
-    assert ret == expected
+    assert _fix_tokens(s, min_version=(2, 7)) == expected

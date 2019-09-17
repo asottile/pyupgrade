@@ -669,8 +669,9 @@ def _fix_encode_to_binary(tokens, i):  # type: (List[Token], int) -> None
     del tokens[victims]
 
 
-def _fix_tokens(contents_text, py3_plus):  # type: (str, bool) -> str
-    remove_u_prefix = py3_plus or _imports_unicode_literals(contents_text)
+def _fix_tokens(contents_text, min_version):
+    # type: (str, Tuple[int, ...]) -> str
+    remove_u = min_version >= (3,) or _imports_unicode_literals(contents_text)
 
     try:
         tokens = src_to_tokens(contents_text)
@@ -681,7 +682,7 @@ def _fix_tokens(contents_text, py3_plus):  # type: (str, bool) -> str
             tokens[i] = token._replace(src=_fix_long(_fix_octal(token.src)))
         elif token.name == 'STRING':
             tokens[i] = _fix_ur_literals(tokens[i])
-            if remove_u_prefix:
+            if remove_u:
                 tokens[i] = _remove_u_prefix(tokens[i])
             tokens[i] = _fix_escape_sequences(tokens[i])
         elif token.src == '(':
@@ -691,7 +692,7 @@ def _fix_tokens(contents_text, py3_plus):  # type: (str, bool) -> str
         elif token.src == 'encode' and i > 0 and tokens[i - 1].src == '.':
             _fix_encode_to_binary(tokens, i)
         elif (
-                py3_plus and
+                min_version >= (3,) and
                 token.utf8_byte_offset == 0 and
                 token.line < 3 and
                 token.name == 'COMMENT' and
@@ -2123,12 +2124,12 @@ def _fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
         return 1
 
     contents_text = _fix_py2_compatible(contents_text)
-    contents_text = _fix_tokens(contents_text, args.py3_plus)
+    contents_text = _fix_tokens(contents_text, min_version=args.min_version)
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)
-    if args.py3_plus:
+    if args.min_version >= (3,):
         contents_text = _fix_py3_plus(contents_text)
-    if args.py36_plus:
+    if args.min_version >= (3, 6):
         contents_text = _fix_fstrings(contents_text)
 
     if filename == '-':
@@ -2149,12 +2150,15 @@ def main(argv=None):  # type: (Optional[Sequence[str]]) -> int
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
-    parser.add_argument('--py3-plus', '--py3-only', action='store_true')
-    parser.add_argument('--py36-plus', action='store_true')
+    parser.add_argument(
+        '--py3-plus', '--py3-only',
+        action='store_const', dest='min_version', default=(2, 7), const=(3,),
+    )
+    parser.add_argument(
+        '--py36-plus',
+        action='store_const', dest='min_version', const=(3, 6),
+    )
     args = parser.parse_args(argv)
-
-    if args.py36_plus:
-        args.py3_plus = True
 
     ret = 0
     for filename in args.filenames:

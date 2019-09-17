@@ -7,20 +7,20 @@ from pyupgrade import _fix_tokens
 
 
 @pytest.mark.parametrize(
-    ('s', 'py3_plus'),
+    ('s', 'min_version'),
     (
         pytest.param(
-            '# coding: utf-8\n', False,
+            '# coding: utf-8\n', (2, 7),
             id='cannot remove in py2',
         ),
         pytest.param(
-            '\n\n# coding: utf-8\n', True,
+            '\n\n# coding: utf-8\n', (3,),
             id='only on first two lines',
         ),
     ),
 )
-def test_noop(s, py3_plus):
-    assert _fix_tokens(s, py3_plus=py3_plus) == s
+def test_noop(s, min_version):
+    assert _fix_tokens(s, min_version=min_version) == s
 
 
 @pytest.mark.parametrize(
@@ -45,4 +45,4 @@ def test_noop(s, py3_plus):
     ),
 )
 def test_rewrite(s, expected):
-    assert _fix_tokens(s, py3_plus=True) == expected
+    assert _fix_tokens(s, min_version=(3,)) == expected

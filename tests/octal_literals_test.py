@@ -17,7 +17,7 @@ from pyupgrade import _fix_tokens
     ),
 )
 def test_noop_octal_literals(s):
-    assert _fix_tokens(s, py3_plus=False) == s
+    assert _fix_tokens(s, min_version=(2, 7)) == s
 
 
 @pytest.mark.parametrize(
@@ -28,4 +28,4 @@ def test_noop_octal_literals(s):
     ),
 )
 def test_fix_octal_literal(s, expected):
-    assert _fix_tokens(s, py3_plus=False) == expected
+    assert _fix_tokens(s, min_version=(2, 7)) == expected
