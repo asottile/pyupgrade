@@ -14,7 +14,7 @@ from pyupgrade import _fix_tokens
             id='cannot remove in py2',
         ),
         pytest.param(
-            '\n\n# coding: utf-8\n', (3,),
+            '# line 1\n# line 2\n# coding: utf-8\n', (3,),
             id='only on first two lines',
         ),
     ),

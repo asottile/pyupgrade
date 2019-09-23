@@ -270,7 +270,6 @@ def _is_on_a_line_by_self(tokens, i):  # type: (List[Token], int) -> bool
     return (
         tokens[i - 2].name == 'NL' and
         tokens[i - 1].name == UNIMPORTANT_WS and
-        tokens[i - 1].src.isspace() and
         tokens[i + 1].name == 'NL'
     )
 
@@ -669,6 +668,51 @@ def _fix_encode_to_binary(tokens, i):  # type: (List[Token], int) -> None
     del tokens[victims]
 
 
+FUTURES = {}  # type: Dict[Tuple[int, ...], Tuple[str, ...]]
+FUTURES[(2, 7)] = ('nested_scopes', 'generators', 'with_statement')
+FUTURES[(3,)] = FUTURES[(3, 6)] = FUTURES[(2, 7)] + (
+    'absolute_import', 'division', 'print_function', 'unicode_literals',
+)
+FUTURES[(3, 7)] = FUTURES[(3, 6)] + ('generator_stop',)
+
+
+def _fix_future_imports(tokens, start, min_version):
+    # type: (List[Token], int, Tuple[int, ...]) -> None
+    i = start + 1
+    while tokens[i].name != 'NAME':
+        i += 1
+    if tokens[i].src != '__future__':
+        return
+
+    found_names = []  # type: List[int]
+    i += 1
+    while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
+        if tokens[i].name == 'NAME' and tokens[i].src != 'import':
+            found_names.append(i)
+        i += 1
+    # depending on the version of python, some will not emit NEWLINE('') at the
+    # end of a file which does not end with a newline (for example 2.7.6)
+    if tokens[i].name == 'ENDMARKER':  # pragma: no cover
+        i -= 1
+
+    remove_futures = FUTURES[min_version]
+    to_remove = [x for x in found_names if tokens[x].src in remove_futures]
+    if len(to_remove) == len(found_names):
+        del tokens[start:i + 1]
+    else:
+        for idx in reversed(to_remove):
+            if found_names[0] == idx:  # look forward until next name and del
+                j = idx + 1
+                while tokens[j].name != 'NAME':
+                    j += 1
+                del tokens[idx:j]
+            else:  # look backward for comma and del
+                j = idx
+                while tokens[j].src != ',':
+                    j -= 1
+                del tokens[j:idx + 1]
+
+
 def _fix_tokens(contents_text, min_version):
     # type: (str, Tuple[int, ...]) -> str
     remove_u = min_version >= (3,) or _imports_unicode_literals(contents_text)
@@ -701,7 +745,9 @@ def _fix_tokens(contents_text, min_version):
             del tokens[i]
             if tokens[i].name == 'NL':  # pragma: no branch (old PY2)
                 del tokens[i]
-    return tokens_to_src(tokens)
+        elif token.src == 'from' and token.utf8_byte_offset == 0:
+            _fix_future_imports(tokens, i, min_version)
+    return tokens_to_src(tokens).lstrip()
 
 
 MAPPING_KEY_RE = re.compile(r'\(([^()]*)\)')
@@ -2157,6 +2203,10 @@ def main(argv=None):  # type: (Optional[Sequence[str]]) -> int
     parser.add_argument(
         '--py36-plus',
         action='store_const', dest='min_version', const=(3, 6),
+    )
+    parser.add_argument(
+        '--py37-plus',
+        action='store_const', dest='min_version', const=(3, 7),
     )
     args = parser.parse_args(argv)
 

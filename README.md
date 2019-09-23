@@ -208,6 +208,18 @@ as of [PEP 3120], the default encoding for python source is UTF-8
 
 [PEP 3120]: https://www.python.org/dev/peps/pep-3120/
 
+### `__future__` import removal
+
+Availability:
+- by default removes `nested_scopes`, `generators`, `with_statement`
+- `--py3-plus` will also remove `absolute_import` / `division` /
+  `print_function` / `unicode_literals`
+- `--py37-plus` will also remove `generator_stop`
+
+```diff
+-from __future__ import with_statement
+```
+
 ### `yield` => `yield from`
 
 Availability:

@@ -117,6 +117,16 @@ def test_py36_plus_fstrings(tmpdir):
     assert f.read() == 'f"{hello} {world}"'
 
 
+def test_py37_plus_removes_annotations(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('from __future__ import generator_stop\nx = 1\n')
+    assert main((f.strpath,)) == 0
+    assert main((f.strpath, '--py3-plus')) == 0
+    assert main((f.strpath, '--py36-plus')) == 0
+    assert main((f.strpath, '--py37-plus')) == 1
+    assert f.read() == 'x = 1\n'
+
+
 def test_noop_token_error(tmpdir):
     f = tmpdir.join('f.py')
     f.write(
