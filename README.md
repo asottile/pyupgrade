@@ -19,7 +19,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v1.24.0
+    rev: v1.24.1
     hooks:
     -   id: pyupgrade
 ```
@@ -294,6 +294,9 @@ six.indexbytes(bs, i)                   # bs[i]
 six.iteritems(dct)                      # dct.items()
 six.iterkeys(dct)                       # dct.keys()
 six.itervalues(dct)                     # dct.values()
+next(six.iteritems(dct))                # next(iter(dct.items()))
+next(six.iterkeys(dct))                 # next(iter(dct.keys()))
+next(six.itervalues(dct))               # next(iter(dct.values()))
 six.viewitems(dct)                      # dct.items()
 six.viewkeys(dct)                       # dct.keys()
 six.viewvalues(dct)                     # dct.values()
