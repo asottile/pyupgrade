@@ -337,6 +337,16 @@ def test_fix_six_noop(s):
 
             id='add_metaclass, indented',
         ),
+        pytest.param(
+            'print(six.itervalues({1:2}))\n',
+            'print({1:2}.values())\n',
+            id='six.itervalues',
+        ),
+        pytest.param(
+            'print(next(six.itervalues({1:2})))\n',
+            'print(next(iter({1:2}.values())))\n',
+            id='six.itervalues inside next(...)',
+        ),
     ),
 )
 def test_fix_six(s, expected):

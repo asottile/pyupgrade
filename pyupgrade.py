@@ -1184,6 +1184,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.six_add_metaclass = set()  # type: Set[ast.ClassDef]
         self.six_b = set()  # type: Set[ast.Call]
         self.six_calls = {}  # type: Dict[Offset, ast.Call]
+        self.six_iter = {}  # type: Dict[Offset, ast.Call]
         self._previous_node = None  # type: Optional[ast.AST]
         self.six_raises = {}  # type: Dict[Offset, ast.Call]
         self.six_remove_decorators = set()  # type: Set[Offset]
@@ -1384,6 +1385,18 @@ class FindPy3Plus(ast.NodeVisitor):
             self.six_b.add(_ast_to_offset(node))
         elif self._is_six(node.func, SIX_CALLS) and not _starargs(node):
             self.six_calls[_ast_to_offset(node)] = node
+        elif (
+                isinstance(node.func, ast.Name) and
+                node.func.id == 'next' and
+                not _starargs(node) and
+                isinstance(node.args[0], ast.Call) and
+                self._is_six(
+                    node.args[0].func,
+                    ('iteritems', 'iterkeys', 'itervalues'),
+                ) and
+                not _starargs(node.args[0])
+        ):
+            self.six_iter[_ast_to_offset(node.args[0])] = node.args[0]
         elif (
                 isinstance(self._previous_node, ast.Expr) and
                 self._is_six(node.func, SIX_RAISES) and
@@ -1799,6 +1812,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
+            visitor.six_iter,
             visitor.six_raises,
             visitor.six_remove_decorators,
             visitor.six_simple,
@@ -1865,6 +1879,13 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             ):
                 func_args, end = _parse_call_args(tokens, j)
                 _replace_call(tokens, i, end, func_args, SIX_B_TMPL)
+        elif token.offset in visitor.six_iter:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            call = visitor.six_iter[token.offset]
+            assert isinstance(call.func, (ast.Name, ast.Attribute))
+            template = 'iter({})'.format(_get_tmpl(SIX_CALLS, call.func))
+            _replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_calls:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
