@@ -291,6 +291,7 @@ six.b('...')                            # b'...'
 six.u('...')                            # '...'
 six.byte2int(bs)                        # bs[0]
 six.indexbytes(bs, i)                   # bs[i]
+six.int2byte(i)                         # bytes((i,))
 six.iteritems(dct)                      # dct.items()
 six.iterkeys(dct)                       # dct.keys()
 six.itervalues(dct)                     # dct.values()

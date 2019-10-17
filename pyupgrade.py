@@ -1069,6 +1069,7 @@ SIX_CALLS = {
     'u': '{args[0]}',
     'byte2int': '{args[0]}[0]',
     'indexbytes': '{args[0]}[{rest}]',
+    'int2byte': 'bytes(({args[0]},))',
     'iteritems': '{args[0]}.items()',
     'iterkeys': '{args[0]}.keys()',
     'itervalues': '{args[0]}.values()',
