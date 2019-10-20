@@ -1390,6 +1390,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'next' and
                 not _starargs(node) and
+                len(node.args) == 1 and
                 isinstance(node.args[0], ast.Call) and
                 self._is_six(
                     node.args[0].func,
