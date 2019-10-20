@@ -40,6 +40,8 @@ from pyupgrade import _fix_py3_plus
         '(\n'
         '    six\n'
         ').text_type(u)\n',
+        # next is shadowed
+        'next()',
     ),
 )
 def test_fix_six_noop(s):
