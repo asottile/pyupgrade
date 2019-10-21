@@ -1164,13 +1164,13 @@ class FindPy3Plus(ast.NodeVisitor):
             self.first_arg_name = ''
 
     def __init__(self):  # type: () -> None
-        self.bases_to_remove = set()  # type: Set[NameOrAttr]
+        self.bases_to_remove = set()  # type: Set[Offset]
 
         self.encode_calls = {}  # type: Dict[Offset, ast.Call]
 
         self._version_info_imported = False
-        self.if_py2_blocks = set()  # type: Set[ast.If]
-        self.if_py3_blocks = set()  # type: Set[ast.If]
+        self.if_py2_blocks = set()  # type: Set[Offset]
+        self.if_py3_blocks = set()  # type: Set[Offset]
 
         self.native_literals = set()  # type: Set[Offset]
 
@@ -1182,8 +1182,8 @@ class FindPy3Plus(ast.NodeVisitor):
         self.os_error_alias_simple = {}  # type: Dict[Offset, NameOrAttr]
         self.os_error_alias_excepts = {}  # type: Dict[Offset, ast.Tuple]
 
-        self.six_add_metaclass = set()  # type: Set[ast.ClassDef]
-        self.six_b = set()  # type: Set[ast.Call]
+        self.six_add_metaclass = set()  # type: Set[Offset]
+        self.six_b = set()  # type: Set[Offset]
         self.six_calls = {}  # type: Dict[Offset, ast.Call]
         self.six_iter = {}  # type: Dict[Offset, ast.Call]
         self._previous_node = None  # type: Optional[ast.AST]
@@ -1197,7 +1197,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._in_comp = 0
         self.super_calls = {}  # type: Dict[Offset, ast.Call]
         self._in_async_def = False
-        self.yield_from_fors = set()  # type: Set[ast.For]
+        self.yield_from_fors = set()  # type: Set[Offset]
 
     def _is_six(self, node, names):
         # type: (ast.expr, Container[str]) -> bool
