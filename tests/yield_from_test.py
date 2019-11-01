@@ -184,6 +184,48 @@ def test_fix_async_yield_from(s, expected):
         '        yield x\n'
         '    else:\n'
         '        print("boom!")\n',
+        pytest.param(
+            'for x in z:\n'
+            '    yield x\n',
+            id='yield outside function',
+        ),
+        pytest.param(
+            'lambda: [(yield x) for x in z]',
+            id='yield inside lambda',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    x = None\n'
+            '    for x in z:\n'
+            '        yield x\n'
+            '    print(x)\n',
+            id='loop variable referenced after the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    x = None\n'
+            '    for x, y in z:\n'
+            '        yield x, y\n'
+            '    x = True\n',
+            id='loop variable reassigned after the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    def b():\n'
+            '        x = None\n'
+            '        for x in z:\n'
+            '            yield x\n'
+            '         print(x)\n',
+            id='loop variable referenced after the loop, nested funcs',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    x = None\n'
+            '    for x, y in z:\n'
+            '        yield x, y\n'
+            '    print(x)\n',
+            id='multiple loop variables referenced after the loop',
+        ),
     ),
 )
 def test_fix_yield_from_noop(s):

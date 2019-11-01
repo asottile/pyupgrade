@@ -51,6 +51,7 @@ PercentFormat = Tuple[str, Optional[PercentFormatPart]]
 ListCompOrGeneratorExp = Union[ast.ListComp, ast.GeneratorExp]
 ListOrTuple = Union[ast.List, ast.Tuple]
 NameOrAttr = Union[ast.Name, ast.Attribute]
+SyncFunctionDef = Union[ast.FunctionDef, ast.Lambda]
 
 if False:  # pragma: no cover (mypy)
     from typing import Type
@@ -1196,7 +1197,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack = []  # type: List[FindPy3Plus.ClassInfo]
         self._in_comp = 0
         self.super_calls = {}  # type: Dict[Offset, ast.Call]
-        self._in_async_def = False
+        self._current_sync_def = None  # type: Optional[SyncFunctionDef]
         self.yield_from_fors = set()  # type: Set[Offset]
 
     def _is_six(self, node, names):
@@ -1307,18 +1308,12 @@ class FindPy3Plus(ast.NodeVisitor):
             self.generic_visit(node)
 
     def _visit_sync_func(self, node):
-        # type: (Union[ast.FunctionDef, ast.Lambda]) -> None
-        self._in_async_def, orig = False, self._in_async_def
+        # type: (SyncFunctionDef) -> None
+        self._current_sync_def, orig = node, self._current_sync_def
         self._visit_func(node)
-        self._in_async_def = orig
+        self._current_sync_def = orig
 
     visit_FunctionDef = visit_Lambda = _visit_sync_func
-
-    def visit_AsyncFunctionDef(self, node):  # pragma: no cover (py35+)
-        # type: (AsyncFunctionDef) -> None
-        self._in_async_def, orig = True, self._in_async_def
-        self._visit_func(node)
-        self._in_async_def = orig
 
     def _visit_comp(self, node):  # type: (ast.expr) -> None
         self._in_comp += 1
@@ -1520,12 +1515,15 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_For(self, node):  # type: (ast.For) -> None
         if (
-            not self._in_async_def and
+            self._current_sync_def is not None and
             len(node.body) == 1 and
             isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Yield) and
             node.body[0].value.value is not None and
             targets_same(node.target, node.body[0].value.value) and
+            not targets_referenced_after_node(
+                self._current_sync_def, node, node.target,
+            ) and
             not node.orelse
         ):
             self.yield_from_fors.add(_ast_to_offset(node))
@@ -1535,6 +1533,37 @@ class FindPy3Plus(ast.NodeVisitor):
     def generic_visit(self, node):  # type: (ast.AST) -> None
         self._previous_node = node
         super(FindPy3Plus, self).generic_visit(node)
+
+
+def reversed_walk(node):  # type: (ast.AST) -> Generator[ast.AST, None, None]
+    todo = [node]
+    while todo:
+        node = todo.pop()
+        todo.extend(ast.iter_child_nodes(node))
+        yield node
+
+
+def targets_referenced_after_node(root_node, node, targets):
+    # type: (ast.AST, ast.AST, Union[ast.expr, ast.Tuple]) -> bool
+    """
+    Search inside the given root node whether the targets have been referenced
+    after the given node. Walks from behind until the node have been reached.
+    """
+    for x in reversed_walk(root_node):
+        # Finish walking when the node has been reached
+        if x == node:
+            break
+
+        # Filter for name expressions
+        if not isinstance(x, ast.Name):
+            continue
+
+        # Match one of the targets
+        for t in ast.walk(targets):
+            if fields_same(t, x):
+                return True
+
+    return False
 
 
 def _fixup_dedent_tokens(tokens):  # type: (List[Token]) -> None
