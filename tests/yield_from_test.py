@@ -107,6 +107,68 @@ from pyupgrade import targets_same
             'def g():\n'
             '    print(3)',
         ),
+        pytest.param(
+            'def f():\n'
+            '    x = None\n'
+            '    for x in z:\n'
+            '        yield x\n',
+            'def f():\n'
+            '    x = None\n'
+            '    yield from z\n',
+            id='loop variable assigned before the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    for x in z:\n'
+            '        yield x\n'
+            '    x = None\n',
+            'def f():\n'
+            '    yield from z\n'
+            '    x = None\n',
+            id='loop variable assigned after the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    print(x)\n'
+            '    for x in z:\n'
+            '        yield x\n',
+            'def f():\n'
+            '    print(x)\n'
+            '    yield from z\n',
+            id='loop variable referenced before the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    print(w)\n'
+            '    for x in z:\n'
+            '        yield x\n',
+            'def f():\n'
+            '    print(w)\n'
+            '    yield from z\n',
+            id='non-loop variable referenced before the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    for x in z:\n'
+            '        yield x\n'
+            '    print(w)\n',
+            'def f():\n'
+            '    yield from z\n'
+            '    print(w)\n',
+            id='non-loop variable referenced after the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    for x in z:\n'
+            '        yield x\n'
+            '    for y in w:\n'
+            '        print(y)\n',
+            'def f():\n'
+            '    yield from z\n'
+            '    for y in w:\n'
+            '        print(y)\n',
+            id='multiple for loops',
+        ),
     ),
 )
 def test_fix_yield_from(s, expected):
@@ -200,14 +262,6 @@ def test_fix_async_yield_from(s, expected):
             '        yield x\n'
             '    print(x)\n',
             id='loop variable referenced after the loop',
-        ),
-        pytest.param(
-            'def f():\n'
-            '    x = None\n'
-            '    for x, y in z:\n'
-            '        yield x, y\n'
-            '    x = True\n',
-            id='loop variable reassigned after the loop',
         ),
         pytest.param(
             'def f():\n'

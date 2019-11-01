@@ -1197,7 +1197,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack = []  # type: List[FindPy3Plus.ClassInfo]
         self._in_comp = 0
         self.super_calls = {}  # type: Dict[Offset, ast.Call]
-        self._current_sync_def = None  # type: Optional[SyncFunctionDef]
+        self._current_func_node = None  # type: Optional[SyncFunctionDef]
         self.yield_from_fors = set()  # type: Set[Offset]
 
     def _is_six(self, node, names):
@@ -1309,9 +1309,9 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def _visit_sync_func(self, node):
         # type: (SyncFunctionDef) -> None
-        self._current_sync_def, orig = node, self._current_sync_def
+        self._current_func_node, orig = node, self._current_func_node
         self._visit_func(node)
-        self._current_sync_def = orig
+        self._current_func_node = orig
 
     visit_FunctionDef = visit_Lambda = _visit_sync_func
 
@@ -1515,15 +1515,13 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_For(self, node):  # type: (ast.For) -> None
         if (
-            self._current_sync_def is not None and
+            self._current_func_node is not None and
             len(node.body) == 1 and
             isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Yield) and
             node.body[0].value.value is not None and
             targets_same(node.target, node.body[0].value.value) and
-            not targets_referenced_after_node(
-                self._current_sync_def, node, node.target,
-            ) and
+            not _targets_referenced(self._current_func_node, node) and
             not node.orelse
         ):
             self.yield_from_fors.add(_ast_to_offset(node))
@@ -1535,35 +1533,46 @@ class FindPy3Plus(ast.NodeVisitor):
         super(FindPy3Plus, self).generic_visit(node)
 
 
-def reversed_walk(node):  # type: (ast.AST) -> Generator[ast.AST, None, None]
-    todo = [node]
-    while todo:
-        node = todo.pop()
-        todo.extend(ast.iter_child_nodes(node))
-        yield node
+class FindNamesRefsAfterForLoopVisitor(ast.NodeVisitor):
+    def __init__(self, forloop):  # type: (ast.For) -> None
+        self.forloop = forloop
+
+        self._stack_depth = 0
+        self._forloop_depth = None  # type: Optional[int]
+        self.found = set()  # type: Set[str]
+
+    def visit_For(self, node):  # type: (ast.For) -> None
+        if node == self.forloop:
+            self._forloop_depth = self._stack_depth
+        else:
+            self.generic_visit(node)
+
+    def visit_Name(self, node):  # type: (ast.Name) -> None
+        if (
+            isinstance(node.ctx, ast.Load) and
+            self._forloop_depth is not None and
+            self._stack_depth > self._forloop_depth
+        ):
+            self.found.add(node.id)
+        self.generic_visit(node)
+
+    def visit(self, node):  # type: (ast.AST) -> None
+        super().visit(node)
+        self._stack_depth += 1
 
 
-def targets_referenced_after_node(root_node, node, targets):
-    # type: (ast.AST, ast.AST, Union[ast.expr, ast.Tuple]) -> bool
+def _targets_referenced(func, forloop):
+    # type: (SyncFunctionDef, ast.For) -> bool
+    """Search inside the given function node whether the loop variables
+    have been referenced after the loop.
     """
-    Search inside the given root node whether the targets have been referenced
-    after the given node. Walks from behind until the node have been reached.
-    """
-    for x in reversed_walk(root_node):
-        # Finish walking when the node has been reached
-        if x == node:
-            break
-
-        # Filter for name expressions
-        if not isinstance(x, ast.Name):
-            continue
-
-        # Match one of the targets
-        for t in ast.walk(targets):
-            if fields_same(t, x):
-                return True
-
-    return False
+    visitor = FindNamesRefsAfterForLoopVisitor(forloop)
+    visitor.visit(func)
+    names = {
+        node.id for node in ast.walk(forloop.target)
+        if isinstance(node, ast.Name)
+    }
+    return len(visitor.found & names) > 0
 
 
 def _fixup_dedent_tokens(tokens):  # type: (List[Token]) -> None
