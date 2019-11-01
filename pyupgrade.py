@@ -746,8 +746,7 @@ def _fix_tokens(contents_text, min_version):
             del tokens[i]
             if tokens[i].name == 'NL':  # pragma: no branch (old PY2)
                 del tokens[i]
-                # pragma: no branch (old PY2)
-                if blank_re.match(tokens[i].src):
+                if blank_re.match(tokens[i].src) and tokens[i].line == 2:
                     del tokens[i]
         elif token.src == 'from' and token.utf8_byte_offset == 0:
             _fix_future_imports(tokens, i, min_version)
