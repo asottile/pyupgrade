@@ -93,8 +93,9 @@ def unparse_parsed_string(parsed):  # type: (Sequence[DotFormatPart]) -> str
     return j.join(_convert_tup(tup) for tup in parsed)
 
 
-# if py3+ use tokenize.cookie_re
+# if py3+ use tokenize.cookie_re and tokenize.blank_re
 cookie_re = re.compile('^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)')
+blank_re = re.compile(r'^[ \t\f]*(?:[#\r\n]|$)', re.ASCII)
 
 
 def _ast_to_offset(node):  # type: (Union[ast.expr, ast.stmt]) -> Offset
@@ -745,6 +746,9 @@ def _fix_tokens(contents_text, min_version):
             del tokens[i]
             if tokens[i].name == 'NL':  # pragma: no branch (old PY2)
                 del tokens[i]
+                # pragma: no branch (old PY2)
+                if blank_re.match(tokens[i].src):
+                    del tokens[i]
         elif token.src == 'from' and token.utf8_byte_offset == 0:
             _fix_future_imports(tokens, i, min_version)
     return tokens_to_src(tokens).lstrip()
