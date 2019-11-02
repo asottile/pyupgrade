@@ -1557,7 +1557,7 @@ class FindNamesRefsAfterForLoopVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit(self, node):  # type: (ast.AST) -> None
-        super().visit(node)
+        super(FindNamesRefsAfterForLoopVisitor, self).visit(node)
         self._stack_depth += 1
 
 
