@@ -252,10 +252,6 @@ def test_fix_async_yield_from(s, expected):
             id='yield outside function',
         ),
         pytest.param(
-            'lambda: [(yield x) for x in z]',
-            id='yield inside lambda',
-        ),
-        pytest.param(
             'def f():\n'
             '    x = None\n'
             '    for x in z:\n'
