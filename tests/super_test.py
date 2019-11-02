@@ -2,6 +2,8 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import sys
+
 import pytest
 
 from pyupgrade import _fix_py3_plus
@@ -109,6 +111,19 @@ def test_fix_super_noop(s):
             '    @classmethod\n'
             '    def f(cls):\n'
             '        super().f()\n',
+        ),
+        pytest.param(
+            'class C:\n'
+            '    async def foo(self):\n'
+            '        super(C, self).foo()\n',
+            'class C:\n'
+            '    async def foo(self):\n'
+            '        super().foo()\n',
+            id='super inside async func def',
+            marks=pytest.mark.xfail(
+                sys.version_info < (3, 5),
+                reason='async introduced in python 3.5',
+            ),
         ),
     ),
 )

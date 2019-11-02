@@ -1315,6 +1315,10 @@ class FindPy3Plus(ast.NodeVisitor):
 
     visit_FunctionDef = visit_Lambda = _visit_sync_func
 
+    def visit_AsyncFunctionDef(self, node):  # pragma: no cover (py35+)
+        # type: (AsyncFunctionDef) -> None
+        self._visit_func(node)
+
     def _visit_comp(self, node):  # type: (ast.expr) -> None
         self._in_comp += 1
         self.generic_visit(node)
