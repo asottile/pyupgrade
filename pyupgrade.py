@@ -38,6 +38,11 @@ from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 from tokenize_rt import UNIMPORTANT_WS
 
+if sys.version_info < (3, 8):  # pragma: no cover (<py38)
+    import importlib_metadata
+else:  # pragma: no cover (py38+)
+    import importlib.metadata as importlib_metadata
+
 DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
 PercentFormatPart = Tuple[
     Optional[str],
@@ -2230,6 +2235,11 @@ def main(argv=None):  # type: (Optional[Sequence[str]]) -> int
     parser.add_argument(
         '--py37-plus',
         action='store_const', dest='min_version', const=(3, 7),
+    )
+    parser.add_argument(
+        '--version', '-V',
+        action='version',
+        version='%(prog)s {}'.format(importlib_metadata.version('pyupgrade')),
     )
     args = parser.parse_args(argv)
 
