@@ -1197,7 +1197,8 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack = []  # type: List[FindPy3Plus.ClassInfo]
         self._in_comp = 0
         self.super_calls = {}  # type: Dict[Offset, ast.Call]
-        self._current_func_node = None  # type: Optional[SyncFunctionDef]
+        self._current_func = None  # type: Optional[SyncFunctionDef]
+        self._for_targets = {}  # type: Dict[Tuple[SyncFunctionDef, str], Offset]  # noqa: E501
         self.yield_from_fors = set()  # type: Set[Offset]
 
     def _is_six(self, node, names):
@@ -1309,9 +1310,9 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def _visit_sync_func(self, node):
         # type: (SyncFunctionDef) -> None
-        self._current_func_node, orig = node, self._current_func_node
+        self._current_func, orig = node, self._current_func
         self._visit_func(node)
-        self._current_func_node = orig
+        self._current_func = orig
 
     visit_FunctionDef = visit_Lambda = _visit_sync_func
 
@@ -1518,65 +1519,34 @@ class FindPy3Plus(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_For(self, node):  # type: (ast.For) -> None
+        self.generic_visit(node)
+        # done *after* `generic_visit` so we know all things after this are
+        # after this `for` loop
         if (
-            self._current_func_node is not None and
+            self._current_func is not None and
             len(node.body) == 1 and
             isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Yield) and
             node.body[0].value.value is not None and
             targets_same(node.target, node.body[0].value.value) and
-            not _targets_referenced(self._current_func_node, node) and
             not node.orelse
         ):
-            self.yield_from_fors.add(_ast_to_offset(node))
+            offset = _ast_to_offset(node)
+            self.yield_from_fors.add(offset)
+            for node in ast.walk(node.target):
+                if isinstance(node, ast.Name):
+                    self._for_targets[(self._current_func, node.id)] = offset
+
+    def visit_Name(self, node):  # type: (ast.Name) -> None
+        offset = self._for_targets.get((self._current_func, node.id))
+        if offset is not None:
+            self.yield_from_fors.discard(offset)
 
         self.generic_visit(node)
 
     def generic_visit(self, node):  # type: (ast.AST) -> None
         self._previous_node = node
         super(FindPy3Plus, self).generic_visit(node)
-
-
-class FindNamesRefsAfterForLoopVisitor(ast.NodeVisitor):
-    def __init__(self, forloop):  # type: (ast.For) -> None
-        self.forloop = forloop
-
-        self._stack_depth = 0
-        self._forloop_depth = None  # type: Optional[int]
-        self.found = set()  # type: Set[str]
-
-    def visit_For(self, node):  # type: (ast.For) -> None
-        if node == self.forloop:
-            self._forloop_depth = self._stack_depth
-        else:
-            self.generic_visit(node)
-
-    def visit_Name(self, node):  # type: (ast.Name) -> None
-        if (
-            isinstance(node.ctx, ast.Load) and
-            self._forloop_depth is not None and
-            self._stack_depth > self._forloop_depth
-        ):
-            self.found.add(node.id)
-        self.generic_visit(node)
-
-    def visit(self, node):  # type: (ast.AST) -> None
-        super(FindNamesRefsAfterForLoopVisitor, self).visit(node)
-        self._stack_depth += 1
-
-
-def _targets_referenced(func, forloop):
-    # type: (SyncFunctionDef, ast.For) -> bool
-    """Search inside the given function node whether the loop variables
-    have been referenced after the loop.
-    """
-    visitor = FindNamesRefsAfterForLoopVisitor(forloop)
-    visitor.visit(func)
-    names = {
-        node.id for node in ast.walk(forloop.target)
-        if isinstance(node, ast.Name)
-    }
-    return len(visitor.found & names) > 0
 
 
 def _fixup_dedent_tokens(tokens):  # type: (List[Token]) -> None
