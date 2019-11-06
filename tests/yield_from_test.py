@@ -119,16 +119,6 @@ from pyupgrade import targets_same
         ),
         pytest.param(
             'def f():\n'
-            '    for x in z:\n'
-            '        yield x\n'
-            '    x = None\n',
-            'def f():\n'
-            '    yield from z\n'
-            '    x = None\n',
-            id='loop variable assigned after the loop',
-        ),
-        pytest.param(
-            'def f():\n'
             '    print(x)\n'
             '    for x in z:\n'
             '        yield x\n',
@@ -169,6 +159,7 @@ from pyupgrade import targets_same
             '        print(y)\n',
             id='multiple for loops',
         ),
+
     ),
 )
 def test_fix_yield_from(s, expected):
@@ -275,6 +266,36 @@ def test_fix_async_yield_from(s, expected):
             '        yield x, y\n'
             '    print(x)\n',
             id='multiple loop variables referenced after the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    async def g():\n'
+            '        for y in z:\n'
+            '            yield y\n'
+            '    return g\n',
+            id='for loop inside async func, which is inside sync',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    for x in z:\n'
+            '        yield x\n'
+            '    x = None\n',
+            id='loop variable assigned after the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    for x in z:\n'
+            '        yield x\n'
+            '    x = None'
+            '    print(x)\n',
+            id='loop variable assigned and referenced after the loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    for x in z:\n'
+            '        yield x\n'
+            '    x += 1',
+            id='augmented assignment after the loop',
         ),
     ),
 )

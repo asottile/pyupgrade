@@ -51,7 +51,6 @@ PercentFormat = Tuple[str, Optional[PercentFormatPart]]
 ListCompOrGeneratorExp = Union[ast.ListComp, ast.GeneratorExp]
 ListOrTuple = Union[ast.List, ast.Tuple]
 NameOrAttr = Union[ast.Name, ast.Attribute]
-SyncFunctionDef = Union[ast.FunctionDef, ast.Lambda]
 
 if False:  # pragma: no cover (mypy)
     from typing import Type
@@ -59,6 +58,11 @@ if False:  # pragma: no cover (mypy)
         AsyncFunctionDef = ast.AsyncFunctionDef
     else:
         AsyncFunctionDef = ast.stmt
+    SyncOrAsyncFunctionDef = Union[
+        ast.AsyncFunctionDef,
+        ast.FunctionDef,
+        ast.Lambda
+    ]
 
 _stdlib_parse_format = string.Formatter().parse
 
@@ -1197,8 +1201,8 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack = []  # type: List[FindPy3Plus.ClassInfo]
         self._in_comp = 0
         self.super_calls = {}  # type: Dict[Offset, ast.Call]
-        self._current_func = None  # type: Optional[SyncFunctionDef]
-        self._for_targets = {}  # type: Dict[Tuple[SyncFunctionDef, str], Offset]  # noqa: E501
+        self._current_func = None  # type: Optional[SyncOrAsyncFunctionDef]
+        self._for_targets = {}  # type: Dict[Tuple[Optional[ast.FunctionDef], str], Offset]  # noqa: E501
         self.yield_from_fors = set()  # type: Set[Offset]
 
     def _is_six(self, node, names):
@@ -1297,7 +1301,8 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack.pop()
 
     def _visit_func(self, node):
-        # type: (Union[ast.FunctionDef, ast.Lambda, AsyncFunctionDef]) -> None
+        # type: (SyncOrAsyncFunctionDef) -> None
+        self._current_func, orig = node, self._current_func
         if self._class_info_stack:
             class_info = self._class_info_stack[-1]
             class_info.def_depth += 1
@@ -1307,18 +1312,9 @@ class FindPy3Plus(ast.NodeVisitor):
             class_info.def_depth -= 1
         else:
             self.generic_visit(node)
-
-    def _visit_sync_func(self, node):
-        # type: (SyncFunctionDef) -> None
-        self._current_func, orig = node, self._current_func
-        self._visit_func(node)
         self._current_func = orig
 
-    visit_FunctionDef = visit_Lambda = _visit_sync_func
-
-    def visit_AsyncFunctionDef(self, node):  # pragma: no cover (py35+)
-        # type: (AsyncFunctionDef) -> None
-        self._visit_func(node)
+    visit_FunctionDef = visit_AsyncFunctionDef = visit_Lambda = _visit_func
 
     def _visit_comp(self, node):  # type: (ast.expr) -> None
         self._in_comp += 1
@@ -1333,7 +1329,7 @@ class FindPy3Plus(ast.NodeVisitor):
             self.six_simple[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
-    visit_Attribute = visit_Name = _visit_simple
+    visit_Attribute = _visit_simple
 
     def visit_Try(self, node):  # type: (ast.Try) -> None
         for handler in node.handlers:
@@ -1523,7 +1519,7 @@ class FindPy3Plus(ast.NodeVisitor):
         # done *after* `generic_visit` so we know all things after this are
         # after this `for` loop
         if (
-            self._current_func is not None and
+            isinstance(self._current_func, ast.FunctionDef) and
             len(node.body) == 1 and
             isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Yield) and
@@ -1533,16 +1529,17 @@ class FindPy3Plus(ast.NodeVisitor):
         ):
             offset = _ast_to_offset(node)
             self.yield_from_fors.add(offset)
-            for node in ast.walk(node.target):
-                if isinstance(node, ast.Name):
-                    self._for_targets[(self._current_func, node.id)] = offset
+            for t in ast.walk(node.target):
+                if isinstance(t, ast.Name):
+                    self._for_targets[(self._current_func, t.id)] = offset
 
     def visit_Name(self, node):  # type: (ast.Name) -> None
-        offset = self._for_targets.get((self._current_func, node.id))
-        if offset is not None:
-            self.yield_from_fors.discard(offset)
+        if isinstance(self._current_func, ast.FunctionDef):
+            offset = self._for_targets.get((self._current_func, node.id))
+            if offset is not None:
+                self.yield_from_fors.discard(offset)
 
-        self.generic_visit(node)
+        self._visit_simple(node)
 
     def generic_visit(self, node):  # type: (ast.AST) -> None
         self._previous_node = node
