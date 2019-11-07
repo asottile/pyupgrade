@@ -61,7 +61,7 @@ if False:  # pragma: no cover (mypy)
     SyncOrAsyncFunctionDef = Union[
         ast.AsyncFunctionDef,
         ast.FunctionDef,
-        ast.Lambda
+        ast.Lambda,
     ]
 
 _stdlib_parse_format = string.Formatter().parse
