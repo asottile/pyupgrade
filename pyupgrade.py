@@ -1202,7 +1202,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._in_comp = 0
         self.super_calls = {}  # type: Dict[Offset, ast.Call]
         self._current_func = None  # type: Optional[SyncOrAsyncFunctionDef]
-        self._for_targets = {}  # type: Dict[Tuple[Optional[ast.FunctionDef], str], Offset]  # noqa: E501
+        self._for_targets = {}  # type: Dict[Tuple[ast.FunctionDef, str], Offset]  # noqa: E501
         self.yield_from_fors = set()  # type: Set[Offset]
 
     def _is_six(self, node, names):
@@ -1302,7 +1302,6 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def _visit_func(self, node):
         # type: (SyncOrAsyncFunctionDef) -> None
-        self._current_func, orig = node, self._current_func
         if self._class_info_stack:
             class_info = self._class_info_stack[-1]
             class_info.def_depth += 1
@@ -1312,9 +1311,20 @@ class FindPy3Plus(ast.NodeVisitor):
             class_info.def_depth -= 1
         else:
             self.generic_visit(node)
+
+    def _visit_sync_func(self, node):
+        # type: (Union[ast.FunctionDef, ast.Lambda]) -> None
+        self._current_func, orig = node, self._current_func
+        self._visit_func(node)
         self._current_func = orig
 
-    visit_FunctionDef = visit_AsyncFunctionDef = visit_Lambda = _visit_func
+    visit_FunctionDef = visit_Lambda = _visit_sync_func
+
+    def visit_AsyncFunctionDef(self, node):  # pragma: no cover (py35+)
+        # type: (AsyncFunctionDef) -> None
+        self._current_func, orig = None, self._current_func
+        self._visit_func(node)
+        self._current_func = orig
 
     def _visit_comp(self, node):  # type: (ast.expr) -> None
         self._in_comp += 1
