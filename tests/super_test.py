@@ -112,19 +112,6 @@ def test_fix_super_noop(s):
             '    def f(cls):\n'
             '        super().f()\n',
         ),
-        pytest.param(
-            'class C:\n'
-            '    async def foo(self):\n'
-            '        super(C, self).foo()\n',
-            'class C:\n'
-            '    async def foo(self):\n'
-            '        super().foo()\n',
-            id='super inside async func def',
-            marks=pytest.mark.xfail(
-                sys.version_info < (3, 5),
-                reason='async introduced in python 3.5',
-            ),
-        ),
     ),
 )
 def test_fix_super(s, expected):
@@ -135,19 +122,15 @@ def test_fix_super(s, expected):
     sys.version_info < (3, 5),
     reason='async introduced in python 3.5',
 )
-@pytest.mark.parametrize(
-    ('s', 'expected'),
-    (
-        pytest.param(
-            'class C:\n'
-            '    async def foo(self):\n'
-            '        super(C, self).foo()\n',
-            'class C:\n'
-            '    async def foo(self):\n'
-            '        super().foo()\n',
-            id='super inside async func def',
-        ),
-    ),
-)
-def test_fix_async_super(s, expected):
+def test_fix_async_super():
+    s = (
+        'class C:\n'
+        '    async def foo(self):\n'
+        '        super(C, self).foo()\n'
+    )
+    expected = (
+        'class C:\n'
+        '    async def foo(self):\n'
+        '        super().foo()\n'
+    )
     assert _fix_py3_plus(s) == expected

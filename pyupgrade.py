@@ -58,11 +58,6 @@ if False:  # pragma: no cover (mypy)
         AsyncFunctionDef = ast.AsyncFunctionDef
     else:
         AsyncFunctionDef = ast.stmt
-    SyncOrAsyncFunctionDef = Union[
-        ast.AsyncFunctionDef,
-        ast.FunctionDef,
-        ast.Lambda,
-    ]
 
 _stdlib_parse_format = string.Formatter().parse
 
@@ -1201,7 +1196,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack = []  # type: List[FindPy3Plus.ClassInfo]
         self._in_comp = 0
         self.super_calls = {}  # type: Dict[Offset, ast.Call]
-        self._current_func = None  # type: Optional[SyncOrAsyncFunctionDef]
+        self._current_func = None  # type: Optional[Union[ast.FunctionDef, ast.Lambda]]  # noqa: E501
         self._for_targets = {}  # type: Dict[Tuple[ast.FunctionDef, str], Offset]  # noqa: E501
         self.yield_from_fors = set()  # type: Set[Offset]
 
@@ -1301,7 +1296,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack.pop()
 
     def _visit_func(self, node):
-        # type: (SyncOrAsyncFunctionDef) -> None
+        # type: (Union[AsyncFunctionDef, ast.FunctionDef, ast.Lambda]) -> None
         if self._class_info_stack:
             class_info = self._class_info_stack[-1]
             class_info.def_depth += 1
