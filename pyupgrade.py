@@ -1077,7 +1077,7 @@ SIX_CALLS = {
     'viewkeys': '{args[0]}.keys()',
     'viewvalues': '{args[0]}.values()',
     'create_unbound_method': '{args[0]}',
-    'get_unbound_method': '{args[0]}',
+    'get_unbound_function': '{args[0]}',
     'get_method_function': '{args[0]}.__func__',
     'get_method_self': '{args[0]}.__self__',
     'get_function_closure': '{args[0]}.__closure__',
