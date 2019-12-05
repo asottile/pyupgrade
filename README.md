@@ -302,7 +302,7 @@ six.viewitems(dct)                      # dct.items()
 six.viewkeys(dct)                       # dct.keys()
 six.viewvalues(dct)                     # dct.values()
 six.create_unbound_method(fn, cls)      # fn
-six.get_unbound_method(meth)            # meth
+six.get_unbound_function(meth)          # meth
 six.get_method_function(meth)           # meth.__func__
 six.get_method_self(meth)               # meth.__self__
 six.get_function_closure(fn)            # fn.__closure__

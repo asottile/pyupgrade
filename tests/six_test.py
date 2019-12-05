@@ -137,14 +137,14 @@ def test_fix_six_noop(s):
             'class C: pass',
         ),
         (
-            'six.get_unbound_method(meth)\n',
+            'six.get_unbound_function(meth)\n',
             'meth\n',
         ),
         (
-            'from six import get_unbound_method\n'
-            'get_unbound_method(meth)\n',
+            'from six import get_unbound_function\n'
+            'get_unbound_function(meth)\n',
 
-            'from six import get_unbound_method\n'
+            'from six import get_unbound_function\n'
             'meth\n',
         ),
         (
