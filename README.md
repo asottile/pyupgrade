@@ -11,6 +11,15 @@ versions of the language.
 
 `pip install pyupgrade`
 
+## Usage
+See __Implemented features__ below for details.
+* `pyupgrade`
+* `pyupgrade --exit-zero-even-if-changed`
+* `pyupgrade --keep-percent-format`
+* `pyupgrade --py3-plus` (aka `--py3-only`)
+* `pyupgrade --py36-plus`
+* `pyupgrade --py37-plus`
+
 ## As a pre-commit hook
 
 See [pre-commit](https://github.com/pre-commit/pre-commit) for instructions
