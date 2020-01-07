@@ -676,7 +676,7 @@ FUTURES[(3,)] = FUTURES[(3, 6)] = FUTURES[(2, 7)] + (
 FUTURES[(3, 7)] = FUTURES[(3, 6)] + ('generator_stop',)
 
 
-def _fix_future_imports(tokens, start, min_version):
+def _fix_import_removals(tokens, start, min_version):
     # type: (List[Token], int, Tuple[int, ...]) -> None
     i = start + 1
     while tokens[i].name != 'NAME':
@@ -746,7 +746,7 @@ def _fix_tokens(contents_text, min_version):
             if tokens[i].name == 'NL':  # pragma: no branch (old PY2)
                 del tokens[i]
         elif token.src == 'from' and token.utf8_byte_offset == 0:
-            _fix_future_imports(tokens, i, min_version)
+            _fix_import_removals(tokens, i, min_version)
     return tokens_to_src(tokens).lstrip()
 
 

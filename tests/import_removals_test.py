@@ -17,7 +17,7 @@ from pyupgrade import _fix_tokens
         ('from __future__ import division', (2, 7)),
     ),
 )
-def test_future_remove_noop(s, min_version):
+def test_import_removals_noop(s, min_version):
     assert _fix_tokens(s, min_version=min_version) == s
 
 
@@ -102,5 +102,5 @@ def test_future_remove_noop(s, min_version):
         ),
     ),
 )
-def test_future_remove(s, min_version, expected):
+def test_import_removals(s, min_version, expected):
     assert _fix_tokens(s, min_version=min_version) == expected
