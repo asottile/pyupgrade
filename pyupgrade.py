@@ -669,26 +669,62 @@ def _fix_encode_to_binary(tokens, i):  # type: (List[Token], int) -> None
     del tokens[victims]
 
 
-FUTURES = {}  # type: Dict[Tuple[int, ...], Tuple[str, ...]]
-FUTURES[(2, 7)] = ('nested_scopes', 'generators', 'with_statement')
-FUTURES[(3,)] = FUTURES[(3, 6)] = FUTURES[(2, 7)] + (
-    'absolute_import', 'division', 'print_function', 'unicode_literals',
-)
-FUTURES[(3, 7)] = FUTURES[(3, 6)] + ('generator_stop',)
+def _build_import_removals():
+    # type: () -> Dict[Tuple[int, ...], Dict[str, Tuple[str, ...]]]
+    ret = {}
+    future = (
+        ((2, 7), ('nested_scopes', 'generators', 'with_statement')),
+        (
+            (3,), (
+                'absolute_import', 'division', 'print_function',
+                'unicode_literals',
+            ),
+        ),
+        ((3, 6), ()),
+        ((3, 7), ('generator_stop',)),
+    )  # type: Tuple[Tuple[Tuple[int, ...], Tuple[str, ...]], ...]
+
+    prev = ()  # type: Tuple[str, ...]
+    for min_version, names in future:
+        prev += names
+        ret[min_version] = {'__future__': names}
+    # see reorder_python_imports
+    for k, v in ret.items():
+        if k >= (3,):
+            v.update({
+                'builtins': (
+                    'ascii', 'bytes', 'chr', 'dict', 'filter', 'hex', 'input',
+                    'int', 'list', 'map', 'max', 'min', 'next', 'object',
+                    'oct', 'open', 'pow', 'range', 'round', 'str', 'super',
+                    'zip', '*',
+                ),
+                'io': ('open',),
+                'six': ('callable', 'next'),
+                'six.moves': ('filter', 'input', 'map', 'range', 'zip'),
+            })
+    return ret
 
 
-def _fix_future_imports(tokens, start, min_version):
+IMPORT_REMOVALS = _build_import_removals()
+
+
+def _fix_import_removals(tokens, start, min_version):
     # type: (List[Token], int, Tuple[int, ...]) -> None
     i = start + 1
-    while tokens[i].name != 'NAME':
+    name_parts = []
+    while tokens[i].src != 'import':
+        if tokens[i].name in {'NAME', 'OP'}:
+            name_parts.append(tokens[i].src)
         i += 1
-    if tokens[i].src != '__future__':
+
+    modname = ''.join(name_parts)
+    if modname not in IMPORT_REMOVALS[min_version]:
         return
 
     found_names = []  # type: List[int]
     i += 1
     while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
-        if tokens[i].name == 'NAME' and tokens[i].src != 'import':
+        if tokens[i].name == 'NAME' or tokens[i].src == '*':
             found_names.append(i)
         i += 1
     # depending on the version of python, some will not emit NEWLINE('') at the
@@ -696,8 +732,8 @@ def _fix_future_imports(tokens, start, min_version):
     if tokens[i].name == 'ENDMARKER':  # pragma: no cover
         i -= 1
 
-    remove_futures = FUTURES[min_version]
-    to_remove = [x for x in found_names if tokens[x].src in remove_futures]
+    remove_names = IMPORT_REMOVALS[min_version][modname]
+    to_remove = [x for x in found_names if tokens[x].src in remove_names]
     if len(to_remove) == len(found_names):
         del tokens[start:i + 1]
     else:
@@ -747,7 +783,7 @@ def _fix_tokens(contents_text, min_version):
             if tokens[i].name == 'NL':  # pragma: no branch (old PY2)
                 del tokens[i]
         elif token.src == 'from' and token.utf8_byte_offset == 0:
-            _fix_future_imports(tokens, i, min_version)
+            _fix_import_removals(tokens, i, min_version)
     return tokens_to_src(tokens).lstrip()
 
 

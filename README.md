@@ -220,6 +220,17 @@ Availability:
 -from __future__ import with_statement
 ```
 
+### Remove unnecessary py3-compat imports
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```diff
+-from io import open
+-from six.moves import map
+-from builtins import object  # python-future
+```
+
 ### `yield` => `yield from`
 
 Availability:
