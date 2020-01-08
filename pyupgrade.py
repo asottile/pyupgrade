@@ -1420,7 +1420,7 @@ class FindPy3Plus(ast.NodeVisitor):
             # _is_six() enforces this
             assert isinstance(arg, (ast.Name, ast.Attribute))
             self.six_type_ctx[_ast_to_offset(node.args[1])] = arg
-        elif self._is_six(node.func, ('b',)):
+        elif self._is_six(node.func, ('b', 'ensure_binary')):
             self.six_b.add(_ast_to_offset(node))
         elif self._is_six(node.func, SIX_CALLS) and not _starargs(node):
             self.six_calls[_ast_to_offset(node)] = node
@@ -1457,8 +1457,10 @@ class FindPy3Plus(ast.NodeVisitor):
         ):
             self.super_calls[_ast_to_offset(node)] = node
         elif (
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'str' and
+                (
+                    self._is_six(node.func, ('ensure_str', 'ensure_text')) or
+                    isinstance(node.func, ast.Name) and node.func.id == 'str'
+                ) and
                 not node.keywords and
                 not _starargs(node) and
                 (
