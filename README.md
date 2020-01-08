@@ -333,6 +333,7 @@ six.assertRaisesRegex(self, e, r, fn)   # self.assertRaisesRegex(e, r, fn)
 six.assertRegex(self, s, r)             # self.assertRegex(s, r)
 
 # note: only for *literals*
+six.ensure_binary('...')                # b'...'
 six.ensure_str('...')                   # '...'
 six.ensure_text('...')                  # '...'
 ```

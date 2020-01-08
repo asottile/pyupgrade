@@ -99,6 +99,10 @@ def test_fix_six_noop(s):
             r'b"\x12\xef"',
         ),
         (
+            'six.ensure_binary("foo")',
+            'b"foo"',
+        ),
+        (
             'from six import b\n\n' r'b("\x12\xef")',
             'from six import b\n\n' r'b"\x12\xef"',
         ),
