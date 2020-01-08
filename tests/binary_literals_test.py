@@ -13,6 +13,7 @@ from pyupgrade import _fix_tokens
         '"☃".encode("UTF-8")',
         '"\\u2603".encode("UTF-8")',
         '"\\U0001f643".encode("UTF-8")',
+        '"\\N{SNOWMAN}".encode("UTF-8")',
         '"\\xa0".encode("UTF-8")',
         # not byte literal compatible
         '"y".encode("utf16")',

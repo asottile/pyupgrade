@@ -656,6 +656,7 @@ def _fix_encode_to_binary(tokens, i):  # type: (List[Token], int) -> None
                 not _is_ascii(rest) or
                 '\\u' in escapes or
                 '\\U' in escapes or
+                '\\N' in escapes or
                 ('\\x' in escapes and not latin1_ok) or
                 'f' in prefix.lower()
         ):
