@@ -260,6 +260,14 @@ else:
 print('py3')
 ```
 
+```python
+# input
+if six.PY3:
+    print('py3')
+# output
+print('py3')
+```
+
 ### remove `six` compatibility code
 
 Availability:

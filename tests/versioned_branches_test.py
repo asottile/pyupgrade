@@ -30,6 +30,14 @@ from pyupgrade import _fix_py3_plus
         '    pass\n'
         'else:\n'
         '    pass\n',
+        'if False:\n'
+        '    pass\n'
+        'elif six.PY3:\n'
+        '    pass\n',
+        'if six.PY3:\n'
+        '    pass\n'
+        'elif False:\n'
+        '    pass\n',
         # don't rewrite version compares with not 3.0 compares
         'if sys.version_info >= (3, 6):\n'
         '    3.6\n'
@@ -355,4 +363,20 @@ def test_fix_py2_block_noop(s):
     ),
 )
 def test_fix_py2_blocks(s, expected):
+    assert _fix_py3_plus(s) == expected
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        ('if six.PY3: print(3)\n', 'print(3)\n'),
+        (
+            'if six.PY3:\n'
+            '    print(3)\n',
+
+            'print(3)\n',
+        ),
+    ),
+)
+def test_fix_py3_only_code(s, expected):
     assert _fix_py3_plus(s) == expected
