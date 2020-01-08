@@ -1712,6 +1712,13 @@ def _find_if_else_block(tokens, i):
     return if_block, else_block
 
 
+def _find_elif(tokens, i):
+    # type: (List[Token], int) -> int
+    while tokens[i].src != 'elif':
+        i -= 1
+    return i
+
+
 def _remove_decorator(tokens, i):  # type: (List[Token], int) -> None
     while tokens[i - 1].src != '@':
         i -= 1
@@ -1902,12 +1909,14 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             if_block.dedent(tokens)
             del tokens[if_block.start:if_block.block]
         elif token.offset in visitor.if_py2_blocks_else:
-            if tokens[i].src != 'if':  # TODO: elif
-                continue
-            if_block, else_block = _find_if_else_block(tokens, i)
-
-            else_block.dedent(tokens)
-            del tokens[if_block.start:else_block.block]
+            if tokens[i].src == 'if':
+                if_block, else_block = _find_if_else_block(tokens, i)
+                else_block.dedent(tokens)
+                del tokens[if_block.start:else_block.block]
+            else:
+                j = _find_elif(tokens, i)
+                if_block, else_block = _find_if_else_block(tokens, j)
+                del tokens[if_block.start:else_block.start]
         elif token.offset in visitor.if_py3_blocks_else:
             if tokens[i].src != 'if':  # TODO: elif
                 continue

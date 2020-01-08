@@ -26,12 +26,6 @@ from pyupgrade import _fix_py3_plus
         '    pass\n',
         'if False:\n'
         '    pass\n'
-        'elif six.PY2:\n'
-        '    pass\n'
-        'else:\n'
-        '    pass\n',
-        'if False:\n'
-        '    pass\n'
         'elif six.PY3:\n'
         '    pass\n',
         'if six.PY3:\n'
@@ -359,6 +353,21 @@ def test_fix_py2_block_noop(s):
             '3\n',
 
             id='from sys import version_info, > (3,)',
+        ),
+        pytest.param(
+            'if True:\n'
+            '    print(1)\n'
+            'elif six.PY2:\n'
+            '    print(2)\n'
+            'else:\n'
+            '    print(3)\n',
+
+            'if True:\n'
+            '    print(1)\n'
+            'else:\n'
+            '    print(3)\n',
+
+            id='elif six.PY2 else',
         ),
     ),
 )
