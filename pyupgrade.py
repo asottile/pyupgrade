@@ -1646,6 +1646,10 @@ class Block(
             ):
                 tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
 
+    def replace_condition(self, tokens, new):
+        # type: (List[Token], List[Token]) -> None
+        tokens[self.start:self.colon] = new
+
     def _trim_end(self, tokens):  # type: (List[Token]) -> Block
         """the tokenizer reports the end of the block at the beginning of
         the next block
@@ -1906,11 +1910,13 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
         elif token.offset in visitor.bases_to_remove:
             _remove_base_class(tokens, i)
         elif token.offset in visitor.if_py3_blocks:
-            if tokens[i].src != 'if':  # TODO: elif
-                continue
-            if_block = Block.find(tokens, i)
-            if_block.dedent(tokens)
-            del tokens[if_block.start:if_block.block]
+            if tokens[i].src == 'if':
+                if_block = Block.find(tokens, i)
+                if_block.dedent(tokens)
+                del tokens[if_block.start:if_block.block]
+            else:
+                if_block = Block.find(tokens, _find_elif(tokens, i))
+                if_block.replace_condition(tokens, [Token('NAME', 'else')])
         elif token.offset in visitor.if_py2_blocks_else:
             if tokens[i].src == 'if':
                 if_block, else_block = _find_if_else_block(tokens, i)
@@ -1930,7 +1936,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
                 j = _find_elif(tokens, i)
                 if_block, else_block = _find_if_else_block(tokens, j)
                 del tokens[if_block.end:else_block.end]
-                tokens[if_block.start:if_block.colon] = [Token('NAME', 'else')]
+                if_block.replace_condition(tokens, [Token('NAME', 'else')])
         elif token.offset in visitor.six_type_ctx:
             _replace(i, SIX_TYPE_CTX_ATTRS, visitor.six_type_ctx[token.offset])
         elif token.offset in visitor.six_simple:

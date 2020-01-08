@@ -18,9 +18,9 @@ from pyupgrade import _fix_py3_plus
         '    if six.PY2:\n'
         '        pass\n',
         # for now we don't attempt to rewrite `elif`
-        'if False:\n'
+        'if six.PY2:\n'
         '    pass\n'
-        'elif six.PY3:\n'
+        'elif False:\n'
         '    pass\n',
         'if six.PY3:\n'
         '    pass\n'
@@ -377,6 +377,19 @@ def test_fix_py2_block_noop(s):
             '    print(3)\n',
 
             id='elif six.PY3 else',
+        ),
+        pytest.param(
+            'if True:\n'
+            '    print(1)\n'
+            'elif six.PY3:\n'
+            '    print(3)\n',
+
+            'if True:\n'
+            '    print(1)\n'
+            'else:\n'
+            '    print(3)\n',
+
+            id='elif six.PY3 no else',
         ),
     ),
 )
