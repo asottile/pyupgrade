@@ -1169,8 +1169,9 @@ class FindPy3Plus(ast.NodeVisitor):
         self.encode_calls = {}  # type: Dict[Offset, ast.Call]
 
         self._version_info_imported = False
-        self.if_py2_blocks = set()  # type: Set[Offset]
         self.if_py3_blocks = set()  # type: Set[Offset]
+        self.if_py2_blocks_else = set()  # type: Set[Offset]
+        self.if_py3_blocks_else = set()  # type: Set[Offset]
 
         self.native_literals = set()  # type: Set[Offset]
 
@@ -1475,46 +1476,49 @@ class FindPy3Plus(ast.NodeVisitor):
         return elts[0].n == 3 and all(n.n == 0 for n in elts[1:])
 
     def visit_If(self, node):  # type: (ast.If) -> None
-        if node.orelse and not isinstance(node.orelse[0], ast.If):
-            if (
-                    # if six.PY2:
-                    self._is_six(node.test, ('PY2',)) or
-                    # if not six.PY3:
-                    (
-                        isinstance(node.test, ast.UnaryOp) and
-                        isinstance(node.test.op, ast.Not) and
-                        self._is_six(node.test.operand, ('PY3',))
-                    ) or
-                    # sys.version_info == 2 or < (3,)
-                    (
-                        isinstance(node.test, ast.Compare) and
-                        self._is_version_info(node.test.left) and
-                        len(node.test.ops) == 1 and (
-                            self._eq(node.test, 2) or
-                            self._compare_to_3(node.test, ast.Lt)
-                        )
+        if (
+                # if six.PY2:
+                self._is_six(node.test, ('PY2',)) or
+                # if not six.PY3:
+                (
+                    isinstance(node.test, ast.UnaryOp) and
+                    isinstance(node.test.op, ast.Not) and
+                    self._is_six(node.test.operand, ('PY3',))
+                ) or
+                # sys.version_info == 2 or < (3,)
+                (
+                    isinstance(node.test, ast.Compare) and
+                    self._is_version_info(node.test.left) and
+                    len(node.test.ops) == 1 and (
+                        self._eq(node.test, 2) or
+                        self._compare_to_3(node.test, ast.Lt)
                     )
-            ):
-                self.if_py2_blocks.add(_ast_to_offset(node))
-            elif (
-                    # if six.PY3:
-                    self._is_six(node.test, 'PY3') or
-                    # if not six.PY2:
-                    (
-                        isinstance(node.test, ast.UnaryOp) and
-                        isinstance(node.test.op, ast.Not) and
-                        self._is_six(node.test.operand, ('PY2',))
-                    ) or
-                    # sys.version_info == 3 or >= (3,) or > (3,)
-                    (
-                        isinstance(node.test, ast.Compare) and
-                        self._is_version_info(node.test.left) and
-                        len(node.test.ops) == 1 and (
-                            self._eq(node.test, 3) or
-                            self._compare_to_3(node.test, (ast.Gt, ast.GtE))
-                        )
+                )
+        ):
+            if node.orelse and not isinstance(node.orelse[0], ast.If):
+                self.if_py2_blocks_else.add(_ast_to_offset(node))
+        elif (
+                # if six.PY3:
+                self._is_six(node.test, 'PY3') or
+                # if not six.PY2:
+                (
+                    isinstance(node.test, ast.UnaryOp) and
+                    isinstance(node.test.op, ast.Not) and
+                    self._is_six(node.test.operand, ('PY2',))
+                ) or
+                # sys.version_info == 3 or >= (3,) or > (3,)
+                (
+                    isinstance(node.test, ast.Compare) and
+                    self._is_version_info(node.test.left) and
+                    len(node.test.ops) == 1 and (
+                        self._eq(node.test, 3) or
+                        self._compare_to_3(node.test, (ast.Gt, ast.GtE))
                     )
-            ):
+                )
+        ):
+            if node.orelse and not isinstance(node.orelse[0], ast.If):
+                self.if_py3_blocks_else.add(_ast_to_offset(node))
+            elif not node.orelse:
                 self.if_py3_blocks.add(_ast_to_offset(node))
         self.generic_visit(node)
 
@@ -1804,8 +1808,9 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
     if not any((
             visitor.bases_to_remove,
             visitor.encode_calls,
-            visitor.if_py2_blocks,
+            visitor.if_py2_blocks_else,
             visitor.if_py3_blocks,
+            visitor.if_py3_blocks_else,
             visitor.native_literals,
             visitor.io_open_calls,
             visitor.os_error_alias_calls,
@@ -1851,15 +1856,21 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             continue
         elif token.offset in visitor.bases_to_remove:
             _remove_base_class(tokens, i)
-        elif token.offset in visitor.if_py2_blocks:
-            if tokens[i].src != 'if':
+        elif token.offset in visitor.if_py3_blocks:
+            if tokens[i].src != 'if':  # TODO: elif
+                continue
+            if_block = Block.find(tokens, i)
+            if_block.dedent(tokens)
+            del tokens[if_block.start:if_block.block]
+        elif token.offset in visitor.if_py2_blocks_else:
+            if tokens[i].src != 'if':  # TODO: elif
                 continue
             if_block, else_block = _find_if_else_block(tokens, i)
 
             else_block.dedent(tokens)
             del tokens[if_block.start:else_block.block]
-        elif token.offset in visitor.if_py3_blocks:
-            if tokens[i].src != 'if':
+        elif token.offset in visitor.if_py3_blocks_else:
+            if tokens[i].src != 'if':  # TODO: elif
                 continue
             if_block, else_block = _find_if_else_block(tokens, i)
 
