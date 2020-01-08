@@ -1607,7 +1607,9 @@ def _find_block_start(tokens, i):  # type: (List[Token], int) -> int
 
 
 class Block(
-        collections.namedtuple('Block', ('start', 'block', 'end', 'line')),
+        collections.namedtuple(
+            'Block', ('start', 'colon', 'block', 'end', 'line'),
+        ),
 ):
     __slots__ = ()
 
@@ -1643,6 +1645,10 @@ class Block(
                     tokens[i].name in ('INDENT', UNIMPORTANT_WS)
             ):
                 tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
+
+    def replace_condition(self, tokens, new):
+        # type: (List[Token], List[Token]) -> None
+        tokens[self.start:self.colon] = new
 
     def _trim_end(self, tokens):  # type: (List[Token]) -> Block
         """the tokenizer reports the end of the block at the beginning of
@@ -1687,10 +1693,11 @@ class Block(
             while level:
                 level += {'INDENT': 1, 'DEDENT': -1}.get(tokens[j].name, 0)
                 j += 1
+            ret = cls(start, colon, block, j, line=False)
             if trim_end:
-                return cls(start, block, j, line=False)._trim_end(tokens)
+                return ret._trim_end(tokens)
             else:
-                return cls(start, block, j, line=False)
+                return ret
         else:  # single line block
             block = j
             # search forward until the NEWLINE token
@@ -1699,7 +1706,7 @@ class Block(
             # we also want to include the newline in the block
             if tokens[j].name == 'NEWLINE':  # pragma: no branch (PY2 only)
                 j += 1
-            return cls(start, block, j, line=True)
+            return cls(start, colon, block, j, line=True)
 
 
 def _find_if_else_block(tokens, i):
@@ -1710,6 +1717,13 @@ def _find_if_else_block(tokens, i):
         i += 1
     else_block = Block.find(tokens, i, trim_end=True)
     return if_block, else_block
+
+
+def _find_elif(tokens, i):
+    # type: (List[Token], int) -> int
+    while tokens[i].src != 'elif':  # pragma: no cover (only for <3.8.1)
+        i -= 1
+    return i
 
 
 def _remove_decorator(tokens, i):  # type: (List[Token], int) -> None
@@ -1896,26 +1910,33 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
         elif token.offset in visitor.bases_to_remove:
             _remove_base_class(tokens, i)
         elif token.offset in visitor.if_py3_blocks:
-            if tokens[i].src != 'if':  # TODO: elif
-                continue
-            if_block = Block.find(tokens, i)
-            if_block.dedent(tokens)
-            del tokens[if_block.start:if_block.block]
+            if tokens[i].src == 'if':
+                if_block = Block.find(tokens, i)
+                if_block.dedent(tokens)
+                del tokens[if_block.start:if_block.block]
+            else:
+                if_block = Block.find(tokens, _find_elif(tokens, i))
+                if_block.replace_condition(tokens, [Token('NAME', 'else')])
         elif token.offset in visitor.if_py2_blocks_else:
-            if tokens[i].src != 'if':  # TODO: elif
-                continue
-            if_block, else_block = _find_if_else_block(tokens, i)
-
-            else_block.dedent(tokens)
-            del tokens[if_block.start:else_block.block]
+            if tokens[i].src == 'if':
+                if_block, else_block = _find_if_else_block(tokens, i)
+                else_block.dedent(tokens)
+                del tokens[if_block.start:else_block.block]
+            else:
+                j = _find_elif(tokens, i)
+                if_block, else_block = _find_if_else_block(tokens, j)
+                del tokens[if_block.start:else_block.start]
         elif token.offset in visitor.if_py3_blocks_else:
-            if tokens[i].src != 'if':  # TODO: elif
-                continue
-            if_block, else_block = _find_if_else_block(tokens, i)
-
-            if_block.dedent(tokens)
-            del tokens[if_block.end:else_block.end]
-            del tokens[if_block.start:if_block.block]
+            if tokens[i].src == 'if':
+                if_block, else_block = _find_if_else_block(tokens, i)
+                if_block.dedent(tokens)
+                del tokens[if_block.end:else_block.end]
+                del tokens[if_block.start:if_block.block]
+            else:
+                j = _find_elif(tokens, i)
+                if_block, else_block = _find_if_else_block(tokens, j)
+                del tokens[if_block.end:else_block.end]
+                if_block.replace_condition(tokens, [Token('NAME', 'else')])
         elif token.offset in visitor.six_type_ctx:
             _replace(i, SIX_TYPE_CTX_ATTRS, visitor.six_type_ctx[token.offset])
         elif token.offset in visitor.six_simple:
