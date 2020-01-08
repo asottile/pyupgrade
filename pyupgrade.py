@@ -1721,7 +1721,7 @@ def _find_if_else_block(tokens, i):
 
 def _find_elif(tokens, i):
     # type: (List[Token], int) -> int
-    while tokens[i].src != 'elif':
+    while tokens[i].src != 'elif':  # pragma: no cover (only for <3.8.1)
         i -= 1
     return i
 
