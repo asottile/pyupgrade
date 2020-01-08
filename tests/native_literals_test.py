@@ -27,6 +27,8 @@ def test_fix_native_literals_noop(s):
         ('str()', "''"),
         ('str("foo")', '"foo"'),
         ('str("""\nfoo""")', '"""\nfoo"""'),
+        ('six.ensure_str("foo")', '"foo"'),
+        ('six.ensure_text("foo")', '"foo"'),
     ),
 )
 def test_fix_native_literals(s, expected):

@@ -1457,8 +1457,10 @@ class FindPy3Plus(ast.NodeVisitor):
         ):
             self.super_calls[_ast_to_offset(node)] = node
         elif (
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'str' and
+                (
+                    self._is_six(node.func, ('ensure_str', 'ensure_text')) or
+                    isinstance(node.func, ast.Name) and node.func.id == 'str'
+                ) and
                 not node.keywords and
                 not _starargs(node) and
                 (

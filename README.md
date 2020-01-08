@@ -331,6 +331,10 @@ six.get_function_globals(fn)            # fn.__globals__
 six.assertCountEqual(self, a1, a2)      # self.assertCountEqual(a1, a2)
 six.assertRaisesRegex(self, e, r, fn)   # self.assertRaisesRegex(e, r, fn)
 six.assertRegex(self, s, r)             # self.assertRegex(s, r)
+
+# note: only for *literals*
+six.ensure_str('...')                   # '...'
+six.ensure_text('...')                  # '...'
 ```
 
 ### `open` alias
