@@ -721,11 +721,18 @@ def _fix_import_removals(tokens, start, min_version):
     if modname not in IMPORT_REMOVALS[min_version]:
         return
 
-    found_names = []  # type: List[int]
+    found = []  # type: List[Optional[int]]
     i += 1
     while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
         if tokens[i].name == 'NAME' or tokens[i].src == '*':
-            found_names.append(i)
+            # don't touch aliases
+            if (
+                    found and found[-1] is not None and
+                    tokens[found[-1]].src == 'as'
+            ):
+                found[-2:] = [None]
+            else:
+                found.append(i)
         i += 1
     # depending on the version of python, some will not emit NEWLINE('') at the
     # end of a file which does not end with a newline (for example 2.7.6)
@@ -733,12 +740,14 @@ def _fix_import_removals(tokens, start, min_version):
         i -= 1
 
     remove_names = IMPORT_REMOVALS[min_version][modname]
-    to_remove = [x for x in found_names if tokens[x].src in remove_names]
-    if len(to_remove) == len(found_names):
+    to_remove = [
+        x for x in found if x is not None and tokens[x].src in remove_names
+    ]
+    if len(to_remove) == len(found):
         del tokens[start:i + 1]
     else:
         for idx in reversed(to_remove):
-            if found_names[0] == idx:  # look forward until next name and del
+            if found[0] == idx:  # look forward until next name and del
                 j = idx + 1
                 while tokens[j].name != 'NAME':
                     j += 1

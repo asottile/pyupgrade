@@ -18,6 +18,8 @@ from pyupgrade import _fix_tokens
         ('from six.moves import map', (2, 7)),
         ('from builtins import str', (2, 7)),
         ('from six import *', (3,)),
+        ('from six.moves import map as notmap', (3,)),
+        ('from six.moves import queue as map', (3,)),
     ),
 )
 def test_import_removals_noop(s, min_version):
@@ -109,6 +111,14 @@ def test_import_removals_noop(s, min_version):
         pytest.param(
             'from six . moves import map', (3,), '',
             id='weird whitespace in dotted name',
+        ),
+        pytest.param(
+            'from io import open, BytesIO as BIO\n'
+            'from io import BytesIO as BIO, open\n',
+            (3,),
+            'from io import BytesIO as BIO\n'
+            'from io import BytesIO as BIO\n',
+            id='removal with import-as',
         ),
     ),
 )
