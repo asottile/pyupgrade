@@ -222,6 +222,10 @@ def test_fix_six_noop(s):
             'raise exc.with_traceback(tb)\n',
         ),
         (
+            'six.reraise(tp, exc)\n',
+            'raise exc.with_traceback(None)\n',
+        ),
+        (
             'from six import raise_from\n'
             'raise_from(exc, exc_from)\n',
 

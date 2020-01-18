@@ -1137,10 +1137,9 @@ SIX_CALLS = {
 SIX_B_TMPL = 'b{args[0]}'
 WITH_METACLASS_NO_BASES_TMPL = 'metaclass={args[0]}'
 WITH_METACLASS_BASES_TMPL = '{rest}, metaclass={args[0]}'
-SIX_RAISES = {
-    'raise_from': 'raise {args[0]} from {rest}',
-    'reraise': 'raise {args[1]}.with_traceback({args[2]})',
-}
+RAISE_FROM_TMPL = 'raise {args[0]} from {rest}'
+RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
+RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
 
 
 def _all_isinstance(vals, tp):
@@ -1234,7 +1233,8 @@ class FindPy3Plus(ast.NodeVisitor):
         self.six_calls = {}  # type: Dict[Offset, ast.Call]
         self.six_iter = {}  # type: Dict[Offset, ast.Call]
         self._previous_node = None  # type: Optional[ast.AST]
-        self.six_raises = {}  # type: Dict[Offset, ast.Call]
+        self.six_raise_from = set()  # type: Set[Offset]
+        self.six_reraise = set()  # type: Set[Offset]
         self.six_remove_decorators = set()  # type: Set[Offset]
         self.six_simple = {}  # type: Dict[Offset, NameOrAttr]
         self.six_type_ctx = {}  # type: Dict[Offset, NameOrAttr]
@@ -1448,10 +1448,16 @@ class FindPy3Plus(ast.NodeVisitor):
             self.six_iter[_ast_to_offset(node.args[0])] = node.args[0]
         elif (
                 isinstance(self._previous_node, ast.Expr) and
-                self._is_six(node.func, SIX_RAISES) and
+                self._is_six(node.func, ('raise_from',)) and
                 not _starargs(node)
         ):
-            self.six_raises[_ast_to_offset(node)] = node
+            self.six_raise_from.add(_ast_to_offset(node))
+        elif (
+                isinstance(self._previous_node, ast.Expr) and
+                self._is_six(node.func, ('reraise',)) and
+                not _starargs(node)
+        ):
+            self.six_reraise.add(_ast_to_offset(node))
         elif (
                 not self._in_comp and
                 self._class_info_stack and
@@ -1882,7 +1888,8 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             visitor.six_b,
             visitor.six_calls,
             visitor.six_iter,
-            visitor.six_raises,
+            visitor.six_raise_from,
+            visitor.six_reraise,
             visitor.six_remove_decorators,
             visitor.six_simple,
             visitor.six_type_ctx,
@@ -1975,13 +1982,17 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             assert isinstance(call.func, (ast.Name, ast.Attribute))
             template = _get_tmpl(SIX_CALLS, call.func)
             _replace_call(tokens, i, end, func_args, template)
-        elif token.offset in visitor.six_raises:
+        elif token.offset in visitor.six_raise_from:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
-            call = visitor.six_raises[token.offset]
-            assert isinstance(call.func, (ast.Name, ast.Attribute))
-            template = _get_tmpl(SIX_RAISES, call.func)
-            _replace_call(tokens, i, end, func_args, template)
+            _replace_call(tokens, i, end, func_args, RAISE_FROM_TMPL)
+        elif token.offset in visitor.six_reraise:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            if len(func_args) == 2:
+                _replace_call(tokens, i, end, func_args, RERAISE_2_TMPL)
+            else:
+                _replace_call(tokens, i, end, func_args, RERAISE_3_TMPL)
         elif token.offset in visitor.six_add_metaclass:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
