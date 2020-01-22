@@ -1140,6 +1140,7 @@ WITH_METACLASS_BASES_TMPL = '{rest}, metaclass={args[0]}'
 RAISE_FROM_TMPL = 'raise {args[0]} from {rest}'
 RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
 RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
+SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
 
 
 def _all_isinstance(vals, tp):
@@ -1473,7 +1474,7 @@ class FindPy3Plus(ast.NodeVisitor):
             self.super_calls[_ast_to_offset(node)] = node
         elif (
                 (
-                    self._is_six(node.func, ('ensure_str', 'ensure_text')) or
+                    self._is_six(node.func, SIX_NATIVE_STR) or
                     isinstance(node.func, ast.Name) and node.func.id == 'str'
                 ) and
                 not node.keywords and
@@ -1953,6 +1954,15 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
                 if_block, else_block = _find_if_else_block(tokens, j)
                 del tokens[if_block.end:else_block.end]
                 if_block.replace_condition(tokens, [Token('NAME', 'else')])
+        elif token.offset in visitor.native_literals:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            if any(tok.name == 'NL' for tok in tokens[i:end]):
+                continue
+            if func_args:
+                _replace_call(tokens, i, end, func_args, '{args[0]}')
+            else:
+                tokens[i:end] = [token._replace(name='STRING', src="''")]
         elif token.offset in visitor.six_type_ctx:
             _replace(i, SIX_TYPE_CTX_ATTRS, visitor.six_type_ctx[token.offset])
         elif token.offset in visitor.six_simple:
@@ -2042,15 +2052,6 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             call = visitor.encode_calls[token.offset]
             victims = _victims(tokens, i, call, gen=False)
             del tokens[victims.starts[0] + 1:victims.ends[-1]]
-        elif token.offset in visitor.native_literals:
-            j = _find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
-            if any(tok.name == 'NL' for tok in tokens[i:end]):
-                continue
-            if func_args:
-                _replace_call(tokens, i, end, func_args, '{args[0]}')
-            else:
-                tokens[i:end] = [token._replace(name='STRING', src="''")]
         elif token.offset in visitor.io_open_calls:
             j = _find_open_paren(tokens, i)
             tokens[i:j] = [token._replace(name='NAME', src='open')]
