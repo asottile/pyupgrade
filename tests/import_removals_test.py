@@ -32,6 +32,7 @@ def test_import_removals_noop(s, min_version):
         ('from __future__ import generators\n', (2, 7), ''),
         ('from __future__ import generators', (2, 7), ''),
         ('from __future__ import division\n', (3,), ''),
+        ('from __future__ import division\n', (3, 6), ''),
         ('from __future__ import (generators,)', (2, 7), ''),
         ('from builtins import map', (3,), ''),
         ('from builtins import *', (3,), ''),

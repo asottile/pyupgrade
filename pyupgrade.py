@@ -687,7 +687,7 @@ def _build_import_removals():
     prev = ()  # type: Tuple[str, ...]
     for min_version, names in future:
         prev += names
-        ret[min_version] = {'__future__': names}
+        ret[min_version] = {'__future__': prev}
     # see reorder_python_imports
     for k, v in ret.items():
         if k >= (3,):
