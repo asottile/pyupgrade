@@ -2039,6 +2039,12 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             func_args, end = _parse_call_args(tokens, j)
             if len(func_args) == 1:
                 tmpl = WITH_METACLASS_NO_BASES_TMPL
+            elif len(func_args) == 2:
+                base = tokens_to_src(tokens[slice(*func_args[1])]).strip()
+                if base == 'object':
+                    tmpl = WITH_METACLASS_NO_BASES_TMPL
+                else:
+                    tmpl = WITH_METACLASS_BASES_TMPL
             else:
                 tmpl = WITH_METACLASS_BASES_TMPL
             _replace_call(tokens, i, end, func_args, tmpl)
