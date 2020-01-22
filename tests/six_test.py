@@ -261,6 +261,11 @@ def test_fix_six_noop(s):
             'class C(B, metaclass=M): pass',
         ),
         (
+            'class C(six.with_metaclass(M, B1, B2)): pass',
+
+            'class C(B1, B2, metaclass=M): pass',
+        ),
+        (
             'from six import with_metaclass\n'
             'class C(with_metaclass(M, B)): pass\n',
 
@@ -280,6 +285,15 @@ def test_fix_six_noop(s):
             'class C(B, metaclass=M): pass',
 
             id='weird spacing with_metaclass',
+        ),
+        pytest.param(
+            'from six import with_metaclass\n'
+            'class C(with_metaclass(M, object)): pass',
+
+            'from six import with_metaclass\n'
+            'class C(metaclass=M): pass',
+
+            id='elide object base in with_metaclass',
         ),
         pytest.param(
             '@six.add_metaclass(M)\n'
