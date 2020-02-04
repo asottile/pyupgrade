@@ -1,6 +1,6 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.2.3
+    rev: v2.4.0
     hooks:
     -   id: check-docstring-first
     -   id: check-yaml
@@ -11,24 +11,24 @@ repos:
     -   id: requirements-txt-fixer
     -   id: trailing-whitespace
 -   repo: https://github.com/asottile/setup-cfg-fmt
-    rev: v1.2.1
+    rev: v1.6.0
     hooks:
     -   id: setup-cfg-fmt
 -   repo: https://gitlab.com/pycqa/flake8
-    rev: 3.7.7
+    rev: 3.7.9
     hooks:
     -   id: flake8
         additional_dependencies: [flake8-typing-imports==1.1.0]
 -   repo: https://github.com/pre-commit/mirrors-autopep8
-    rev: v1.4.4
+    rev: v1.5
     hooks:
     -   id: autopep8
 -   repo: https://github.com/asottile/reorder_python_imports
-    rev: v1.5.0
+    rev: v1.9.0
     hooks:
     -   id: reorder-python-imports
 -   repo: https://github.com/asottile/add-trailing-comma
-    rev: v1.3.0
+    rev: v1.5.0
     hooks:
     -   id: add-trailing-comma
 -   repo: https://github.com/asottile/pyupgrade
@@ -36,6 +36,6 @@ repos:
     hooks:
     -   id: pyupgrade
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.711
+    rev: v0.761
     hooks:
     -   id: mypy
