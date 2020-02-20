@@ -2131,7 +2131,14 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
 def _simple_arg(arg):  # type: (ast.expr) -> bool
     return (
         isinstance(arg, ast.Name) or
-        (isinstance(arg, ast.Attribute) and _simple_arg(arg.value))
+        (isinstance(arg, ast.Attribute) and _simple_arg(arg.value)) or
+        (
+            isinstance(arg, ast.Call) and
+            _simple_arg(arg.func) and
+            not arg.args and not arg.keywords and
+            # only needed for py2
+            not _starargs(arg)
+        )
     )
 
 
@@ -2217,6 +2224,8 @@ def _unparse(node):  # type: (ast.expr) -> str
         return node.id
     elif isinstance(node, ast.Attribute):
         return ''.join((_unparse(node.value), '.', node.attr))
+    elif isinstance(node, ast.Call):
+        return '{}()'.format(_unparse(node.func))
     else:
         raise NotImplementedError(ast.dump(node))
 
