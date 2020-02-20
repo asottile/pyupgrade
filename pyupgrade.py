@@ -1,12 +1,7 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import argparse
 import ast
 import codecs
 import collections
-import io
 import keyword
 import re
 import string
@@ -21,11 +16,13 @@ from typing import Generator
 from typing import Iterable
 from typing import List
 from typing import Match
+from typing import NamedTuple
 from typing import Optional
 from typing import Pattern
 from typing import Sequence
 from typing import Set
 from typing import Tuple
+from typing import Type
 from typing import Union
 
 from tokenize_rt import NON_CODING_TOKENS
@@ -38,6 +35,7 @@ from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 from tokenize_rt import UNIMPORTANT_WS
 
+MinVersion = Tuple[int, ...]
 DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
 PercentFormatPart = Tuple[
     Optional[str],
@@ -51,18 +49,13 @@ PercentFormat = Tuple[str, Optional[PercentFormatPart]]
 ListCompOrGeneratorExp = Union[ast.ListComp, ast.GeneratorExp]
 ListOrTuple = Union[ast.List, ast.Tuple]
 NameOrAttr = Union[ast.Name, ast.Attribute]
-
-if False:  # pragma: no cover (mypy)
-    from typing import Type
-    if sys.version_info >= (3,):
-        AsyncFunctionDef = ast.AsyncFunctionDef
-    else:
-        AsyncFunctionDef = ast.stmt
+AnyFunctionDef = Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda]
+SyncFunctionDef = Union[ast.FunctionDef, ast.Lambda]
 
 _stdlib_parse_format = string.Formatter().parse
 
 
-def parse_format(s):  # type: (str) -> Tuple[DotFormatPart, ...]
+def parse_format(s: str) -> Tuple[DotFormatPart, ...]:
     """Makes the empty string not a special case.  In the stdlib, there's
     loss of information (the type) on the empty string.
     """
@@ -73,42 +66,35 @@ def parse_format(s):  # type: (str) -> Tuple[DotFormatPart, ...]
         return parsed
 
 
-def unparse_parsed_string(parsed):  # type: (Sequence[DotFormatPart]) -> str
-    stype = type(parsed[0][0])
-    j = stype()
-
-    def _convert_tup(tup):  # type: (DotFormatPart) -> str
+def unparse_parsed_string(parsed: Sequence[DotFormatPart]) -> str:
+    def _convert_tup(tup: DotFormatPart) -> str:
         ret, field_name, format_spec, conversion = tup
-        ret = ret.replace(stype('{'), stype('{{'))
-        ret = ret.replace(stype('}'), stype('}}'))
+        ret = ret.replace('{', '{{')
+        ret = ret.replace('}', '}}')
         if field_name is not None:
-            ret += stype('{') + field_name
+            ret += '{' + field_name
             if conversion:
-                ret += stype('!') + conversion
+                ret += '!' + conversion
             if format_spec:
-                ret += stype(':') + format_spec
-            ret += stype('}')
+                ret += ':' + format_spec
+            ret += '}'
         return ret
 
-    return j.join(_convert_tup(tup) for tup in parsed)
+    return ''.join(_convert_tup(tup) for tup in parsed)
 
 
-# if py3+ use tokenize.cookie_re
-cookie_re = re.compile('^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)')
-
-
-def _ast_to_offset(node):  # type: (Union[ast.expr, ast.stmt]) -> Offset
+def _ast_to_offset(node: Union[ast.expr, ast.stmt]) -> Offset:
     return Offset(node.lineno, node.col_offset)
 
 
-def ast_parse(contents_text):  # type: (str) -> ast.Module
+def ast_parse(contents_text: str) -> ast.Module:
     # intentionally ignore warnings, we might be fixing warning-ridden syntax
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        return ast.parse(contents_text.encode('UTF-8'))
+        return ast.parse(contents_text.encode())
 
 
-def inty(s):  # type: (str) -> bool
+def inty(s: str) -> bool:
     try:
         int(s)
         return True
@@ -116,21 +102,16 @@ def inty(s):  # type: (str) -> bool
         return False
 
 
-def _has_kwargs(call):  # type: (ast.Call) -> bool
-    return bool(call.keywords) or bool(getattr(call, 'kwargs', None))
-
-
 BRACES = {'(': ')', '[': ']', '{': '}'}
 OPENING, CLOSING = frozenset(BRACES), frozenset(BRACES.values())
 SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
 
 
-def _is_wtf(func, tokens, i):  # type: (str, List[Token], int) -> bool
+def _is_wtf(func: str, tokens: List[Token], i: int) -> bool:
     return tokens[i].src != func or tokens[i + 1].src != '('
 
 
-def _process_set_empty_literal(tokens, start):
-    # type: (List[Token], int) -> None
+def _process_set_empty_literal(tokens: List[Token], start: int) -> None:
     if _is_wtf('set', tokens, start):
         return
 
@@ -151,8 +132,7 @@ def _process_set_empty_literal(tokens, start):
     del tokens[start + 2:i - 1]
 
 
-def _search_until(tokens, idx, arg):
-    # type: (List[Token], int, ast.expr) -> int
+def _search_until(tokens: List[Token], idx: int, arg: ast.expr) -> int:
     while (
             idx < len(tokens) and
             not (
@@ -166,15 +146,13 @@ def _search_until(tokens, idx, arg):
 
 if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
     # python 3.8 fixed the offsets of generators / tuples
-    def _arg_token_index(tokens, i, arg):
-        # type: (List[Token], int, ast.expr) -> int
+    def _arg_token_index(tokens: List[Token], i: int, arg: ast.expr) -> int:
         idx = _search_until(tokens, i, arg) + 1
         while idx < len(tokens) and tokens[idx].name in NON_CODING_TOKENS:
             idx += 1
         return idx
 else:  # pragma: no cover (<py38)
-    def _arg_token_index(tokens, i, arg):
-        # type: (List[Token], int, ast.expr) -> int
+    def _arg_token_index(tokens: List[Token], i: int, arg: ast.expr) -> int:
         # lists containing non-tuples report the first element correctly
         if isinstance(arg, ast.List):
             # If the first element is a tuple, the ast lies to us about its col
@@ -190,16 +168,22 @@ else:  # pragma: no cover (<py38)
             return _search_until(tokens, i, arg)
 
 
-Victims = collections.namedtuple(
-    'Victims', ('starts', 'ends', 'first_comma_index', 'arg_index'),
-)
+class Victims(NamedTuple):
+    starts: List[int]
+    ends: List[int]
+    first_comma_index: Optional[int]
+    arg_index: int
 
 
-def _victims(tokens, start, arg, gen):
-    # type: (List[Token], int, ast.expr, bool) -> Victims
+def _victims(
+        tokens: List[Token],
+        start: int,
+        arg: ast.expr,
+        gen: bool,
+) -> Victims:
     starts = [start]
     start_depths = [1]
-    ends = []  # type: List[int]
+    ends: List[int] = []
     first_comma_index = None
     arg_depth = None
     arg_index = _arg_token_index(tokens, start, arg)
@@ -256,17 +240,17 @@ def _victims(tokens, start, arg, gen):
     return Victims(starts, sorted(set(ends)), first_comma_index, arg_index)
 
 
-def _find_token(tokens, i, token):  # type: (List[Token], int, Token) -> int
+def _find_token(tokens: List[Token], i: int, token: Token) -> int:
     while tokens[i].src != token:
         i += 1
     return i
 
 
-def _find_open_paren(tokens, i):  # type: (List[Token], int) -> int
+def _find_open_paren(tokens: List[Token], i: int) -> int:
     return _find_token(tokens, i, '(')
 
 
-def _is_on_a_line_by_self(tokens, i):  # type: (List[Token], int) -> bool
+def _is_on_a_line_by_self(tokens: List[Token], i: int) -> bool:
     return (
         tokens[i - 2].name == 'NL' and
         tokens[i - 1].name == UNIMPORTANT_WS and
@@ -274,15 +258,18 @@ def _is_on_a_line_by_self(tokens, i):  # type: (List[Token], int) -> bool
     )
 
 
-def _remove_brace(tokens, i):  # type: (List[Token], int) -> None
+def _remove_brace(tokens: List[Token], i: int) -> None:
     if _is_on_a_line_by_self(tokens, i):
         del tokens[i - 1:i + 2]
     else:
         del tokens[i]
 
 
-def _process_set_literal(tokens, start, arg):
-    # type: (List[Token], int, ast.expr) -> None
+def _process_set_literal(
+        tokens: List[Token],
+        start: int,
+        arg: ast.expr,
+) -> None:
     if _is_wtf('set', tokens, start):
         return
 
@@ -298,8 +285,11 @@ def _process_set_literal(tokens, start, arg):
     tokens[start:start + 2] = [Token('OP', '{')]
 
 
-def _process_dict_comp(tokens, start, arg):
-    # type: (List[Token], int, ListCompOrGeneratorExp) -> None
+def _process_dict_comp(
+        tokens: List[Token],
+        start: int,
+        arg: ListCompOrGeneratorExp,
+) -> None:
     if _is_wtf('dict', tokens, start):
         return
 
@@ -317,14 +307,18 @@ def _process_dict_comp(tokens, start, arg):
         tokens.insert(elt_victims.ends[-1] + 1, Token(UNIMPORTANT_WS, ' '))
     for index in reversed(elt_victims.ends):
         _remove_brace(tokens, index)
+    assert elt_victims.first_comma_index is not None
     tokens[elt_victims.first_comma_index] = Token('OP', ':')
     for index in reversed(dict_victims.starts + elt_victims.starts):
         _remove_brace(tokens, index)
     tokens[start:start + 2] = [Token('OP', '{')]
 
 
-def _process_is_literal(tokens, i, compare):
-    # type: (List[Token], int, Union[ast.Is, ast.IsNot]) -> None
+def _process_is_literal(
+        tokens: List[Token],
+        i: int,
+        compare: Union[ast.Is, ast.IsNot],
+) -> None:
     while tokens[i].src != 'is':
         i -= 1
     if isinstance(compare, ast.Is):
@@ -339,24 +333,22 @@ def _process_is_literal(tokens, i, compare):
         tokens[i] = Token('DUMMY', '')
 
 
-LITERAL_TYPES = (ast.Str, ast.Num)  # type: Tuple[Type[ast.expr], ...]
-if sys.version_info >= (3,):  # pragma: no cover (py3+)
-    LITERAL_TYPES += (ast.Bytes,)
+LITERAL_TYPES = (ast.Str, ast.Num, ast.Bytes)
 
 
 class Py2CompatibleVisitor(ast.NodeVisitor):
-    def __init__(self):  # type: () -> None
-        self.dicts = {}  # type: Dict[Offset, ListCompOrGeneratorExp]
-        self.sets = {}  # type: Dict[Offset, ast.expr]
-        self.set_empty_literals = {}  # type: Dict[Offset, ListOrTuple]
-        self.is_literal = {}  # type: Dict[Offset, Union[ast.Is, ast.IsNot]]
+    def __init__(self) -> None:
+        self.dicts: Dict[Offset, ListCompOrGeneratorExp] = {}
+        self.sets: Dict[Offset, ast.expr] = {}
+        self.set_empty_literals: Dict[Offset, ListOrTuple] = {}
+        self.is_literal: Dict[Offset, Union[ast.Is, ast.IsNot]] = {}
 
-    def visit_Call(self, node):  # type: (ast.Call) -> None
+    def visit_Call(self, node: ast.Call) -> None:
         if (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'set' and
                 len(node.args) == 1 and
-                not _has_kwargs(node) and
+                not node.keywords and
                 isinstance(node.args[0], SET_TRANSFORM)
         ):
             arg, = node.args
@@ -369,7 +361,7 @@ class Py2CompatibleVisitor(ast.NodeVisitor):
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'dict' and
                 len(node.args) == 1 and
-                not _has_kwargs(node) and
+                not node.keywords and
                 isinstance(node.args[0], (ast.ListComp, ast.GeneratorExp)) and
                 isinstance(node.args[0].elt, (ast.Tuple, ast.List)) and
                 len(node.args[0].elt.elts) == 2
@@ -377,7 +369,7 @@ class Py2CompatibleVisitor(ast.NodeVisitor):
             self.dicts[_ast_to_offset(node.func)] = node.args[0]
         self.generic_visit(node)
 
-    def visit_Compare(self, node):  # type: (ast.Compare) -> None
+    def visit_Compare(self, node: ast.Compare) -> None:
         left = node.left
         for op, right in zip(node.ops, node.comparators):
             if (
@@ -393,7 +385,7 @@ class Py2CompatibleVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _fix_py2_compatible(contents_text):  # type: (str) -> str
+def _fix_py2_compatible(contents_text: str) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -424,7 +416,7 @@ def _fix_py2_compatible(contents_text):  # type: (str) -> str
     return tokens_to_src(tokens)
 
 
-def _imports_unicode_literals(contents_text):  # type: (str) -> bool
+def _imports_unicode_literals(contents_text: str) -> bool:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -460,7 +452,7 @@ ESCAPE_RE = re.compile(r'\\.', re.DOTALL)
 NAMED_ESCAPE_NAME = re.compile(r'\{[^}]+\}')
 
 
-def _fix_escape_sequences(token):  # type: (Token) -> str
+def _fix_escape_sequences(token: Token) -> str:
     prefix, rest = parse_string_literal(token.src)
     actual_prefix = prefix.lower()
 
@@ -469,7 +461,7 @@ def _fix_escape_sequences(token):  # type: (Token) -> str
 
     is_bytestring = 'b' in actual_prefix
 
-    def _is_valid_escape(match):  # type: (Match[str]) -> bool
+    def _is_valid_escape(match: Match[str]) -> bool:
         c = match.group()[1]
         return (
             c in ESCAPE_STARTS or
@@ -489,12 +481,12 @@ def _fix_escape_sequences(token):  # type: (Token) -> str
         else:
             has_invalid_escapes = True
 
-    def cb(match):  # type: (Match[str]) -> str
+    def cb(match: Match[str]) -> str:
         matched = match.group()
         if _is_valid_escape(match):
             return matched
         else:
-            return r'\{}'.format(matched)
+            return fr'\{matched}'
 
     if has_invalid_escapes and (has_valid_escapes or 'u' in actual_prefix):
         return token._replace(src=prefix + ESCAPE_RE.sub(cb, rest))
@@ -504,7 +496,7 @@ def _fix_escape_sequences(token):  # type: (Token) -> str
         return token
 
 
-def _remove_u_prefix(token):  # type: (Token) -> Token
+def _remove_u_prefix(token: Token) -> Token:
     prefix, rest = parse_string_literal(token.src)
     if 'u' not in prefix.lower():
         return token
@@ -513,12 +505,12 @@ def _remove_u_prefix(token):  # type: (Token) -> Token
         return token._replace(src=new_prefix + rest)
 
 
-def _fix_ur_literals(token):  # type: (Token) -> Token
+def _fix_ur_literals(token: Token) -> Token:
     prefix, rest = parse_string_literal(token.src)
     if prefix.lower() != 'ur':
         return token
     else:
-        def cb(match):  # type: (Match[str]) -> str
+        def cb(match: Match[str]) -> str:
             escape = match.group()
             if escape[1].lower() == 'u':
                 return escape
@@ -530,20 +522,20 @@ def _fix_ur_literals(token):  # type: (Token) -> Token
         return token._replace(src=prefix + rest)
 
 
-def _fix_long(src):  # type: (str) -> str
+def _fix_long(src: str) -> str:
     return src.rstrip('lL')
 
 
-def _fix_octal(s):  # type: (str) -> str
+def _fix_octal(s: str) -> str:
     if not s.startswith('0') or not s.isdigit() or s == len(s) * '0':
         return s
-    elif len(s) == 2:  # pragma: no cover (py2 only)
+    elif len(s) == 2:
         return s[1:]
-    else:  # pragma: no cover (py2 only)
+    else:
         return '0o' + s[1:]
 
 
-def _fix_extraneous_parens(tokens, i):  # type: (List[Token], int) -> None
+def _fix_extraneous_parens(tokens: List[Token], i: int) -> None:
     # search forward for another non-coding token
     i += 1
     while tokens[i].name in NON_CODING_TOKENS:
@@ -579,14 +571,14 @@ def _fix_extraneous_parens(tokens, i):  # type: (List[Token], int) -> None
         _remove_brace(tokens, start)
 
 
-def _remove_fmt(tup):  # type: (DotFormatPart) -> DotFormatPart
+def _remove_fmt(tup: DotFormatPart) -> DotFormatPart:
     if tup[1] is None:
         return tup
     else:
         return (tup[0], '', tup[2], tup[3])
 
 
-def _fix_format_literal(tokens, end):  # type: (List[Token], int) -> None
+def _fix_format_literal(tokens: List[Token], end: int) -> None:
     parts = rfind_string_parts(tokens, end)
     parsed_parts = []
     last_int = -1
@@ -615,7 +607,7 @@ def _fix_format_literal(tokens, end):  # type: (List[Token], int) -> None
         tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed))
 
 
-def _fix_encode_to_binary(tokens, i):  # type: (List[Token], int) -> None
+def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
     # .encode()
     if (
             i + 2 < len(tokens) and
@@ -669,10 +661,9 @@ def _fix_encode_to_binary(tokens, i):  # type: (List[Token], int) -> None
     del tokens[victims]
 
 
-def _build_import_removals():
-    # type: () -> Dict[Tuple[int, ...], Dict[str, Tuple[str, ...]]]
+def _build_import_removals() -> Dict[MinVersion, Dict[str, Tuple[str, ...]]]:
     ret = {}
-    future = (
+    future: Tuple[Tuple[MinVersion, Tuple[str, ...]], ...] = (
         ((2, 7), ('nested_scopes', 'generators', 'with_statement')),
         (
             (3,), (
@@ -682,9 +673,9 @@ def _build_import_removals():
         ),
         ((3, 6), ()),
         ((3, 7), ('generator_stop',)),
-    )  # type: Tuple[Tuple[Tuple[int, ...], Tuple[str, ...]], ...]
+    )
 
-    prev = ()  # type: Tuple[str, ...]
+    prev: Tuple[str, ...] = ()
     for min_version, names in future:
         prev += names
         ret[min_version] = {'__future__': prev}
@@ -708,8 +699,11 @@ def _build_import_removals():
 IMPORT_REMOVALS = _build_import_removals()
 
 
-def _fix_import_removals(tokens, start, min_version):
-    # type: (List[Token], int, Tuple[int, ...]) -> None
+def _fix_import_removals(
+        tokens: List[Token],
+        start: int,
+        min_version: MinVersion,
+) -> None:
     i = start + 1
     name_parts = []
     while tokens[i].src != 'import':
@@ -721,7 +715,7 @@ def _fix_import_removals(tokens, start, min_version):
     if modname not in IMPORT_REMOVALS[min_version]:
         return
 
-    found = []  # type: List[Optional[int]]
+    found: List[Optional[int]] = []
     i += 1
     while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
         if tokens[i].name == 'NAME' or tokens[i].src == '*':
@@ -759,8 +753,7 @@ def _fix_import_removals(tokens, start, min_version):
                 del tokens[j:idx + 1]
 
 
-def _fix_tokens(contents_text, min_version):
-    # type: (str, Tuple[int, ...]) -> str
+def _fix_tokens(contents_text: str, min_version: MinVersion) -> str:
     remove_u = min_version >= (3,) or _imports_unicode_literals(contents_text)
 
     try:
@@ -786,11 +779,12 @@ def _fix_tokens(contents_text, min_version):
                 token.utf8_byte_offset == 0 and
                 token.line < 3 and
                 token.name == 'COMMENT' and
-                cookie_re.match(token.src)
+                # https://github.com/python/typeshed/pull/3745
+                tokenize.cookie_re.match(token.src)  # type: ignore
         ):
             del tokens[i]
-            if tokens[i].name == 'NL':  # pragma: no branch (old PY2)
-                del tokens[i]
+            assert tokens[i].name == 'NL', tokens[i].name
+            del tokens[i]
         elif token.src == 'from' and token.utf8_byte_offset == 0:
             _fix_import_removals(tokens, i, min_version)
     return tokens_to_src(tokens).lstrip()
@@ -803,17 +797,14 @@ PRECISION_RE = re.compile(r'(?:\.(?:\*|\d*))?')
 LENGTH_RE = re.compile('[hlL]?')
 
 
-def _must_match(regex, string, pos):
-    # type: (Pattern[str], str, int) -> Match[str]
+def _must_match(regex: Pattern[str], string: str, pos: int) -> Match[str]:
     match = regex.match(string, pos)
     assert match is not None
     return match
 
 
-def parse_percent_format(s):
-    # type: (str) -> Tuple[PercentFormat, ...]
-    def _parse_inner():
-        # type: () -> Generator[PercentFormat, None, None]
+def parse_percent_format(s: str) -> Tuple[PercentFormat, ...]:
+    def _parse_inner() -> Generator[PercentFormat, None, None]:
         string_start = 0
         string_end = 0
         in_fmt = False
@@ -833,7 +824,7 @@ def parse_percent_format(s):
             else:
                 key_match = MAPPING_KEY_RE.match(s, i)
                 if key_match:
-                    key = key_match.group(1)  # type: Optional[str]
+                    key: Optional[str] = key_match.group(1)
                     i = key_match.end()
                 else:
                     key = None
@@ -872,10 +863,10 @@ def parse_percent_format(s):
 
 
 class FindPercentFormats(ast.NodeVisitor):
-    def __init__(self):  # type: () -> None
-        self.found = {}  # type: Dict[Offset, ast.BinOp]
+    def __init__(self) -> None:
+        self.found: Dict[Offset, ast.BinOp] = {}
 
-    def visit_BinOp(self, node):  # type: (ast.BinOp) -> None
+    def visit_BinOp(self, node: ast.BinOp) -> None:
         if isinstance(node.op, ast.Mod) and isinstance(node.left, ast.Str):
             try:
                 parsed = parse_percent_format(node.left.s)
@@ -913,8 +904,8 @@ class FindPercentFormats(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _simplify_conversion_flag(flag):  # type: (str) -> str
-    parts = []  # type: List[str]
+def _simplify_conversion_flag(flag: str) -> str:
+    parts: List[str] = []
     for c in flag:
         if c in parts:
             continue
@@ -927,8 +918,8 @@ def _simplify_conversion_flag(flag):  # type: (str) -> str
     return ''.join(parts)
 
 
-def _percent_to_format(s):  # type: (str) -> str
-    def _handle_part(part):  # type: (PercentFormat) -> str
+def _percent_to_format(s: str) -> str:
+    def _handle_part(part: PercentFormat) -> str:
         s, fmt = part
         s = s.replace('{', '{{').replace('}', '}}')
         if fmt is None:
@@ -945,7 +936,7 @@ def _percent_to_format(s):  # type: (str) -> str
             if key:
                 parts.append(key)
             if conversion in {'r', 'a'}:
-                converter = '!{}'.format(conversion)
+                converter = f'!{conversion}'
                 conversion = ''
             else:
                 converter = ''
@@ -961,25 +952,18 @@ def _percent_to_format(s):  # type: (str) -> str
     return ''.join(_handle_part(part) for part in parse_percent_format(s))
 
 
-def _is_bytestring(s):  # type: (str) -> bool
-    for c in s:
-        if c in '"\'':
-            return False
-        elif c.lower() == 'b':
-            return True
-    else:
-        return False
-
-
-def _is_ascii(s):  # type: (str) -> bool
+def _is_ascii(s: str) -> bool:
     if sys.version_info >= (3, 7):  # pragma: no cover (py37+)
         return s.isascii()
     else:  # pragma: no cover (<py37)
         return all(c in string.printable for c in s)
 
 
-def _fix_percent_format_tuple(tokens, start, node):
-    # type: (List[Token], int, ast.BinOp) -> None
+def _fix_percent_format_tuple(
+        tokens: List[Token],
+        start: int,
+        node: ast.BinOp,
+) -> None:
     # TODO: this is overly timid
     paren = start + 4
     if tokens_to_src(tokens[start + 1:paren + 1]) != ' % (':
@@ -996,12 +980,12 @@ def _fix_percent_format_tuple(tokens, start, node):
     tokens[start + 1:paren] = [Token('Format', '.format'), Token('OP', '(')]
 
 
-IDENT_RE = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
-
-
-def _fix_percent_format_dict(tokens, start, node):
-    # type: (List[Token], int, ast.BinOp) -> None
-    seen_keys = set()  # type: Set[str]
+def _fix_percent_format_dict(
+        tokens: List[Token],
+        start: int,
+        node: ast.BinOp,
+) -> None:
+    seen_keys: Set[str] = set()
     keys = {}
 
     # the caller has enforced this
@@ -1014,7 +998,7 @@ def _fix_percent_format_dict(tokens, start, node):
         elif k.s in seen_keys:
             return
         # not an identifier
-        elif not IDENT_RE.match(k.s):
+        elif not k.s.isidentifier():
             return
         # a keyword
         elif k.s in keyword.kwlist:
@@ -1047,13 +1031,13 @@ def _fix_percent_format_dict(tokens, start, node):
 
     tokens[brace_end] = tokens[brace_end]._replace(src=')')
     for (key_index, s) in reversed(key_indices):
-        tokens[key_index:key_index + 3] = [Token('CODE', '{}='.format(s))]
+        tokens[key_index:key_index + 3] = [Token('CODE', f'{s}=')]
     newsrc = _percent_to_format(tokens[start].src)
     tokens[start] = tokens[start]._replace(src=newsrc)
     tokens[start + 1:brace + 1] = [Token('CODE', '.format'), Token('OP', '(')]
 
 
-def _fix_percent_format(contents_text):  # type: (str) -> str
+def _fix_percent_format(contents_text: str) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -1075,21 +1059,12 @@ def _fix_percent_format(contents_text):  # type: (str) -> str
         if node is None:
             continue
 
-        # no .format() equivalent for bytestrings in py3
-        # note that this code is only necessary when running in python2
-        if _is_bytestring(tokens[i].src):  # pragma: no cover (py2-only)
-            continue
-
         if isinstance(node.right, ast.Tuple):
             _fix_percent_format_tuple(tokens, i, node)
         elif isinstance(node.right, ast.Dict):
             _fix_percent_format_dict(tokens, i, node)
 
     return tokens_to_src(tokens)
-
-
-# PY2: arguments are `Name`, PY3: arguments are `arg`
-ARGATTR = 'id' if str is bytes else 'arg'
 
 
 SIX_SIMPLE_ATTRS = {
@@ -1143,12 +1118,14 @@ RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
 SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
 
 
-def _all_isinstance(vals, tp):
-    # type: (Iterable[Any], Union[Type[Any], Tuple[Type[Any], ...]]) -> bool
+def _all_isinstance(
+        vals: Iterable[Any],
+        tp: Union[Type[Any], Tuple[Type[Any], ...]],
+) -> bool:
     return all(isinstance(v, tp) for v in vals)
 
 
-def fields_same(n1, n2):  # type: (ast.AST, ast.AST) -> bool
+def fields_same(n1: ast.AST, n2: ast.AST) -> bool:
     for (a1, v1), (a2, v2) in zip(ast.iter_fields(n1), ast.iter_fields(n2)):
         # ignore ast attributes, they'll be covered by walk
         if a1 != a2:
@@ -1168,7 +1145,7 @@ def fields_same(n1, n2):  # type: (ast.AST, ast.AST) -> bool
     return True
 
 
-def targets_same(target, yield_value):  # type: (ast.AST, ast.AST) -> bool
+def targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
     for t1, t2 in zip(ast.walk(target), ast.walk(yield_value)):
         # ignore `ast.Load` / `ast.Store`
         if _all_isinstance((t1, t2), ast.expr_context):
@@ -1181,7 +1158,7 @@ def targets_same(target, yield_value):  # type: (ast.AST, ast.AST) -> bool
         return True
 
 
-def _is_codec(encoding, name):  # type: (str, str) -> bool
+def _is_codec(encoding: str, name: str) -> bool:
     try:
         return codecs.lookup(encoding).name == name
     except LookupError:
@@ -1204,56 +1181,53 @@ class FindPy3Plus(ast.NodeVisitor):
     FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union(('six',))
 
     class ClassInfo:
-        def __init__(self, name):  # type: (str) -> None
+        def __init__(self, name: str) -> None:
             self.name = name
             self.def_depth = 0
             self.first_arg_name = ''
 
-    def __init__(self):  # type: () -> None
-        self.bases_to_remove = set()  # type: Set[Offset]
+    def __init__(self) -> None:
+        self.bases_to_remove: Set[Offset] = set()
 
-        self.encode_calls = {}  # type: Dict[Offset, ast.Call]
+        self.encode_calls: Dict[Offset, ast.Call] = {}
 
         self._version_info_imported = False
-        self.if_py3_blocks = set()  # type: Set[Offset]
-        self.if_py2_blocks_else = set()  # type: Set[Offset]
-        self.if_py3_blocks_else = set()  # type: Set[Offset]
+        self.if_py3_blocks: Set[Offset] = set()
+        self.if_py2_blocks_else: Set[Offset] = set()
+        self.if_py3_blocks_else: Set[Offset] = set()
 
-        self.native_literals = set()  # type: Set[Offset]
+        self.native_literals: Set[Offset] = set()
 
-        self.from_imported_names = collections.defaultdict(
-            set,
-        )  # type: Dict[str, Set[str]]
-        self.io_open_calls = set()  # type: Set[Offset]
-        self.open_mode_calls = set()  # type: Set[Offset]
-        self.os_error_alias_calls = set()  # type: Set[Offset]
-        self.os_error_alias_simple = {}  # type: Dict[Offset, NameOrAttr]
-        self.os_error_alias_excepts = set()  # type: Set[Offset]
+        self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
+        self.io_open_calls: Set[Offset] = set()
+        self.open_mode_calls: Set[Offset] = set()
+        self.os_error_alias_calls: Set[Offset] = set()
+        self.os_error_alias_simple: Dict[Offset, NameOrAttr] = {}
+        self.os_error_alias_excepts: Set[Offset] = set()
 
-        self.six_add_metaclass = set()  # type: Set[Offset]
-        self.six_b = set()  # type: Set[Offset]
-        self.six_calls = {}  # type: Dict[Offset, ast.Call]
-        self.six_iter = {}  # type: Dict[Offset, ast.Call]
-        self._previous_node = None  # type: Optional[ast.AST]
-        self.six_raise_from = set()  # type: Set[Offset]
-        self.six_reraise = set()  # type: Set[Offset]
-        self.six_remove_decorators = set()  # type: Set[Offset]
-        self.six_simple = {}  # type: Dict[Offset, NameOrAttr]
-        self.six_type_ctx = {}  # type: Dict[Offset, NameOrAttr]
-        self.six_with_metaclass = set()  # type: Set[Offset]
+        self.six_add_metaclass: Set[Offset] = set()
+        self.six_b: Set[Offset] = set()
+        self.six_calls: Dict[Offset, ast.Call] = {}
+        self.six_iter: Dict[Offset, ast.Call] = {}
+        self._previous_node: Optional[ast.AST] = None
+        self.six_raise_from: Set[Offset] = set()
+        self.six_reraise: Set[Offset] = set()
+        self.six_remove_decorators: Set[Offset] = set()
+        self.six_simple: Dict[Offset, NameOrAttr] = {}
+        self.six_type_ctx: Dict[Offset, NameOrAttr] = {}
+        self.six_with_metaclass: Set[Offset] = set()
 
-        self._class_info_stack = []  # type: List[FindPy3Plus.ClassInfo]
+        self._class_info_stack: List[FindPy3Plus.ClassInfo] = []
         self._in_comp = 0
-        self.super_calls = {}  # type: Dict[Offset, ast.Call]
+        self.super_calls: Dict[Offset, ast.Call] = {}
         self._in_async_def = False
-        self.yield_from_fors = set()  # type: Set[Offset]
+        self.yield_from_fors: Set[Offset] = set()
 
-    def _is_six(self, node, names):
-        # type: (ast.expr, Container[str]) -> bool
+    def _is_six(self, node: ast.expr, names: Container[str]) -> bool:
         return (
             isinstance(node, ast.Name) and
             node.id in names and
-            node.id in self.from_imported_names['six']
+            node.id in self._from_imports['six']
         ) or (
             isinstance(node, ast.Attribute) and
             isinstance(node.value, ast.Name) and
@@ -1261,8 +1235,7 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr in names
         )
 
-    def _is_io_open(self, node):
-        # type: (ast.expr) -> bool
+    def _is_io_open(self, node: ast.expr) -> bool:
         return (
             isinstance(node, ast.Attribute) and
             isinstance(node.value, ast.Name) and
@@ -1270,8 +1243,7 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr == 'open'
         )
 
-    def _is_os_error_alias(self, node):
-        # type: (Optional[ast.expr]) -> bool
+    def _is_os_error_alias(self, node: Optional[ast.expr]) -> bool:
         return (
             isinstance(node, ast.Name) and
             node.id in self.OS_ERROR_ALIASES
@@ -1279,9 +1251,9 @@ class FindPy3Plus(ast.NodeVisitor):
             isinstance(node, ast.Name) and
             node.id == 'error' and
             (
-                node.id in self.from_imported_names['mmap'] or
-                node.id in self.from_imported_names['select'] or
-                node.id in self.from_imported_names['socket']
+                node.id in self._from_imports['mmap'] or
+                node.id in self._from_imports['select'] or
+                node.id in self._from_imports['socket']
             )
         ) or (
             isinstance(node, ast.Attribute) and
@@ -1290,7 +1262,7 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr == 'error'
         )
 
-    def _is_version_info(self, node):  # type: (ast.expr) -> bool
+    def _is_version_info(self, node: ast.expr) -> bool:
         return (
             isinstance(node, ast.Name) and
             node.id == 'version_info' and
@@ -1302,11 +1274,11 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr == 'version_info'
         )
 
-    def visit_ImportFrom(self, node):  # type: (ast.ImportFrom) -> None
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if node.module in self.FROM_IMPORTED_MODULES:
             for name in node.names:
                 if not name.asname:
-                    self.from_imported_names[node.module].add(name.name)
+                    self._from_imports[node.module].add(name.name)
         elif node.module == 'sys' and any(
             name.name == 'version_info' and not name.asname
             for name in node.names
@@ -1314,7 +1286,7 @@ class FindPy3Plus(ast.NodeVisitor):
             self._version_info_imported = True
         self.generic_visit(node)
 
-    def visit_ClassDef(self, node):  # type: (ast.ClassDef) -> None
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         for decorator in node.decorator_list:
             if self._is_six(decorator, ('python_2_unicode_compatible',)):
                 self.six_remove_decorators.add(_ast_to_offset(decorator))
@@ -1343,33 +1315,30 @@ class FindPy3Plus(ast.NodeVisitor):
         self.generic_visit(node)
         self._class_info_stack.pop()
 
-    def _visit_func(self, node):
-        # type: (Union[ast.FunctionDef, ast.Lambda, AsyncFunctionDef]) -> None
+    def _visit_func(self, node: AnyFunctionDef) -> None:
         if self._class_info_stack:
             class_info = self._class_info_stack[-1]
             class_info.def_depth += 1
             if class_info.def_depth == 1 and node.args.args:
-                class_info.first_arg_name = getattr(node.args.args[0], ARGATTR)
+                class_info.first_arg_name = node.args.args[0].arg
             self.generic_visit(node)
             class_info.def_depth -= 1
         else:
             self.generic_visit(node)
 
-    def _visit_sync_func(self, node):
-        # type: (Union[ast.FunctionDef, ast.Lambda]) -> None
+    def _visit_sync_func(self, node: SyncFunctionDef) -> None:
         self._in_async_def, orig = False, self._in_async_def
         self._visit_func(node)
         self._in_async_def = orig
 
     visit_FunctionDef = visit_Lambda = _visit_sync_func
 
-    def visit_AsyncFunctionDef(self, node):  # pragma: no cover (py35+)
-        # type: (AsyncFunctionDef) -> None
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._in_async_def, orig = True, self._in_async_def
         self._visit_func(node)
         self._in_async_def = orig
 
-    def _visit_comp(self, node):  # type: (ast.expr) -> None
+    def _visit_comp(self, node: ast.expr) -> None:
         self._in_comp += 1
         self.generic_visit(node)
         self._in_comp -= 1
@@ -1377,14 +1346,14 @@ class FindPy3Plus(ast.NodeVisitor):
     visit_ListComp = visit_SetComp = _visit_comp
     visit_DictComp = visit_GeneratorExp = _visit_comp
 
-    def _visit_simple(self, node):  # type: (NameOrAttr) -> None
+    def _visit_simple(self, node: NameOrAttr) -> None:
         if self._is_six(node, SIX_SIMPLE_ATTRS):
             self.six_simple[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
     visit_Attribute = visit_Name = _visit_simple
 
-    def visit_Try(self, node):  # type: (ast.Try) -> None
+    def visit_Try(self, node: ast.Try) -> None:
         for handler in node.handlers:
             htype = handler.type
             if self._is_os_error_alias(htype):
@@ -1401,13 +1370,8 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    visit_TryExcept = visit_Try
-
-    def visit_Raise(self, node):  # type: (ast.Raise) -> None
-        if sys.version_info >= (3,):  # pragma: no cover (py3-only)
-            exc = node.exc
-        else:  # pragma: no cover (py2-only)
-            exc = node.type
+    def visit_Raise(self, node: ast.Raise) -> None:
+        exc = node.exc
 
         if exc is not None and self._is_os_error_alias(exc):
             assert isinstance(exc, (ast.Name, ast.Attribute))
@@ -1420,7 +1384,7 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_Call(self, node):  # type: (ast.Call) -> None
+    def visit_Call(self, node: ast.Call) -> None:
         if (
                 isinstance(node.func, ast.Name) and
                 node.func.id in {'isinstance', 'issubclass'} and
@@ -1514,7 +1478,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.generic_visit(node)
 
     @staticmethod
-    def _eq(test, n):  # type: (ast.Compare, int) -> bool
+    def _eq(test: ast.Compare, n: int) -> bool:
         return (
             isinstance(test.ops[0], ast.Eq) and
             isinstance(test.comparators[0], ast.Num) and
@@ -1523,10 +1487,9 @@ class FindPy3Plus(ast.NodeVisitor):
 
     @staticmethod
     def _compare_to_3(
-        test,  # type: ast.Compare
-        op,  # type: Union[Type[ast.cmpop], Tuple[Type[ast.cmpop], ...]]
-    ):
-        # type: (...) -> bool
+        test: ast.Compare,
+        op: Union[Type[ast.cmpop], Tuple[Type[ast.cmpop], ...]],
+    ) -> bool:
         if not (
                 isinstance(test.ops[0], op) and
                 isinstance(test.comparators[0], ast.Tuple) and
@@ -1540,7 +1503,7 @@ class FindPy3Plus(ast.NodeVisitor):
 
         return elts[0].n == 3 and all(n.n == 0 for n in elts[1:])
 
-    def visit_If(self, node):  # type: (ast.If) -> None
+    def visit_If(self, node: ast.If) -> None:
         if (
                 # if six.PY2:
                 self._is_six(node.test, ('PY2',)) or
@@ -1587,7 +1550,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 self.if_py3_blocks.add(_ast_to_offset(node))
         self.generic_visit(node)
 
-    def visit_For(self, node):  # type: (ast.For) -> None
+    def visit_For(self, node: ast.For) -> None:
         if (
             not self._in_async_def and
             len(node.body) == 1 and
@@ -1601,12 +1564,12 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def generic_visit(self, node):  # type: (ast.AST) -> None
+    def generic_visit(self, node: ast.AST) -> None:
         self._previous_node = node
-        super(FindPy3Plus, self).generic_visit(node)
+        super().generic_visit(node)
 
 
-def _fixup_dedent_tokens(tokens):  # type: (List[Token]) -> None
+def _fixup_dedent_tokens(tokens: List[Token]) -> None:
     """For whatever reason the DEDENT / UNIMPORTANT_WS tokens are misordered
 
     | if True:
@@ -1621,7 +1584,7 @@ def _fixup_dedent_tokens(tokens):  # type: (List[Token]) -> None
             tokens[i], tokens[i + 1] = tokens[i + 1], tokens[i]
 
 
-def _find_block_start(tokens, i):  # type: (List[Token], int) -> int
+def _find_block_start(tokens: List[Token], i: int) -> int:
     depth = 0
     while depth or tokens[i].src != ':':
         if tokens[i].src in OPENING:
@@ -1632,20 +1595,20 @@ def _find_block_start(tokens, i):  # type: (List[Token], int) -> int
     return i
 
 
-class Block(
-        collections.namedtuple(
-            'Block', ('start', 'colon', 'block', 'end', 'line'),
-        ),
-):
-    __slots__ = ()
+class Block(NamedTuple):
+    start: int
+    colon: int
+    block: int
+    end: int
+    line: int
 
-    def _initial_indent(self, tokens):  # type: (List[Token]) -> int
+    def _initial_indent(self, tokens: List[Token]) -> int:
         if tokens[self.start].src.isspace():
             return len(tokens[self.start].src)
         else:
             return 0
 
-    def _minimum_indent(self, tokens):  # type: (List[Token]) -> int
+    def _minimum_indent(self, tokens: List[Token]) -> int:
         block_indent = None
         for i in range(self.block, self.end):
             if (
@@ -1661,7 +1624,7 @@ class Block(
         assert block_indent is not None
         return block_indent
 
-    def dedent(self, tokens):  # type: (List[Token]) -> None
+    def dedent(self, tokens: List[Token]) -> None:
         if self.line:
             return
         diff = self._minimum_indent(tokens) - self._initial_indent(tokens)
@@ -1672,11 +1635,10 @@ class Block(
             ):
                 tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
 
-    def replace_condition(self, tokens, new):
-        # type: (List[Token], List[Token]) -> None
+    def replace_condition(self, tokens: List[Token], new: List[Token]) -> None:
         tokens[self.start:self.colon] = new
 
-    def _trim_end(self, tokens):  # type: (List[Token]) -> Block
+    def _trim_end(self, tokens: List[Token]) -> 'Block':
         """the tokenizer reports the end of the block at the beginning of
         the next block
         """
@@ -1696,8 +1658,12 @@ class Block(
         return self._replace(end=last_token + 1)
 
     @classmethod
-    def find(cls, tokens, i, trim_end=False):
-        # type: (List[Token], int, bool) -> Block
+    def find(
+            cls,
+            tokens: List[Token],
+            i: int,
+            trim_end: bool = False,
+    ) -> 'Block':
         if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
             i -= 1
         start = i
@@ -1727,16 +1693,14 @@ class Block(
         else:  # single line block
             block = j
             # search forward until the NEWLINE token
-            while tokens[j].name not in {'NEWLINE', 'ENDMARKER'}:
+            while tokens[j].name != 'NEWLINE':
                 j += 1
             # we also want to include the newline in the block
-            if tokens[j].name == 'NEWLINE':  # pragma: no branch (PY2 only)
-                j += 1
+            j += 1
             return cls(start, colon, block, j, line=True)
 
 
-def _find_if_else_block(tokens, i):
-    # type: (List[Token], int) -> Tuple[Block, Block]
+def _find_if_else_block(tokens: List[Token], i: int) -> Tuple[Block, Block]:
     if_block = Block.find(tokens, i)
     i = if_block.end
     while tokens[i].src != 'else':
@@ -1745,14 +1709,13 @@ def _find_if_else_block(tokens, i):
     return if_block, else_block
 
 
-def _find_elif(tokens, i):
-    # type: (List[Token], int) -> int
+def _find_elif(tokens: List[Token], i: int) -> int:
     while tokens[i].src != 'elif':  # pragma: no cover (only for <3.8.1)
         i -= 1
     return i
 
 
-def _remove_decorator(tokens, i):  # type: (List[Token], int) -> None
+def _remove_decorator(tokens: List[Token], i: int) -> None:
     while tokens[i - 1].src != '@':
         i -= 1
     if i > 1 and tokens[i - 2].name not in {'NEWLINE', 'NL'}:
@@ -1763,7 +1726,7 @@ def _remove_decorator(tokens, i):  # type: (List[Token], int) -> None
     del tokens[i - 1:end + 1]
 
 
-def _remove_base_class(tokens, i):  # type: (List[Token], int) -> None
+def _remove_base_class(tokens: List[Token], i: int) -> None:
     # look forward and backward to find commas / parens
     brace_stack = []
     j = i
@@ -1814,8 +1777,10 @@ def _remove_base_class(tokens, i):  # type: (List[Token], int) -> None
         del tokens[left:last_part + 1]
 
 
-def _parse_call_args(tokens, i):
-    # type: (List[Token], int) -> Tuple[List[Tuple[int, int]], int]
+def _parse_call_args(
+        tokens: List[Token],
+        i: int,
+) -> Tuple[List[Tuple[int, int]], int]:
     args = []
     stack = [i]
     i += 1
@@ -1840,19 +1805,24 @@ def _parse_call_args(tokens, i):
     return args, i
 
 
-def _get_tmpl(mapping, node):  # type: (Dict[str, str], NameOrAttr) -> str
+def _get_tmpl(mapping: Dict[str, str], node: NameOrAttr) -> str:
     if isinstance(node, ast.Name):
         return mapping[node.id]
     else:
         return mapping[node.attr]
 
 
-def _arg_str(tokens, start, end):  # type: (List[Token], int, int) -> str
+def _arg_str(tokens: List[Token], start: int, end: int) -> str:
     return tokens_to_src(tokens[start:end]).strip()
 
 
-def _replace_call(tokens, start, end, args, tmpl):
-    # type: (List[Token], int, int, List[Tuple[int, int]], str) -> None
+def _replace_call(
+        tokens: List[Token],
+        start: int,
+        end: int,
+        args: List[Tuple[int, int]],
+        tmpl: str,
+) -> None:
     arg_strs = [_arg_str(tokens, *arg) for arg in args]
 
     start_rest = args[0][1] + 1
@@ -1867,15 +1837,15 @@ def _replace_call(tokens, start, end, args, tmpl):
     tokens[start:end] = [Token('CODE', src)]
 
 
-def _replace_yield(tokens, i):  # type: (List[Token], int) -> None
+def _replace_yield(tokens: List[Token], i: int) -> None:
     in_token = _find_token(tokens, i, 'in')
     colon = _find_block_start(tokens, i)
     block = Block.find(tokens, i, trim_end=True)
     container = tokens_to_src(tokens[in_token + 1:colon]).strip()
-    tokens[i:block.end] = [Token('CODE', 'yield from {}\n'.format(container))]
+    tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
 
 
-def _fix_py3_plus(contents_text):  # type: (str) -> str
+def _fix_py3_plus(contents_text: str) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -1918,8 +1888,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
 
     _fixup_dedent_tokens(tokens)
 
-    def _replace(i, mapping, node):
-        # type: (int, Dict[str, str], NameOrAttr) -> None
+    def _replace(i: int, mapping: Dict[str, str], node: NameOrAttr) -> None:
         new_token = Token('CODE', _get_tmpl(mapping, node))
         if isinstance(node, ast.Name):
             tokens[i] = new_token
@@ -1994,7 +1963,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             func_args, end = _parse_call_args(tokens, j)
             call = visitor.six_iter[token.offset]
             assert isinstance(call.func, (ast.Name, ast.Attribute))
-            template = 'iter({})'.format(_get_tmpl(SIX_CALLS, call.func))
+            template = f'iter({_get_tmpl(SIX_CALLS, call.func)})'
             _replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_calls:
             j = _find_open_paren(tokens, i)
@@ -2017,7 +1986,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
         elif token.offset in visitor.six_add_metaclass:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
-            metaclass = 'metaclass={}'.format(_arg_str(tokens, *func_args[0]))
+            metaclass = f'metaclass={_arg_str(tokens, *func_args[0])}'
             # insert `metaclass={args[0]}` into `class:`
             # search forward for the `class` token
             j = i + 1
@@ -2032,7 +2001,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
                     last_paren = k
 
             if last_paren == -1:
-                tokens.insert(j, Token('CODE', '({})'.format(metaclass)))
+                tokens.insert(j, Token('CODE', f'({metaclass})'))
             else:
                 insert = last_paren - 1
                 while tokens[insert].name in NON_CODING_TOKENS:
@@ -2040,9 +2009,9 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
                 if tokens[insert].src == '(':  # no bases
                     src = metaclass
                 elif tokens[insert].src != ',':
-                    src = ', {}'.format(metaclass)
+                    src = f', {metaclass}'
                 else:
-                    src = ' {},'.format(metaclass)
+                    src = f' {metaclass},'
                 tokens.insert(insert + 1, Token('CODE', src))
             _remove_decorator(tokens, i)
         elif token.offset in visitor.six_with_metaclass:
@@ -2051,7 +2020,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             if len(func_args) == 1:
                 tmpl = WITH_METACLASS_NO_BASES_TMPL
             elif len(func_args) == 2:
-                base = tokens_to_src(tokens[slice(*func_args[1])]).strip()
+                base = _arg_str(tokens, *func_args[1])
                 if base == 'object':
                     tmpl = WITH_METACLASS_NO_BASES_TMPL
                 else:
@@ -2083,7 +2052,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
                 new_mode = mode.replace('U', 'r')
                 tokens[slice(*func_args[1])] = [Token('SRC', new_mode)]
             else:
-                raise AssertionError('unreachable: {!r}'.format(mode))
+                raise AssertionError(f'unreachable: {mode!r}')
         elif token.offset in visitor.os_error_alias_calls:
             j = _find_open_paren(tokens, i)
             tokens[i:j] = [token._replace(name='NAME', src='OSError')]
@@ -2123,9 +2092,9 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
                         left == 'error' and
                         part == right == '' and
                         (
-                            'error' in visitor.from_imported_names['mmap'] or
-                            'error' in visitor.from_imported_names['select'] or
-                            'error' in visitor.from_imported_names['socket']
+                            'error' in visitor._from_imports['mmap'] or
+                            'error' in visitor._from_imports['select'] or
+                            'error' in visitor._from_imports['socket']
                         )
                 ):
                     args.append('OSError')
@@ -2151,34 +2120,26 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
     return tokens_to_src(tokens)
 
 
-def _simple_arg(arg):  # type: (ast.expr) -> bool
+def _simple_arg(arg: ast.expr) -> bool:
     return (
         isinstance(arg, ast.Name) or
         (isinstance(arg, ast.Attribute) and _simple_arg(arg.value)) or
         (
             isinstance(arg, ast.Call) and
             _simple_arg(arg.func) and
-            not arg.args and not arg.keywords and
-            # only needed for py2
-            not _starargs(arg)
+            not arg.args and not arg.keywords
         )
     )
 
 
-def _starargs(call):  # type: (ast.Call) -> bool
-    return (  # pragma: no branch (starred check uncovered in py2)
-        # py2
-        getattr(call, 'starargs', None) or
-        getattr(call, 'kwargs', None) or
-        any(k.arg is None for k in call.keywords) or (
-            # py3
-            getattr(ast, 'Starred', None) and
-            any(isinstance(a, ast.Starred) for a in call.args)
-        )
+def _starargs(call: ast.Call) -> bool:
+    return (
+        any(k.arg is None for k in call.keywords) or
+        any(isinstance(a, ast.Starred) for a in call.args)
     )
 
 
-def _format_params(call):  # type: (ast.Call) -> Dict[str, str]
+def _format_params(call: ast.Call) -> Dict[str, str]:
     params = {}
     for i, arg in enumerate(call.args):
         params[str(i)] = _unparse(arg)
@@ -2190,14 +2151,30 @@ def _format_params(call):  # type: (ast.Call) -> Dict[str, str]
 
 
 class FindSimpleFormats(ast.NodeVisitor):
-    def __init__(self):  # type: () -> None
-        self.found = {}  # type: Dict[Offset, ast.Call]
+    def __init__(self) -> None:
+        self.found: Dict[Offset, ast.Call] = {}
 
-    def visit_Call(self, node):  # type: (ast.Call) -> None
-        parsed = self._parse_call(node)
+    def _parse(self, node: ast.Call) -> Optional[Tuple[DotFormatPart, ...]]:
+        if not (
+                isinstance(node.func, ast.Attribute) and
+                isinstance(node.func.value, ast.Str) and
+                node.func.attr == 'format' and
+                all(_simple_arg(arg) for arg in node.args) and
+                all(_simple_arg(k.value) for k in node.keywords) and
+                not _starargs(node)
+        ):
+            return None
+
+        try:
+            return parse_format(node.func.value.s)
+        except ValueError:
+            return None
+
+    def visit_Call(self, node: ast.Call) -> None:
+        parsed = self._parse(node)
         if parsed is not None:
             params = _format_params(node)
-            seen = set()  # type: Set[str]
+            seen: Set[str] = set()
             i = 0
             for _, name, spec, _ in parsed:
                 # timid: difficult to rewrite correctly
@@ -2224,25 +2201,8 @@ class FindSimpleFormats(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def _parse_call(self, node):
-        # type: (ast.Call) -> Optional[Tuple[DotFormatPart, ...]]
-        if not (
-                isinstance(node.func, ast.Attribute) and
-                isinstance(node.func.value, ast.Str) and
-                node.func.attr == 'format' and
-                all(_simple_arg(arg) for arg in node.args) and
-                all(_simple_arg(k.value) for k in node.keywords) and
-                not _starargs(node)
-        ):
-            return None
 
-        try:
-            return parse_format(node.func.value.s)
-        except ValueError:
-            return None
-
-
-def _unparse(node):  # type: (ast.expr) -> str
+def _unparse(node: ast.expr) -> str:
     if isinstance(node, ast.Name):
         return node.id
     elif isinstance(node, ast.Attribute):
@@ -2253,7 +2213,7 @@ def _unparse(node):  # type: (ast.expr) -> str
         raise NotImplementedError(ast.dump(node))
 
 
-def _to_fstring(src, call):  # type: (str, ast.Call) -> str
+def _to_fstring(src: str, call: ast.Call) -> str:
     params = _format_params(call)
 
     parts = []
@@ -2268,7 +2228,7 @@ def _to_fstring(src, call):  # type: (str, ast.Call) -> str
     return unparse_parsed_string(parts)
 
 
-def _fix_fstrings(contents_text):  # type: (str) -> str
+def _fix_fstrings(contents_text: str) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -2289,9 +2249,6 @@ def _fix_fstrings(contents_text):  # type: (str) -> str
         if node is None:
             continue
 
-        if _is_bytestring(token.src):  # pragma: no cover (py2-only)
-            continue
-
         paren = i + 3
         if tokens_to_src(tokens[i + 1:paren + 1]) != '.format(':
             continue
@@ -2309,17 +2266,17 @@ def _fix_fstrings(contents_text):  # type: (str) -> str
     return tokens_to_src(tokens)
 
 
-def _fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
+def _fix_file(filename: str, args: argparse.Namespace) -> int:
     if filename == '-':
-        contents_bytes = getattr(sys.stdin, 'buffer', sys.stdin).read()
+        contents_bytes = sys.stdin.buffer.read()
     else:
         with open(filename, 'rb') as fb:
             contents_bytes = fb.read()
 
     try:
-        contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
+        contents_text_orig = contents_text = contents_bytes.decode()
     except UnicodeDecodeError:
-        print('{} is non-utf-8 (not supported)'.format(filename))
+        print(f'{filename} is non-utf-8 (not supported)')
         return 1
 
     contents_text = _fix_py2_compatible(contents_text)
@@ -2334,8 +2291,8 @@ def _fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
     if filename == '-':
         print(contents_text, end='')
     elif contents_text != contents_text_orig:
-        print('Rewriting {}'.format(filename), file=sys.stderr)
-        with io.open(filename, 'w', encoding='UTF-8', newline='') as f:
+        print(f'Rewriting {filename}', file=sys.stderr)
+        with open(filename, 'w', encoding='UTF-8', newline='') as f:
             f.write(contents_text)
 
     if args.exit_zero_even_if_changed:
@@ -2344,7 +2301,7 @@ def _fix_file(filename, args):  # type: (str, argparse.Namespace) -> int
         return contents_text != contents_text_orig
 
 
-def main(argv=None):  # type: (Optional[Sequence[str]]) -> int
+def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')

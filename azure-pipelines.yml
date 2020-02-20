@@ -10,15 +10,15 @@ resources:
       type: github
       endpoint: github
       name: asottile/azure-pipeline-templates
-      ref: refs/tags/v1.0.0
+      ref: refs/tags/v1.0.1
 
 jobs:
 - template: job--pre-commit.yml@asottile
 - template: job--python-tox.yml@asottile
   parameters:
-    toxenvs: [py27, py37]
+    toxenvs: [py37]
     os: windows
 - template: job--python-tox.yml@asottile
   parameters:
-    toxenvs: [pypy, pypy3, py27, py36, py37, py38]
+    toxenvs: [pypy3, py36, py37, py38]
     os: linux

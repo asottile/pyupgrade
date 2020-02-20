@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
 import ast
-import sys
 
 import pytest
 
@@ -107,19 +102,6 @@ from pyupgrade import targets_same
             'def g():\n'
             '    print(3)',
         ),
-    ),
-)
-def test_fix_yield_from(s, expected):
-    assert _fix_py3_plus(s) == expected
-
-
-@pytest.mark.xfail(
-    sys.version_info < (3, 5),
-    reason='async introduced in python 3.5',
-)
-@pytest.mark.parametrize(
-    ('s', 'expected'),
-    (
         (
             'async def f():\n'
             '    for x in [1, 2]:\n'
@@ -147,7 +129,7 @@ def test_fix_yield_from(s, expected):
         ),
     ),
 )
-def test_fix_async_yield_from(s, expected):
+def test_fix_yield_from(s, expected):
     assert _fix_py3_plus(s) == expected
 
 
