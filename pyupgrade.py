@@ -1225,6 +1225,7 @@ class FindPy3Plus(ast.NodeVisitor):
             set,
         )  # type: Dict[str, Set[str]]
         self.io_open_calls = set()  # type: Set[Offset]
+        self.open_mode_calls = set()  # type: Set[Offset]
         self.os_error_alias_calls = set()  # type: Set[Offset]
         self.os_error_alias_simple = {}  # type: Dict[Offset, NameOrAttr]
         self.os_error_alias_excepts = set()  # type: Set[Offset]
@@ -1500,6 +1501,15 @@ class FindPy3Plus(ast.NodeVisitor):
             self.encode_calls[_ast_to_offset(node)] = node
         elif self._is_io_open(node.func):
             self.io_open_calls.add(_ast_to_offset(node))
+        elif (
+                isinstance(node.func, ast.Name) and
+                node.func.id == 'open' and
+                len(node.args) >= 2 and
+                not _starargs(node) and
+                isinstance(node.args[1], ast.Str) and
+                node.args[1].s in {'Ur', 'rU', 'Ub', 'bU', 'r', 'rt', 'tr'}
+        ):
+            self.open_mode_calls.add(_ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1882,6 +1892,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             visitor.if_py3_blocks_else,
             visitor.native_literals,
             visitor.io_open_calls,
+            visitor.open_mode_calls,
             visitor.os_error_alias_calls,
             visitor.os_error_alias_simple,
             visitor.os_error_alias_excepts,
@@ -2061,6 +2072,18 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
         elif token.offset in visitor.io_open_calls:
             j = _find_open_paren(tokens, i)
             tokens[i:j] = [token._replace(name='NAME', src='open')]
+        elif token.offset in visitor.open_mode_calls:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            mode = tokens_to_src(tokens[slice(*func_args[1])])
+            mode_stripped = mode.strip().strip('"\'')
+            if mode_stripped in {'Ur', 'rU', 'r', 'rt'}:
+                del tokens[func_args[0][1]:func_args[1][1]]
+            elif mode_stripped in {'Ub', 'bU'}:
+                new_mode = mode.replace('U', 'r')
+                tokens[slice(*func_args[1])] = [Token('SRC', new_mode)]
+            else:
+                raise AssertionError('unreachable: {!r}'.format(mode))
         elif token.offset in visitor.os_error_alias_calls:
             j = _find_open_paren(tokens, i)
             tokens[i:j] = [token._replace(name='NAME', src='OSError')]
