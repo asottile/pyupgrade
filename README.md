@@ -136,7 +136,7 @@ u'foo'.encode()          # b'foo'
 
 ### Octal literals
 
-```
+```python
 0755  # 0o755
 05    # 5
 ```
