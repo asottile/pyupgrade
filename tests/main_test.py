@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
 import io
 import sys
 
@@ -26,7 +22,7 @@ def test_main_changes_a_file(tmpdir, capsys):
     f.write('x = set((1, 2, 3))\n')
     assert main((f.strpath,)) == 1
     out, err = capsys.readouterr()
-    assert err == 'Rewriting {}\n'.format(f.strpath)
+    assert err == f'Rewriting {f.strpath}\n'
     assert f.read() == 'x = {1, 2, 3}\n'
 
 
@@ -48,7 +44,7 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
     f.write_binary('# -*- coding: cp1252 -*-\nx = €\n'.encode('cp1252'))
     assert main((f.strpath,)) == 1
     out, _ = capsys.readouterr()
-    assert out == '{} is non-utf-8 (not supported)\n'.format(f.strpath)
+    assert out == f'{f.strpath} is non-utf-8 (not supported)\n'
 
 
 def test_main_py27_syntaxerror_coding(tmpdir):

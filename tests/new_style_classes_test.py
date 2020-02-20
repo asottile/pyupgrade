@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
-import sys
-
 import pytest
 
 from pyupgrade import _fix_py3_plus
@@ -100,21 +94,11 @@ def test_fix_classes_noop(s):
             '    B,\n'
             '): pass',
         ),
-    ),
-)
-def test_fix_classes(s, expected):
-    assert _fix_py3_plus(s) == expected
-
-
-@pytest.mark.xfail(sys.version_info < (3,), reason='py3+ metaclass')
-@pytest.mark.parametrize(
-    ('s', 'expected'),
-    (
         (
             'class C(object, metaclass=ABCMeta): pass',
             'class C(metaclass=ABCMeta): pass',
         ),
     ),
 )
-def test_fix_classes_py3only(s, expected):
+def test_fix_classes(s, expected):
     assert _fix_py3_plus(s) == expected
