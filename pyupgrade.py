@@ -1224,10 +1224,10 @@ class FindPy3Plus(ast.NodeVisitor):
         self.from_imported_names = collections.defaultdict(
             set,
         )  # type: Dict[str, Set[str]]
-        self.io_open_calls = {}  # type: Dict[Offset, ast.Call]
-        self.os_error_alias_calls = {}  # type: Dict[Offset, ast.Call]
+        self.io_open_calls = set()  # type: Set[Offset]
+        self.os_error_alias_calls = set()  # type: Set[Offset]
         self.os_error_alias_simple = {}  # type: Dict[Offset, NameOrAttr]
-        self.os_error_alias_excepts = {}  # type: Dict[Offset, ast.Tuple]
+        self.os_error_alias_excepts = set()  # type: Set[Offset]
 
         self.six_add_metaclass = set()  # type: Set[Offset]
         self.six_b = set()  # type: Set[Offset]
@@ -1396,7 +1396,7 @@ class FindPy3Plus(ast.NodeVisitor):
                         for elt in htype.elts
                     )
             ):
-                self.os_error_alias_excepts[_ast_to_offset(htype)] = htype
+                self.os_error_alias_excepts.add(_ast_to_offset(htype))
 
         self.generic_visit(node)
 
@@ -1415,7 +1415,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 isinstance(exc, ast.Call) and
                 self._is_os_error_alias(exc.func)
         ):
-            self.os_error_alias_calls[_ast_to_offset(exc)] = exc
+            self.os_error_alias_calls.add(_ast_to_offset(exc))
 
         self.generic_visit(node)
 
@@ -1499,7 +1499,7 @@ class FindPy3Plus(ast.NodeVisitor):
         ):
             self.encode_calls[_ast_to_offset(node)] = node
         elif self._is_io_open(node.func):
-            self.io_open_calls[_ast_to_offset(node)] = node
+            self.io_open_calls.add(_ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -2121,7 +2121,7 @@ def _fix_py3_plus(contents_text):  # type: (str) -> str
             new = Token('CODE', joined, line, utf8_byte_offset)
             tokens.insert(start, new)
 
-            visitor.os_error_alias_excepts.pop(token.offset)
+            visitor.os_error_alias_excepts.discard(token.offset)
         elif token.offset in visitor.yield_from_fors:
             _replace_yield(tokens, i)
 
