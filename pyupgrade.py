@@ -1116,6 +1116,10 @@ RAISE_FROM_TMPL = 'raise {args[0]} from {rest}'
 RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
 RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
 SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
+U_MODE_REMOVE = frozenset(('U', 'Ur', 'rU', 'r', 'rt', 'tr'))
+U_MODE_REPLACE_R = frozenset(('Ub', 'bU'))
+U_MODE_REMOVE_U = frozenset(('rUb', 'Urb', 'rbU', 'Ubr', 'bUr', 'brU'))
+U_MODE_ALL = U_MODE_REMOVE | U_MODE_REPLACE_R | U_MODE_REMOVE_U
 
 
 def _all_isinstance(
@@ -1471,7 +1475,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 len(node.args) >= 2 and
                 not _starargs(node) and
                 isinstance(node.args[1], ast.Str) and
-                node.args[1].s in {'Ur', 'rU', 'Ub', 'bU', 'r', 'rt', 'tr'}
+                node.args[1].s in U_MODE_ALL
         ):
             self.open_mode_calls.add(_ast_to_offset(node))
 
@@ -2046,10 +2050,13 @@ def _fix_py3_plus(contents_text: str) -> str:
             func_args, end = _parse_call_args(tokens, j)
             mode = tokens_to_src(tokens[slice(*func_args[1])])
             mode_stripped = mode.strip().strip('"\'')
-            if mode_stripped in {'Ur', 'rU', 'r', 'rt'}:
+            if mode_stripped in U_MODE_REMOVE:
                 del tokens[func_args[0][1]:func_args[1][1]]
-            elif mode_stripped in {'Ub', 'bU'}:
+            elif mode_stripped in U_MODE_REPLACE_R:
                 new_mode = mode.replace('U', 'r')
+                tokens[slice(*func_args[1])] = [Token('SRC', new_mode)]
+            elif mode_stripped in U_MODE_REMOVE_U:
+                new_mode = mode.replace('U', '')
                 tokens[slice(*func_args[1])] = [Token('SRC', new_mode)]
             else:
                 raise AssertionError(f'unreachable: {mode!r}')
