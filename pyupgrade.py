@@ -1606,102 +1606,126 @@ class Block(NamedTuple):
     end: int
     line: int
 
-    def _initial_indent(self, tokens: List[Token]) -> int:
-        if tokens[self.start].src.isspace():
-            return len(tokens[self.start].src)
-        else:
-            return 0
 
-    def _minimum_indent(self, tokens: List[Token]) -> int:
-        block_indent = None
-        for i in range(self.block, self.end):
-            if (
-                    tokens[i - 1].name in ('NL', 'NEWLINE') and
-                    tokens[i].name in ('INDENT', UNIMPORTANT_WS)
-            ):
-                token_indent = len(tokens[i].src)
-                if block_indent is None:
-                    block_indent = token_indent
-                else:
-                    block_indent = min(block_indent, token_indent)
+def _initial_indent(self, tokens: List[Token]) -> int:
+    if tokens[self.start].src.isspace():
+        return len(tokens[self.start].src)
+    else:
+        return 0
 
-        assert block_indent is not None
-        return block_indent
 
-    def dedent(self, tokens: List[Token]) -> None:
-        if self.line:
-            return
-        diff = self._minimum_indent(tokens) - self._initial_indent(tokens)
-        for i in range(self.block, self.end):
-            if (
-                    tokens[i - 1].name in ('NL', 'NEWLINE') and
-                    tokens[i].name in ('INDENT', UNIMPORTANT_WS)
-            ):
-                tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
+Block._initial_indent = _initial_indent
 
-    def replace_condition(self, tokens: List[Token], new: List[Token]) -> None:
-        tokens[self.start:self.colon] = new
 
-    def _trim_end(self, tokens: List[Token]) -> 'Block':
-        """the tokenizer reports the end of the block at the beginning of
-        the next block
-        """
-        i = last_token = self.end - 1
-        while tokens[i].name in NON_CODING_TOKENS | {'DEDENT', 'NEWLINE'}:
-            # if we find an indented comment inside our block, keep it
-            if (
-                    tokens[i].name in {'NL', 'NEWLINE'} and
-                    tokens[i + 1].name == UNIMPORTANT_WS and
-                    len(tokens[i + 1].src) > self._initial_indent(tokens)
-            ):
-                break
-            # otherwise we've found another line to remove
-            elif tokens[i].name in {'NL', 'NEWLINE'}:
-                last_token = i
-            i -= 1
-        return self._replace(end=last_token + 1)
-
-    @classmethod
-    def find(
-            cls,
-            tokens: List[Token],
-            i: int,
-            trim_end: bool = False,
-    ) -> 'Block':
-        if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
-            i -= 1
-        start = i
-        colon = _find_block_start(tokens, i)
-
-        j = colon + 1
-        while (
-                tokens[j].name != 'NEWLINE' and
-                tokens[j].name in NON_CODING_TOKENS
+def _minimum_indent(self, tokens: List[Token]) -> int:
+    block_indent = None
+    for i in range(self.block, self.end):
+        if (
+                tokens[i - 1].name in ('NL', 'NEWLINE') and
+                tokens[i].name in ('INDENT', UNIMPORTANT_WS)
         ):
-            j += 1
-
-        if tokens[j].name == 'NEWLINE':  # multi line block
-            block = j + 1
-            while tokens[j].name != 'INDENT':
-                j += 1
-            level = 1
-            j += 1
-            while level:
-                level += {'INDENT': 1, 'DEDENT': -1}.get(tokens[j].name, 0)
-                j += 1
-            ret = cls(start, colon, block, j, line=False)
-            if trim_end:
-                return ret._trim_end(tokens)
+            token_indent = len(tokens[i].src)
+            if block_indent is None:
+                block_indent = token_indent
             else:
-                return ret
-        else:  # single line block
-            block = j
-            # search forward until the NEWLINE token
-            while tokens[j].name != 'NEWLINE':
-                j += 1
-            # we also want to include the newline in the block
+                block_indent = min(block_indent, token_indent)
+
+    assert block_indent is not None
+    return block_indent
+
+
+Block._minimum_indent = _minimum_indent
+
+
+def dedent(self, tokens: List[Token]) -> None:
+    if self.line:
+        return
+    diff = self._minimum_indent(tokens) - self._initial_indent(tokens)
+    for i in range(self.block, self.end):
+        if (
+                tokens[i - 1].name in ('NL', 'NEWLINE') and
+                tokens[i].name in ('INDENT', UNIMPORTANT_WS)
+        ):
+            tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
+
+
+Block.dedent = dedent
+
+
+def replace_condition(self, tokens: List[Token], new: List[Token]) -> None:
+    tokens[self.start:self.colon] = new
+
+
+Block.replace_condition = replace_condition
+
+
+def _trim_end(self, tokens: List[Token]) -> 'Block':
+    """the tokenizer reports the end of the block at the beginning of
+    the next block
+    """
+    i = last_token = self.end - 1
+    while tokens[i].name in NON_CODING_TOKENS | {'DEDENT', 'NEWLINE'}:
+        # if we find an indented comment inside our block, keep it
+        if (
+                tokens[i].name in {'NL', 'NEWLINE'} and
+                tokens[i + 1].name == UNIMPORTANT_WS and
+                len(tokens[i + 1].src) > self._initial_indent(tokens)
+        ):
+            break
+        # otherwise we've found another line to remove
+        elif tokens[i].name in {'NL', 'NEWLINE'}:
+            last_token = i
+        i -= 1
+    return self._replace(end=last_token + 1)
+
+
+Block._trim_end = _trim_end
+
+
+@classmethod
+def find(
+        cls,
+        tokens: List[Token],
+        i: int,
+        trim_end: bool = False,
+) -> 'Block':
+    if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
+        i -= 1
+    start = i
+    colon = _find_block_start(tokens, i)
+
+    j = colon + 1
+    while (
+            tokens[j].name != 'NEWLINE' and
+            tokens[j].name in NON_CODING_TOKENS
+    ):
+        j += 1
+
+    if tokens[j].name == 'NEWLINE':  # multi line block
+        block = j + 1
+        while tokens[j].name != 'INDENT':
             j += 1
-            return cls(start, colon, block, j, line=True)
+        level = 1
+        j += 1
+        while level:
+            level += {'INDENT': 1, 'DEDENT': -1}.get(tokens[j].name, 0)
+            j += 1
+        ret = cls(start, colon, block, j, line=False)
+        if trim_end:
+            return ret._trim_end(tokens)
+        else:
+            return ret
+    else:  # single line block
+        block = j
+        # search forward until the NEWLINE token
+        while tokens[j].name != 'NEWLINE':
+            j += 1
+        # we also want to include the newline in the block
+        j += 1
+        return cls(start, colon, block, j, line=True)
+
+
+Block.find = find  # type: ignore
 
 
 def _find_if_else_block(tokens: List[Token], i: int) -> Tuple[Block, Block]:
