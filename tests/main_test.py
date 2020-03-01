@@ -1,7 +1,6 @@
 import io
 import sys
-
-import mock
+from unittest import mock
 
 from pyupgrade import main
 
