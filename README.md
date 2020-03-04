@@ -344,6 +344,23 @@ with open('f.txt') as f:
     pass
 ```
 
+
+### redundant `open` modes
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```python
+open("foo", "U")                      # open("foo")
+open("foo", "Ur")                     # open("foo")
+open("foo", "Ub")                     # open("foo", "rb")
+open("foo", "rUb")                    # open("foo", "rb")
+open("foo", "r")                      # open("foo")
+open("foo", "rt")                     # open("foo")
+open("f", "r", encoding="UTF-8")      # open("f", encoding="UTF-8")
+```
+
+
 ### `OSError` aliases
 
 Availability:
