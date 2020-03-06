@@ -753,7 +753,7 @@ def _fix_import_removals(
                 del tokens[j:idx + 1]
 
 
-def _fix_tokens(contents_text: str, min_version: MinVersion) -> str:
+def _fix_tokens(contents_text: str, min_version: MinVersion, fix_parens: bool) -> str:
     remove_u = min_version >= (3,) or _imports_unicode_literals(contents_text)
 
     try:
@@ -768,7 +768,7 @@ def _fix_tokens(contents_text: str, min_version: MinVersion) -> str:
             if remove_u:
                 tokens[i] = _remove_u_prefix(tokens[i])
             tokens[i] = _fix_escape_sequences(tokens[i])
-        elif token.src == '(':
+        elif token.src == '(' and fix_parens:
             _fix_extraneous_parens(tokens, i)
         elif token.src == 'format' and i > 0 and tokens[i - 1].src == '.':
             _fix_format_literal(tokens, i - 2)
@@ -2287,7 +2287,8 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         return 1
 
     contents_text = _fix_py2_compatible(contents_text)
-    contents_text = _fix_tokens(contents_text, min_version=args.min_version)
+    contents_text = _fix_tokens(contents_text, min_version=args.min_version,
+                                fix_parens=not args.keep_extraneous_parens)
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)
     if args.min_version >= (3,):
@@ -2325,6 +2326,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         '--py37-plus',
         action='store_const', dest='min_version', const=(3, 7),
     )
+    parser.add_argument('--keep-extraneous-parens', action='store_true')
     args = parser.parse_args(argv)
 
     ret = 0
