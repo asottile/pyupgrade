@@ -11,9 +11,31 @@ versions of the language.
 
 `pip install pyupgrade`
 
-## As a pre-commit hook
+## Usage
 
-See [pre-commit](https://github.com/pre-commit/pre-commit) for instructions
+### From the CLI
+
+Run on a single file to upgrade:
+
+```sh
+$ pyupgrade myfile.py
+```
+
+Check all the options with:
+
+```sh
+$ pyupgrade --help
+```
+
+You can also invoke it as a module:
+
+```sh
+$ python -m pyupgrade file.py
+```
+
+### As a pre-commit hook
+
+`pyupgrade` can easily be used as a hook with the [pre-commit tool](https://github.com/pre-commit/pre-commit).
 
 Sample `.pre-commit-config.yaml`:
 
