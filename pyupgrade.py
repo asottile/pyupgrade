@@ -2160,9 +2160,9 @@ def _format_params(call: ast.Call) -> Dict[str, str]:
     return params
 
 
-class FindSimpleFormats(ast.NodeVisitor):
+class FindPy36Plus(ast.NodeVisitor):
     def __init__(self) -> None:
-        self.found: Dict[Offset, ast.Call] = {}
+        self.fstrings: Dict[Offset, ast.Call] = {}
 
     def _parse(self, node: ast.Call) -> Optional[Tuple[DotFormatPart, ...]]:
         if not (
@@ -2207,7 +2207,7 @@ class FindSimpleFormats(ast.NodeVisitor):
                     if not candidate:
                         i += 1
             else:
-                self.found[_ast_to_offset(node)] = node
+                self.fstrings[_ast_to_offset(node)] = node
 
         self.generic_visit(node)
 
@@ -2238,16 +2238,16 @@ def _to_fstring(src: str, call: ast.Call) -> str:
     return unparse_parsed_string(parts)
 
 
-def _fix_fstrings(contents_text: str) -> str:
+def _fix_py36_plus(contents_text: str) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    visitor = FindSimpleFormats()
+    visitor = FindPy36Plus()
     visitor.visit(ast_obj)
 
-    if not visitor.found:
+    if not visitor.fstrings:
         return contents_text
 
     try:
@@ -2255,7 +2255,7 @@ def _fix_fstrings(contents_text: str) -> str:
     except tokenize.TokenError:  # pragma: no cover (bpo-2180)
         return contents_text
     for i, token in reversed_enumerate(tokens):
-        node = visitor.found.get(token.offset)
+        node = visitor.fstrings.get(token.offset)
         if node is None:
             continue
 
@@ -2300,7 +2300,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     if args.min_version >= (3,):
         contents_text = _fix_py3_plus(contents_text)
     if args.min_version >= (3, 6):
-        contents_text = _fix_fstrings(contents_text)
+        contents_text = _fix_py36_plus(contents_text)
 
     if filename == '-':
         print(contents_text, end='')
