@@ -28,6 +28,8 @@ from pyupgrade import _fix_fstrings
         '"{a.a[b]}".format(a=a)',
         # not enough placeholders / placeholders missing
         '"{}{}".format(a)', '"{a}{b}".format(a=a)',
+        # invald \N escape
+        r'"{} \\N{snowman}".format(a)',
     ),
 )
 def test_fix_fstrings_noop(s):
@@ -49,6 +51,7 @@ def test_fix_fstrings_noop(s):
         ('"{}{{}}{}".format(escaped, y)', 'f"{escaped}{{}}{y}"'),
         ('"{}{b}{}".format(a, c, b=b)', 'f"{a}{b}{c}"'),
         (r'"{} \N{snowman}".format(a)', r'f"{a} \N{snowman}"'),
+        (r'"\\N{snowman}".format(snowman=snowman)', r'f"\\N{snowman}"'),
         # TODO: poor man's f-strings?
         # '"{foo}".format(**locals())'
     ),

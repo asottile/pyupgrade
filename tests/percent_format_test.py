@@ -223,6 +223,7 @@ def test_percent_format_noop_if_bug_16806():
             r'"%s {build a} \N{snowman}" % (a,)',
             r'"{} {{build a}} \N{snowman}".format(a)',
         ),
+        (r'"%s \\N{snowman}" % (a,)', r'"{} \\N{{snowman}}".format(a)'),
     ),
 )
 def test_percent_format(s, expected):

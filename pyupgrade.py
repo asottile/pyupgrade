@@ -917,7 +917,7 @@ def _simplify_conversion_flag(flag: str) -> str:
     return ''.join(parts)
 
 
-NAMED_UNICODE_RE = re.compile(r'\\N{{([^}]+)}}')
+NAMED_UNICODE_RE = re.compile(r'(?<!\\)(?:\\\\)*\\N{{([^}]+)}}')
 
 
 def _percent_to_format(s: str) -> str:
@@ -2225,13 +2225,18 @@ def _unparse(node: ast.expr) -> str:
         raise NotImplementedError(ast.dump(node))
 
 
+ENDS_ON_NAMED_UNICODE_RE = re.compile(r'(?<!\\)(?:\\\\)*\\N$')
+
+
 def _to_fstring(src: str, call: ast.Call) -> str:
     params = _format_params(call)
 
     parts = []
     i = 0
     for s, name, spec, conv in parse_format('f' + src):
-        if name is not None and not s.endswith(r'\N'):  # skip \N escape seqs
+        if ENDS_ON_NAMED_UNICODE_RE.search(s):  # skip \N escape seqs
+            pass
+        elif name is not None:
             k, dot, rest = name.partition('.')
             name = ''.join((params[k or str(i)], dot, rest))
             if not k:  # named and auto params can be in different orders
