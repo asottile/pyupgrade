@@ -917,10 +917,16 @@ def _simplify_conversion_flag(flag: str) -> str:
     return ''.join(parts)
 
 
+NAMED_UNICODE_RE = re.compile(r'\\N{{([^}]+)}}')
+
+
 def _percent_to_format(s: str) -> str:
     def _handle_part(part: PercentFormat) -> str:
         s, fmt = part
         s = s.replace('{', '{{').replace('}', '}}')
+        if r'\N' in s:
+            # Convert \N{{snowman}} back to \N{snowman}
+            s = NAMED_UNICODE_RE.sub(r'\\N{\1}', s)
         if fmt is None:
             return s
         else:
@@ -1056,10 +1062,6 @@ def _fix_percent_format(contents_text: str) -> str:
     for i, token in reversed_enumerate(tokens):
         node = visitor.found.get(token.offset)
         if node is None:
-            continue
-
-        # TODO: handle \N escape sequences
-        if r'\N' in token.src:
             continue
 
         if isinstance(node.right, ast.Tuple):
