@@ -779,8 +779,7 @@ def _fix_tokens(contents_text: str, min_version: MinVersion) -> str:
                 token.utf8_byte_offset == 0 and
                 token.line < 3 and
                 token.name == 'COMMENT' and
-                # https://github.com/python/typeshed/pull/3745
-                tokenize.cookie_re.match(token.src)  # type: ignore
+                tokenize.cookie_re.match(token.src)
         ):
             del tokens[i]
             assert tokens[i].name == 'NL', tokens[i].name
