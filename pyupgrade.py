@@ -2229,7 +2229,7 @@ def _to_fstring(src: str, call: ast.Call) -> str:
     parts = []
     i = 0
     for s, name, spec, conv in parse_format('f' + src):
-        if name is not None:
+        if name is not None and not s.endswith(r'\N'):  # skip \N escape seqs
             k, dot, rest = name.partition('.')
             name = ''.join((params[k or str(i)], dot, rest))
             if not k:  # named and auto params can be in different orders
@@ -2257,10 +2257,6 @@ def _fix_fstrings(contents_text: str) -> str:
     for i, token in reversed_enumerate(tokens):
         node = visitor.found.get(token.offset)
         if node is None:
-            continue
-
-        # TODO: handle \N escape sequences
-        if r'\N' in token.src:
             continue
 
         paren = i + 3
