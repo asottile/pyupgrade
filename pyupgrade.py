@@ -1058,6 +1058,10 @@ def _fix_percent_format(contents_text: str) -> str:
         if node is None:
             continue
 
+        # TODO: handle \N escape sequences
+        if r'\N' in token.src:
+            continue
+
         if isinstance(node.right, ast.Tuple):
             _fix_percent_format_tuple(tokens, i, node)
         elif isinstance(node.right, ast.Dict):
@@ -2253,6 +2257,10 @@ def _fix_fstrings(contents_text: str) -> str:
     for i, token in reversed_enumerate(tokens):
         node = visitor.found.get(token.offset)
         if node is None:
+            continue
+
+        # TODO: handle \N escape sequences
+        if r'\N' in token.src:
             continue
 
         paren = i + 3
