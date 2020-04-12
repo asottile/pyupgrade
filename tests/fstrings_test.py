@@ -26,6 +26,8 @@ from pyupgrade import _fix_fstrings
         '"{:{}}".format(x, y)',
         '"{a[b]}".format(a=a)',
         '"{a.a[b]}".format(a=a)',
+        # TODO: handle \N escape sequences
+        r'"\N{snowman} {}".format(a)',
         # not enough placeholders / placeholders missing
         '"{}{}".format(a)', '"{a}{b}".format(a=a)',
     ),
