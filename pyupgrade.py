@@ -2166,28 +2166,29 @@ class FindPy36Plus(ast.NodeVisitor):
     def __init__(self) -> None:
         self.fstrings: Dict[Offset, ast.Call] = {}
         self.named_tuples: Dict[Offset, ast.Call] = {}
-        self.typed_dicts: Dict[Offset, ast.Call] = {}
+        self.dict_typed_dicts: Dict[Offset, ast.Call] = {}
+        self.kw_typed_dicts: Dict[Offset, ast.Call] = {}
         self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if node.module == 'typing':
+        if node.module in {'typing', 'typing_extensions'}:
             for name in node.names:
                 if not name.asname:
                     self._from_imports[node.module].add(name.name)
         self.generic_visit(node)
 
-    def _is_typing(self, node: ast.AST, name: str) -> bool:
+    def _is_attr(self, node: ast.AST, mods: Set[str], name: str) -> bool:
         return (
             (
                 isinstance(node, ast.Name) and
                 node.id == name and
-                name in self._from_imports['typing']
+                any(name in self._from_imports[mod] for mod in mods)
             ) or
             (
                 isinstance(node, ast.Attribute) and
                 node.attr == name and
                 isinstance(node.value, ast.Name) and
-                node.value.id == 'typing'
+                node.value.id in mods
             )
         )
 
@@ -2250,7 +2251,9 @@ class FindPy36Plus(ast.NodeVisitor):
                 not _starargs(node.value)
         ):
             if (
-                    self._is_typing(node.value.func, 'NamedTuple') and
+                    self._is_attr(
+                        node.value.func, {'typing'}, 'NamedTuple',
+                    ) and
                     len(node.value.args) == 2 and
                     not node.value.keywords and
                     isinstance(node.value.args[1], (ast.List, ast.Tuple)) and
@@ -2264,9 +2267,32 @@ class FindPy36Plus(ast.NodeVisitor):
                     )
             ):
                 self.named_tuples[_ast_to_offset(node)] = node.value
-            # TODO: check either (1) mapping or (2) named arguments
-            elif self._is_typing(node.value.func, 'TypedDict'):
-                self.typed_dicts[_ast_to_offset(node)] = node.value
+            elif (
+                    self._is_attr(
+                        node.value.func,
+                        {'typing', 'typing_extensions'},
+                        'TypedDict',
+                    ) and
+                    len(node.value.args) == 1 and
+                    len(node.value.keywords) > 0
+            ):
+                self.kw_typed_dicts[_ast_to_offset(node)] = node.value
+            elif (
+                    self._is_attr(
+                        node.value.func,
+                        {'typing', 'typing_extensions'},
+                        'TypedDict',
+                    ) and
+                    len(node.value.args) == 2 and
+                    not node.value.keywords and
+                    isinstance(node.value.args[1], ast.Dict) and
+                    node.value.args[1].keys and
+                    all(
+                        isinstance(k, ast.Str)
+                        for k in node.value.args[1].keys
+                    )
+            ):
+                self.dict_typed_dicts[_ast_to_offset(node)] = node.value
 
         self.generic_visit(node)
 
@@ -2314,6 +2340,28 @@ def _to_fstring(src: str, call: ast.Call) -> str:
     return unparse_parsed_string(parts)
 
 
+def _replace_typed_class(
+        tokens: List[Token],
+        i: int,
+        call: ast.Call,
+        types: Dict[str, ast.expr],
+) -> None:
+    if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
+        indent = f'{tokens[i - 1].src}{" " * 4}'
+    else:
+        indent = ' ' * 4
+
+    # NT = NamedTuple("nt", [("a", int)])
+    # ^i                                 ^end
+    end = i + 1
+    while end < len(tokens) and tokens[end].name != 'NEWLINE':
+        end += 1
+
+    attrs = '\n'.join(f'{indent}{k}: {_unparse(v)}' for k, v in types.items())
+    src = f'class {tokens[i].src}({_unparse(call.func)}):\n{attrs}'
+    tokens[i:end] = [Token('CODE', src)]
+
+
 def _fix_py36_plus(contents_text: str) -> str:
     try:
         ast_obj = ast_parse(contents_text)
@@ -2323,7 +2371,12 @@ def _fix_py36_plus(contents_text: str) -> str:
     visitor = FindPy36Plus()
     visitor.visit(ast_obj)
 
-    if not any((visitor.fstrings, visitor.named_tuples, visitor.typed_dicts)):
+    if not any((
+            visitor.fstrings,
+            visitor.named_tuples,
+            visitor.dict_typed_dicts,
+            visitor.kw_typed_dicts,
+    )):
         return contents_text
 
     try:
@@ -2353,29 +2406,28 @@ def _fix_py36_plus(contents_text: str) -> str:
             del tokens[i + 1:end + 1]
         elif token.offset in visitor.named_tuples and token.name == 'NAME':
             call = visitor.named_tuples[token.offset]
-
-            if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
-                indent = f'{tokens[i - 1].src}{" " * 4}'
-            else:
-                indent = ' ' * 4
-
-            # NT = NamedTuple("nt", [("a", int)])
-            # ^i                                 ^end
-            end = i + 1
-            while end < len(tokens) and tokens[end].name != 'NEWLINE':
-                end += 1
-
-            # type-ignored because they are validated by the ast above
-            attrs = '\n'.join(
-                f'{indent}{tup.elts[0].s}: '  # type: ignore
-                f'{_unparse(tup.elts[1])}'  # type: ignore
-                for tup in call.args[1].elts  # type: ignore
-            )
-            src = (
-                f'class {tokens[i].src}({_unparse(call.func)}):\n'
-                f'{attrs}'
-            )
-            tokens[i:end] = [Token('CODE', src)]
+            types: Dict[str, ast.expr] = {
+                tup.elts[0].s: tup.elts[1]  # type: ignore  # (checked above)
+                for tup in call.args[1].elts  # type: ignore  # (checked above)
+            }
+            _replace_typed_class(tokens, i, call, types)
+        elif token.offset in visitor.kw_typed_dicts and token.name == 'NAME':
+            call = visitor.kw_typed_dicts[token.offset]
+            types = {
+                arg.arg: arg.value  # type: ignore  # (checked above)
+                for arg in call.keywords
+            }
+            _replace_typed_class(tokens, i, call, types)
+        elif token.offset in visitor.dict_typed_dicts and token.name == 'NAME':
+            call = visitor.dict_typed_dicts[token.offset]
+            types = {
+                k.s: v  # type: ignore  # (checked above)
+                for k, v in zip(
+                    call.args[1].keys,  # type: ignore  # (checked above)
+                    call.args[1].values,  # type: ignore  # (checked above)
+                )
+            }
+            _replace_typed_class(tokens, i, call, types)
 
     return tokens_to_src(tokens)
 
