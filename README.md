@@ -387,6 +387,34 @@ except OSError:
     raise
 ```
 
+### `typing.NamedTuple` / `typing.TypedDict` py36+ syntax
+
+Availability:
+- `--py36-plus` is passed on the commandline.
+
+```python
+# input
+NT = typing.NamedTuple('NT', [('a': int, 'b': Tuple[str, ...])])
+
+D1 = typing.TypedDict('D1', a=int, b=str)
+
+D2 = typing.TypedDict('D2', {'a': int, 'b': str})
+
+# output
+
+class NT(typing.NamedTuple):
+    a: int
+    b: Tuple[str, ...]
+
+class D1(typing.TypedDict):
+    a: int
+    b: str
+
+class D2(typing.TypedDict):
+    a: int
+    b: str
+```
+
 ### f-strings
 
 Availability:
