@@ -1,6 +1,6 @@
 import pytest
 
-from pyupgrade import _fix_fstrings
+from pyupgrade import _fix_py36_plus
 
 
 @pytest.mark.parametrize(
@@ -33,7 +33,7 @@ from pyupgrade import _fix_fstrings
     ),
 )
 def test_fix_fstrings_noop(s):
-    assert _fix_fstrings(s) == s
+    assert _fix_py36_plus(s) == s
 
 
 @pytest.mark.parametrize(
@@ -57,4 +57,4 @@ def test_fix_fstrings_noop(s):
     ),
 )
 def test_fix_fstrings(s, expected):
-    assert _fix_fstrings(s) == expected
+    assert _fix_py36_plus(s) == expected
