@@ -64,8 +64,22 @@ def parse_format(s: str) -> Tuple[DotFormatPart, ...]:
     parsed = tuple(_stdlib_parse_format(s))
     if not parsed:
         return ((s, None, None, None),)
-    else:
-        return parsed
+    collapse_part = None
+    new_parsed = []
+    for part in parsed:
+        fragment, fmtkey, _, _ = part
+        if collapse_part:
+            fragment = collapse_part[0] + fragment
+            part = (fragment,) + part[1:]
+            collapse_part = None
+        # rebuild \N escape seqs
+        if ENDS_ON_NAMED_UNICODE_RE.search(fragment) and fmtkey:
+            collapse_part = (fragment + '{' + fmtkey + '}', None, None, None)
+        if collapse_part is None:
+            new_parsed.append(part)
+    if collapse_part:
+        new_parsed.append(collapse_part)
+    return tuple(new_parsed)
 
 
 def unparse_parsed_string(parsed: Sequence[DotFormatPart]) -> str:
@@ -589,30 +603,29 @@ def _fix_format_literal(tokens: List[Token], end: int) -> None:
     last_int = -1
     for i in parts:
         try:
-            parsed = list(parse_format(tokens[i].src))
+            parsed = parse_format(tokens[i].src)
         except ValueError:
             # the format literal was malformed, skip it
             return
 
         # The last segment will always be the end of the string and not a
         # format, slice avoids the `None` format key
-        for i in range(len(parsed) - 1):
-            s, fmtkey, spec, _ = parsed[i]
-            if ENDS_ON_NAMED_UNICODE_RE.search(s):  # rebuild \N escape seqs
-                parsed[i] = (s + '{' + fmtkey + '}', None, None, None)
-            elif (
+        for _, fmtkey, spec, _ in parsed[:-1]:
+            if (
                     fmtkey is not None and inty(fmtkey) and
                     int(fmtkey) == last_int + 1 and
                     spec is not None and '{' not in spec
             ):
                 last_int += 1
+            elif fmtkey is None and spec is None:
+                pass
             else:
                 return
 
         parsed_parts.append(tuple(_remove_fmt(tup) for tup in parsed))
 
-    for i, parsed_part in zip(parts, parsed_parts):
-        tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed_part))
+    for i, parsed in zip(parts, parsed_parts):
+        tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed))
 
 
 def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
@@ -2342,9 +2355,7 @@ def _to_fstring(src: str, call: ast.Call) -> str:
     parts = []
     i = 0
     for s, name, spec, conv in parse_format('f' + src):
-        if ENDS_ON_NAMED_UNICODE_RE.search(s):  # skip \N escape seqs
-            pass
-        elif name is not None:
+        if name is not None:
             k, dot, rest = name.partition('.')
             name = ''.join((params[k or str(i)], dot, rest))
             if not k:  # named and auto params can be in different orders
