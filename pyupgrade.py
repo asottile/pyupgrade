@@ -73,6 +73,9 @@ def unparse_parsed_string(parsed: Sequence[DotFormatPart]) -> str:
         ret, field_name, format_spec, conversion = tup
         ret = ret.replace('{', '{{')
         ret = ret.replace('}', '}}')
+        if r'\N' in ret:
+            # Convert \N{{snowman}} back to \N{snowman}
+            ret = NAMED_UNICODE_RE.sub(r'\\N{\1}', ret)
         if field_name is not None:
             ret += '{' + field_name
             if conversion:
@@ -586,15 +589,18 @@ def _fix_format_literal(tokens: List[Token], end: int) -> None:
     last_int = -1
     for i in parts:
         try:
-            parsed = parse_format(tokens[i].src)
+            parsed = list(parse_format(tokens[i].src))
         except ValueError:
             # the format literal was malformed, skip it
             return
 
         # The last segment will always be the end of the string and not a
         # format, slice avoids the `None` format key
-        for _, fmtkey, spec, _ in parsed[:-1]:
-            if (
+        for i in range(len(parsed) - 1):
+            s, fmtkey, spec, _ = parsed[i]
+            if ENDS_ON_NAMED_UNICODE_RE.search(s):  # rebuild \N escape seqs
+                parsed[i] = (s + '{' + fmtkey + '}', None, None, None)
+            elif (
                     fmtkey is not None and inty(fmtkey) and
                     int(fmtkey) == last_int + 1 and
                     spec is not None and '{' not in spec
@@ -605,8 +611,8 @@ def _fix_format_literal(tokens: List[Token], end: int) -> None:
 
         parsed_parts.append(tuple(_remove_fmt(tup) for tup in parsed))
 
-    for i, parsed in zip(parts, parsed_parts):
-        tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed))
+    for i, parsed_part in zip(parts, parsed_parts):
+        tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed_part))
 
 
 def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
