@@ -90,6 +90,18 @@ def test_typing_typed_dict_noop(s):
 
             id='keyword TypedDict from typing_extensions',
         ),
+        pytest.param(
+            'from typing import List\n'
+            'from typing_extensions import TypedDict\n'
+            'Foo = TypedDict("Foo", {"lsts": List[List[int]]})',
+
+            'from typing import List\n'
+            'from typing_extensions import TypedDict\n'
+            'class Foo(TypedDict):\n'
+            '    lsts: List[List[int]]',
+
+            id='index unparse error',
+        ),
     ),
 )
 def test_typing_typed_dict(s, expected):
