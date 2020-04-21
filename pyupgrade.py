@@ -2306,12 +2306,10 @@ def _unparse(node: ast.expr) -> str:
         return '{}()'.format(_unparse(node.func))
     elif isinstance(node, ast.Subscript):
         assert isinstance(node.slice, ast.Index), ast.dump(node)
-        if isinstance(node.slice.value, ast.Name):
-            slice_s = _unparse(node.slice.value)
-        elif isinstance(node.slice.value, ast.Tuple):
+        if isinstance(node.slice.value, ast.Tuple):
             slice_s = ', '.join(_unparse(elt) for elt in node.slice.value.elts)
         else:
-            raise NotImplementedError(ast.dump(node))
+            slice_s = _unparse(node.slice.value)
         return '{}[{}]'.format(_unparse(node.value), slice_s)
     elif isinstance(node, ast.Str):
         return repr(node.s)
