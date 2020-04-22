@@ -106,6 +106,17 @@ def test_fix_super_noop(s):
             '    def f(cls):\n'
             '        super().f()\n',
         ),
+        pytest.param(
+            'class C:\n'
+            '    async def foo(self):\n'
+            '        super(C, self).foo()\n',
+
+            'class C:\n'
+            '    async def foo(self):\n'
+            '        super().foo()\n',
+
+            id='async def super',
+        ),
     ),
 )
 def test_fix_super(s, expected):
