@@ -19,7 +19,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v2.2.0
+    rev: v2.3.0
     hooks:
     -   id: pyupgrade
 ```
@@ -170,9 +170,17 @@ class C(Base):
 Availability:
 - `--py3-plus` is passed on the commandline.
 
+#### rewrites class declaration
+
 ```python
 class C(object): pass     # class C: pass
 class C(B, object): pass  # class C(B): pass
+```
+
+#### removes `__metaclass__ = type` declaration
+
+```diff
+-__metaclass__ = type
 ```
 
 ### forced `str("native")` literals

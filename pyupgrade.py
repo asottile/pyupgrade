@@ -259,8 +259,8 @@ def _victims(
     return Victims(starts, sorted(set(ends)), first_comma_index, arg_index)
 
 
-def _find_token(tokens: List[Token], i: int, token: Token) -> int:
-    while tokens[i].src != token:
+def _find_token(tokens: List[Token], i: int, src: str) -> int:
+    while tokens[i].src != src:
         i += 1
     return i
 
@@ -471,7 +471,7 @@ ESCAPE_RE = re.compile(r'\\.', re.DOTALL)
 NAMED_ESCAPE_NAME = re.compile(r'\{[^}]+\}')
 
 
-def _fix_escape_sequences(token: Token) -> str:
+def _fix_escape_sequences(token: Token) -> Token:
     prefix, rest = parse_string_literal(token.src)
     actual_prefix = prefix.lower()
 
@@ -750,7 +750,7 @@ def _fix_import_removals(
                 found.append(i)
         i += 1
     # depending on the version of python, some will not emit NEWLINE('') at the
-    # end of a file which does not end with a newline (for example 2.7.6)
+    # end of a file which does not end with a newline (for example 3.6.5)
     if tokens[i].name == 'ENDMARKER':  # pragma: no cover
         i -= 1
 
@@ -1225,6 +1225,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.if_py3_blocks: Set[Offset] = set()
         self.if_py2_blocks_else: Set[Offset] = set()
         self.if_py3_blocks_else: Set[Offset] = set()
+        self.metaclass_type_assignments: Set[Offset] = set()
 
         self.native_literals: Set[Offset] = set()
 
@@ -1507,6 +1508,19 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.generic_visit(node)
 
+    def visit_Assign(self, node: ast.Assign) -> None:
+        if (
+                len(node.targets) == 1 and
+                isinstance(node.targets[0], ast.Name) and
+                node.targets[0].col_offset == 0 and
+                node.targets[0].id == '__metaclass__' and
+                isinstance(node.value, ast.Name) and
+                node.value.id == 'type'
+        ):
+            self.metaclass_type_assignments.add(_ast_to_offset(node))
+
+        self.generic_visit(node)
+
     @staticmethod
     def _eq(test: ast.Compare, n: int) -> bool:
         return (
@@ -1630,7 +1644,7 @@ class Block(NamedTuple):
     colon: int
     block: int
     end: int
-    line: int
+    line: bool
 
     def _initial_indent(self, tokens: List[Token]) -> int:
         if tokens[self.start].src.isspace():
@@ -1722,12 +1736,23 @@ class Block(NamedTuple):
                 return ret
         else:  # single line block
             block = j
-            # search forward until the NEWLINE token
-            while tokens[j].name != 'NEWLINE':
-                j += 1
-            # we also want to include the newline in the block
-            j += 1
+            j = _find_end(tokens, j)
             return cls(start, colon, block, j, line=True)
+
+
+def _find_end(tokens: List[Token], i: int) -> int:
+    while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
+        i += 1
+
+    # depending on the version of python, some will not emit
+    # NEWLINE('') at the end of a file which does not end with a
+    # newline (for example 3.6.5)
+    if tokens[i].name == 'ENDMARKER':  # pragma: no cover
+        i -= 1
+    else:
+        i += 1
+
+    return i
 
 
 def _find_if_else_block(tokens: List[Token], i: int) -> Tuple[Block, Block]:
@@ -1890,6 +1915,7 @@ def _fix_py3_plus(contents_text: str) -> str:
             visitor.if_py2_blocks_else,
             visitor.if_py3_blocks,
             visitor.if_py3_blocks_else,
+            visitor.metaclass_type_assignments,
             visitor.native_literals,
             visitor.io_open_calls,
             visitor.open_mode_calls,
@@ -1964,6 +1990,9 @@ def _fix_py3_plus(contents_text: str) -> str:
                 if_block, else_block = _find_if_else_block(tokens, j)
                 del tokens[if_block.end:else_block.end]
                 if_block.replace_condition(tokens, [Token('NAME', 'else')])
+        elif token.offset in visitor.metaclass_type_assignments:
+            j = _find_end(tokens, i)
+            del tokens[i:j + 1]
         elif token.offset in visitor.native_literals:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
@@ -2327,12 +2356,10 @@ def _unparse(node: ast.expr) -> str:
         return '{}()'.format(_unparse(node.func))
     elif isinstance(node, ast.Subscript):
         assert isinstance(node.slice, ast.Index), ast.dump(node)
-        if isinstance(node.slice.value, ast.Name):
-            slice_s = _unparse(node.slice.value)
-        elif isinstance(node.slice.value, ast.Tuple):
+        if isinstance(node.slice.value, ast.Tuple):
             slice_s = ', '.join(_unparse(elt) for elt in node.slice.value.elts)
         else:
-            raise NotImplementedError(ast.dump(node))
+            slice_s = _unparse(node.slice.value)
         return '{}[{}]'.format(_unparse(node.value), slice_s)
     elif isinstance(node, ast.Str):
         return repr(node.s)
