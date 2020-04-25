@@ -1970,8 +1970,7 @@ def _fix_py3_plus(contents_text: str) -> str:
                 del tokens[if_block.end:else_block.end]
                 if_block.replace_condition(tokens, [Token('NAME', 'else')])
         elif token.offset in visitor.metaclass_type_assignments:
-            j = _find_token(tokens, i, 'type')
-            j = _find_end(tokens, j)
+            j = _find_end(tokens, i)
             del tokens[i:j + 1]
         elif token.offset in visitor.native_literals:
             j = _find_open_paren(tokens, i)
