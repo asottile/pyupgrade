@@ -1204,6 +1204,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.if_py3_blocks: Set[Offset] = set()
         self.if_py2_blocks_else: Set[Offset] = set()
         self.if_py3_blocks_else: Set[Offset] = set()
+        self.metaclass_type_assignments: Set[Offset] = set()
 
         self.native_literals: Set[Offset] = set()
 
@@ -1483,6 +1484,19 @@ class FindPy3Plus(ast.NodeVisitor):
                 node.args[1].s in U_MODE_ALL
         ):
             self.open_mode_calls.add(_ast_to_offset(node))
+
+        self.generic_visit(node)
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        if (
+                len(node.targets) == 1 and
+                isinstance(node.targets[0], ast.Name) and
+                node.targets[0].col_offset == 0 and
+                node.targets[0].id == '__metaclass__' and
+                isinstance(node.value, ast.Name) and
+                node.value.id == 'type'
+        ):
+            self.metaclass_type_assignments.add(_ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1869,6 +1883,7 @@ def _fix_py3_plus(contents_text: str) -> str:
             visitor.if_py2_blocks_else,
             visitor.if_py3_blocks,
             visitor.if_py3_blocks_else,
+            visitor.metaclass_type_assignments,
             visitor.native_literals,
             visitor.io_open_calls,
             visitor.open_mode_calls,
@@ -1943,6 +1958,16 @@ def _fix_py3_plus(contents_text: str) -> str:
                 if_block, else_block = _find_if_else_block(tokens, j)
                 del tokens[if_block.end:else_block.end]
                 if_block.replace_condition(tokens, [Token('NAME', 'else')])
+        elif token.offset in visitor.metaclass_type_assignments:
+            j = _find_token(tokens, i, 'type')
+            while tokens[j].name not in {'NEWLINE', 'ENDMARKER'}:
+                j += 1
+            # depending on the version of python, some will not emit
+            # NEWLINE('') at the end of a file which does not end with a
+            # newline (for example 3.6.5)
+            if tokens[j].name == 'ENDMARKER':  # pragma: no cover
+                j -= 1
+            del tokens[i:j + 1]
         elif token.offset in visitor.native_literals:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
