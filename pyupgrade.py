@@ -242,8 +242,8 @@ def _victims(
     return Victims(starts, sorted(set(ends)), first_comma_index, arg_index)
 
 
-def _find_token(tokens: List[Token], i: int, token: Token) -> int:
-    while tokens[i].src != token:
+def _find_token(tokens: List[Token], i: int, src: str) -> int:
+    while tokens[i].src != src:
         i += 1
     return i
 
@@ -454,7 +454,7 @@ ESCAPE_RE = re.compile(r'\\.', re.DOTALL)
 NAMED_ESCAPE_NAME = re.compile(r'\{[^}]+\}')
 
 
-def _fix_escape_sequences(token: Token) -> str:
+def _fix_escape_sequences(token: Token) -> Token:
     prefix, rest = parse_string_literal(token.src)
     actual_prefix = prefix.lower()
 
@@ -1609,7 +1609,7 @@ class Block(NamedTuple):
     colon: int
     block: int
     end: int
-    line: int
+    line: bool
 
     def _initial_indent(self, tokens: List[Token]) -> int:
         if tokens[self.start].src.isspace():
