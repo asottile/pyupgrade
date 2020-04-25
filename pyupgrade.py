@@ -731,7 +731,7 @@ def _fix_import_removals(
                 found.append(i)
         i += 1
     # depending on the version of python, some will not emit NEWLINE('') at the
-    # end of a file which does not end with a newline (for example 2.7.6)
+    # end of a file which does not end with a newline (for example 3.6.5)
     if tokens[i].name == 'ENDMARKER':  # pragma: no cover
         i -= 1
 
