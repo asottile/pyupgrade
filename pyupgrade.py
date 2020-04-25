@@ -617,8 +617,6 @@ def _fix_format_literal(tokens: List[Token], end: int) -> None:
                     spec is not None and '{' not in spec
             ):
                 last_int += 1
-            elif fmtkey is None and spec is None:
-                pass
             else:
                 return
 
