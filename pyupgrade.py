@@ -1715,12 +1715,23 @@ class Block(NamedTuple):
                 return ret
         else:  # single line block
             block = j
-            # search forward until the NEWLINE token
-            while tokens[j].name != 'NEWLINE':
-                j += 1
-            # we also want to include the newline in the block
-            j += 1
+            j = _find_end(tokens, j)
             return cls(start, colon, block, j, line=True)
+
+
+def _find_end(tokens: List[Token], i: int) -> int:
+    while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
+        i += 1
+
+    # depending on the version of python, some will not emit
+    # NEWLINE('') at the end of a file which does not end with a
+    # newline (for example 3.6.5)
+    if tokens[i].name == 'ENDMARKER':  # pragma: no cover
+        i -= 1
+    else:
+        i += 1
+
+    return i
 
 
 def _find_if_else_block(tokens: List[Token], i: int) -> Tuple[Block, Block]:
@@ -1960,13 +1971,7 @@ def _fix_py3_plus(contents_text: str) -> str:
                 if_block.replace_condition(tokens, [Token('NAME', 'else')])
         elif token.offset in visitor.metaclass_type_assignments:
             j = _find_token(tokens, i, 'type')
-            while tokens[j].name not in {'NEWLINE', 'ENDMARKER'}:
-                j += 1
-            # depending on the version of python, some will not emit
-            # NEWLINE('') at the end of a file which does not end with a
-            # newline (for example 3.6.5)
-            if tokens[j].name == 'ENDMARKER':  # pragma: no cover
-                j -= 1
+            j = _find_end(tokens, j)
             del tokens[i:j + 1]
         elif token.offset in visitor.native_literals:
             j = _find_open_paren(tokens, i)
