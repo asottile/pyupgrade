@@ -2422,8 +2422,11 @@ def _fix_py36_plus(contents_text: str) -> str:
             if tokens[end].line != token.line:
                 continue
 
-            tokens[i] = token._replace(src=_to_fstring(token.src, node))
-            del tokens[i + 1:end + 1]
+            try:
+                tokens[i] = token._replace(src=_to_fstring(token.src, node))
+                del tokens[i + 1:end + 1]
+            except KeyError:
+                pass
         elif token.offset in visitor.named_tuples and token.name == 'NAME':
             call = visitor.named_tuples[token.offset]
             types: Dict[str, ast.expr] = {
