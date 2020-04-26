@@ -6,8 +6,6 @@ from pyupgrade import _fix_py36_plus
 @pytest.mark.parametrize(
     's',
     (
-        '',
-
         pytest.param(
             'from typing import NamedTuple as wat\n'
             'C = wat("C", ("a", int))\n',
