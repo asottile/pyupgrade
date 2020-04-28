@@ -2362,11 +2362,17 @@ def _unparse(node: ast.expr) -> str:
     elif isinstance(node, ast.Call):
         return '{}()'.format(_unparse(node.func))
     elif isinstance(node, ast.Subscript):
-        assert isinstance(node.slice, ast.Index), ast.dump(node)
-        if isinstance(node.slice.value, ast.Tuple):
-            slice_s = ', '.join(_unparse(elt) for elt in node.slice.value.elts)
+        if sys.version_info >= (3, 9):  # pragma: no cover (py39+)
+            # https://github.com/python/typeshed/pull/3950
+            node_slice: ast.expr = node.slice  # type: ignore
+        elif isinstance(node.slice, ast.Index):  # pragma: no cover (<py39)
+            node_slice = node.slice.value
         else:
-            slice_s = _unparse(node.slice.value)
+            raise AssertionError(f'expected Slice: {ast.dump(node)}')
+        if isinstance(node_slice, ast.Tuple):
+            slice_s = ', '.join(_unparse(elt) for elt in node_slice.elts)
+        else:
+            slice_s = _unparse(node_slice)
         return '{}[{}]'.format(_unparse(node.value), slice_s)
     elif isinstance(node, ast.Str):
         return repr(node.s)
