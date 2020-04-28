@@ -130,7 +130,7 @@ from pyupgrade import targets_same
     ),
 )
 def test_fix_yield_from(s, expected):
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected
 
 
 @pytest.mark.parametrize(
@@ -169,7 +169,7 @@ def test_fix_yield_from(s, expected):
     ),
 )
 def test_fix_yield_from_noop(s):
-    assert _fix_py3_plus(s) == s
+    assert _fix_py3_plus(s, (3,)) == s
 
 
 def test_targets_same():

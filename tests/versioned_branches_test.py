@@ -36,7 +36,7 @@ from pyupgrade import _fix_py3_plus
     ),
 )
 def test_fix_py2_block_noop(s):
-    assert _fix_py3_plus(s) == s
+    assert _fix_py3_plus(s, (3,)) == s
 
 
 @pytest.mark.parametrize(
@@ -390,7 +390,7 @@ def test_fix_py2_block_noop(s):
     ),
 )
 def test_fix_py2_blocks(s, expected):
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected
 
 
 @pytest.mark.parametrize(
@@ -406,4 +406,4 @@ def test_fix_py2_blocks(s, expected):
     ),
 )
 def test_fix_py3_only_code(s, expected):
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected

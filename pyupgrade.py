@@ -1187,7 +1187,7 @@ class FindPy3Plus(ast.NodeVisitor):
         'socket',
     ))
 
-    FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union(('six',))
+    FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union(('functools', 'six'))
 
     class ClassInfo:
         def __init__(self, name: str) -> None:
@@ -1233,6 +1233,8 @@ class FindPy3Plus(ast.NodeVisitor):
         self._in_async_def = False
         self.yield_from_fors: Set[Offset] = set()
 
+        self.no_arg_decorators: Set[Offset] = set()
+
     def _is_six(self, node: ast.expr, names: Container[str]) -> bool:
         return (
             isinstance(node, ast.Name) and
@@ -1243,6 +1245,18 @@ class FindPy3Plus(ast.NodeVisitor):
             isinstance(node.value, ast.Name) and
             node.value.id == 'six' and
             node.attr in names
+        )
+
+    def _is_lru_cache(self, node: ast.expr) -> bool:
+        return (
+            isinstance(node, ast.Name) and
+            node.id == 'lru_cache' and
+            node.id in self._from_imports['functools']
+        ) or (
+            isinstance(node, ast.Attribute) and
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'functools' and
+            node.attr == 'lru_cache'
         )
 
     def _is_io_open(self, node: ast.expr) -> bool:
@@ -1484,6 +1498,12 @@ class FindPy3Plus(ast.NodeVisitor):
                 node.args[1].s in U_MODE_ALL
         ):
             self.open_mode_calls.add(_ast_to_offset(node))
+        elif (
+                not node.args and
+                not node.keywords and
+                self._is_lru_cache(node.func)
+        ):
+            self.no_arg_decorators.add(_ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1879,7 +1899,7 @@ def _replace_yield(tokens: List[Token], i: int) -> None:
     tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
 
 
-def _fix_py3_plus(contents_text: str) -> str:
+def _fix_py3_plus(contents_text: str, min_version: MinVersion) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -1901,6 +1921,7 @@ def _fix_py3_plus(contents_text: str) -> str:
             visitor.os_error_alias_calls,
             visitor.os_error_alias_simple,
             visitor.os_error_alias_excepts,
+            visitor.no_arg_decorators,
             visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
@@ -2157,6 +2178,13 @@ def _fix_py3_plus(contents_text: str) -> str:
             visitor.os_error_alias_excepts.discard(token.offset)
         elif token.offset in visitor.yield_from_fors:
             _replace_yield(tokens, i)
+        elif (
+                min_version >= (3, 8) and
+                token.offset in visitor.no_arg_decorators
+        ):
+            i = _find_open_paren(tokens, i)
+            j = _find_token(tokens, i, ')')
+            del tokens[i:j + 1]
 
     return tokens_to_src(tokens)
 
@@ -2477,7 +2505,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)
     if args.min_version >= (3,):
-        contents_text = _fix_py3_plus(contents_text)
+        contents_text = _fix_py3_plus(contents_text, args.min_version)
     if args.min_version >= (3, 6):
         contents_text = _fix_py36_plus(contents_text)
 
@@ -2510,6 +2538,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         '--py37-plus',
         action='store_const', dest='min_version', const=(3, 7),
+    )
+    parser.add_argument(
+        '--py38-plus',
+        action='store_const', dest='min_version', const=(3, 8),
     )
     args = parser.parse_args(argv)
 
