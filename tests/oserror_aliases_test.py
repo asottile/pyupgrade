@@ -67,7 +67,7 @@ from pyupgrade import FindPy3Plus
 )
 def test_fix_oserror_aliases_try(alias, tpl, expected):
     s = tpl.format(alias=alias)
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected
 
 
 @pytest.mark.parametrize(
@@ -103,7 +103,7 @@ def test_fix_oserror_aliases_try(alias, tpl, expected):
     ),
 )
 def test_fix_oserror_aliases_noop(s):
-    assert _fix_py3_plus(s) == s
+    assert _fix_py3_plus(s, (3,)) == s
 
 
 @pytest.mark.parametrize('imp', FindPy3Plus.OS_ERROR_ALIAS_MODULES)
@@ -123,7 +123,7 @@ def test_fix_oserror_aliases_noop(s):
 )
 def test_fix_oserror_aliases_noop_tpl(imp, tpl):
     s = tpl.format(imp=imp)
-    assert _fix_py3_plus(s) == s
+    assert _fix_py3_plus(s, (3,)) == s
 
 
 @pytest.mark.parametrize('imp', FindPy3Plus.OS_ERROR_ALIAS_MODULES)
@@ -358,7 +358,7 @@ def test_fix_oserror_aliases_noop_tpl(imp, tpl):
 )
 def test_fix_oserror_complex_aliases_try(imp, tpl, expected_tpl):
     s, expected = tpl.format(imp=imp), expected_tpl.format(imp=imp)
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected
 
 
 @pytest.mark.parametrize('alias', FindPy3Plus.OS_ERROR_ALIASES)
@@ -383,7 +383,7 @@ def test_fix_oserror_complex_aliases_try(imp, tpl, expected_tpl):
 )
 def test_fix_oserror_aliases_raise(alias, tpl, expected):
     s = tpl.format(alias=alias)
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected
 
 
 @pytest.mark.parametrize('imp', FindPy3Plus.OS_ERROR_ALIAS_MODULES)
@@ -476,4 +476,4 @@ def test_fix_oserror_aliases_raise(alias, tpl, expected):
 )
 def test_fix_oserror_complex_aliases_raise(imp, tpl, expected_tpl):
     s, expected = tpl.format(imp=imp), expected_tpl.format(imp=imp)
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected

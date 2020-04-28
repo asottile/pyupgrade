@@ -438,3 +438,17 @@ Availability:
 _note_: `pyupgrade` is intentionally timid and will not create an f-string
 if it would make the expression longer or if the substitution parameters are
 anything but simple names or dotted names (as this can decrease readability).
+
+### remove parentheses from `@functools.lru_cache()`
+
+Availability:
+- `--py38-plus` is passed on the commandline.
+
+```diff
+ import functools
+
+-@functools.lru_cache()
++@functools.lru_cache
+ def expensive():
+     ...
+```

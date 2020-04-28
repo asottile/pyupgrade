@@ -129,6 +129,27 @@ def test_py37_plus_removes_annotations(tmpdir):
     assert f.read() == 'x = 1\n'
 
 
+def test_py38_plus_removes_no_arg_decorators(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write(
+        'import functools\n\n'
+        '@functools.lru_cache()\n'
+        'def expensive():\n'
+        '   ...',
+    )
+    assert main((f.strpath,)) == 0
+    assert main((f.strpath, '--py3-plus')) == 0
+    assert main((f.strpath, '--py36-plus')) == 0
+    assert main((f.strpath, '--py37-plus')) == 0
+    assert main((f.strpath, '--py38-plus')) == 1
+    assert f.read() == (
+        'import functools\n\n'
+        '@functools.lru_cache\n'
+        'def expensive():\n'
+        '   ...'
+    )
+
+
 def test_noop_token_error(tmpdir):
     f = tmpdir.join('f.py')
     f.write(

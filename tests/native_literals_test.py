@@ -14,7 +14,7 @@ from pyupgrade import _fix_py3_plus
     ),
 )
 def test_fix_native_literals_noop(s):
-    assert _fix_py3_plus(s) == s
+    assert _fix_py3_plus(s, (3,)) == s
 
 
 @pytest.mark.parametrize(
@@ -29,4 +29,4 @@ def test_fix_native_literals_noop(s):
     ),
 )
 def test_fix_native_literals(s, expected):
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected

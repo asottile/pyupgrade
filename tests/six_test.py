@@ -39,7 +39,7 @@ from pyupgrade import _fix_py3_plus
     ),
 )
 def test_fix_six_noop(s):
-    assert _fix_py3_plus(s) == s
+    assert _fix_py3_plus(s, (3,)) == s
 
 
 @pytest.mark.parametrize(
@@ -368,7 +368,7 @@ def test_fix_six_noop(s):
     ),
 )
 def test_fix_six(s, expected):
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected
 
 
 @pytest.mark.parametrize(
@@ -419,4 +419,4 @@ def test_fix_six(s, expected):
     ),
 )
 def test_fix_base_classes(s, expected):
-    assert _fix_py3_plus(s) == expected
+    assert _fix_py3_plus(s, (3,)) == expected
