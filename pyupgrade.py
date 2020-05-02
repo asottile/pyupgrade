@@ -2370,7 +2370,10 @@ def _unparse(node: ast.expr) -> str:
         else:
             raise AssertionError(f'expected Slice: {ast.dump(node)}')
         if isinstance(node_slice, ast.Tuple):
-            slice_s = ', '.join(_unparse(elt) for elt in node_slice.elts)
+            if len(node_slice.elts) == 1:
+                slice_s = f'{_unparse(node_slice.elts[0])},'
+            else:
+                slice_s = ', '.join(_unparse(elt) for elt in node_slice.elts)
         else:
             slice_s = _unparse(node_slice)
         return '{}[{}]'.format(_unparse(node.value), slice_s)
