@@ -430,6 +430,7 @@ def _imports_unicode_literals(contents_text: str) -> bool:
             continue
         elif isinstance(node, ast.ImportFrom):
             if (
+                node.level == 0 and
                 node.module == '__future__' and
                 any(name.name == 'unicode_literals' for name in node.names)
             ):
@@ -1312,17 +1313,18 @@ class FindPy3Plus(ast.NodeVisitor):
         )
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if node.module in self.FROM_IMPORTED_MODULES:
-            for name in node.names:
-                if not name.asname:
-                    self._from_imports[node.module].add(name.name)
-        elif node.module in self.MOCK_MODULES:
-            self.mock_relative_imports.add(_ast_to_offset(node))
-        elif node.module == 'sys' and any(
-            name.name == 'version_info' and not name.asname
-            for name in node.names
-        ):
-            self._version_info_imported = True
+        if not node.level:
+            if node.module in self.FROM_IMPORTED_MODULES:
+                for name in node.names:
+                    if not name.asname:
+                        self._from_imports[node.module].add(name.name)
+            elif node.module in self.MOCK_MODULES:
+                self.mock_relative_imports.add(_ast_to_offset(node))
+            elif node.module == 'sys' and any(
+                name.name == 'version_info' and not name.asname
+                for name in node.names
+            ):
+                self._version_info_imported = True
         self.generic_visit(node)
 
     def visit_Import(self, node: ast.Import) -> None:
@@ -2282,7 +2284,7 @@ class FindPy36Plus(ast.NodeVisitor):
         self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if node.module in {'typing', 'typing_extensions'}:
+        if node.level == 0 and node.module in {'typing', 'typing_extensions'}:
             for name in node.names:
                 if not name.asname:
                     self._from_imports[node.module].add(name.name)

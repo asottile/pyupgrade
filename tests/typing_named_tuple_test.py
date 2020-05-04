@@ -45,6 +45,11 @@ from pyupgrade import _fix_py36_plus
             'C = typing.NamedTuple("C", *types)',
             id='NamedTuple starargs',
         ),
+        pytest.param(
+            'from .typing import NamedTuple\n'
+            'C = NamedTuple("C", [("a", int)])\n',
+            id='relative imports',
+        ),
     ),
 )
 def test_typing_named_tuple_noop(s):

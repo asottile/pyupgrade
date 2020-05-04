@@ -38,6 +38,13 @@ from pyupgrade import _fix_py3_plus
             (3,),
             id='not rewriting below 3.8',
         ),
+        pytest.param(
+            'from .functools import lru_cache\n'
+            '@lru_cache()\n'
+            'def foo(): pass\n',
+            (3, 8),
+            id='relative imports',
+        ),
     ),
 )
 def test_fix_no_arg_decorators_noop(s, min_version):
