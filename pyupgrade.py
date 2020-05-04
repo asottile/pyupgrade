@@ -430,6 +430,7 @@ def _imports_unicode_literals(contents_text: str) -> bool:
             continue
         elif isinstance(node, ast.ImportFrom):
             if (
+                node.level == 0 and
                 node.module == '__future__' and
                 any(name.name == 'unicode_literals' for name in node.names)
             ):

@@ -22,6 +22,7 @@ from pyupgrade import _imports_unicode_literals
             'from __future__ import unicode_literals\n',
             True,
         ),
+        ('from .__future__ import unicode_literals\n', False),
     ),
 )
 def test_imports_unicode_literals(s, expected):
