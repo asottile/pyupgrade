@@ -2283,7 +2283,7 @@ class FindPy36Plus(ast.NodeVisitor):
         self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if node.module in {'typing', 'typing_extensions'}:
+        if node.level == 0 and node.module in {'typing', 'typing_extensions'}:
             for name in node.names:
                 if not name.asname:
                     self._from_imports[node.module].add(name.name)
