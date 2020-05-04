@@ -10,6 +10,10 @@ from pyupgrade import _fix_py3_plus
             'import contextlib, mock, sys\n',
             id='does not rewrite multiple imports',
         ),
+        pytest.param(
+            'from .mock import patch\n',
+            id='leave relative imports alone',
+        ),
     ),
 )
 def test_mock_noop(s):

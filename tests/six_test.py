@@ -36,6 +36,11 @@ from pyupgrade import _fix_py3_plus
         ').text_type(u)\n',
         # next is shadowed
         'next()',
+        pytest.param(
+            'from .six import text_type\n'
+            'isinstance("foo", text_type)\n',
+            id='relative import might not be six',
+        ),
     ),
 )
 def test_fix_six_noop(s):

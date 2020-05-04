@@ -33,6 +33,14 @@ from pyupgrade import _fix_py3_plus
         '    3\n'
         'else:\n'
         '    2\n',
+        pytest.param(
+            'from .sys import version_info\n'
+            'if version_info < (3,):\n'
+            '    print("2")\n'
+            'else:\n'
+            '    print("3")\n',
+            id='relative imports',
+        ),
     ),
 )
 def test_fix_py2_block_noop(s):

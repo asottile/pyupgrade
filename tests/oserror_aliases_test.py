@@ -100,6 +100,11 @@ def test_fix_oserror_aliases_try(alias, tpl, expected):
         '    pass\n'
         'except (OSError, KeyError):\n'
         '    pass\n',
+        pytest.param(
+            'from .mmap import error\n'
+            'raise error("hi")\n',
+            id='relative imports',
+        ),
     ),
 )
 def test_fix_oserror_aliases_noop(s):
