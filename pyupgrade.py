@@ -1189,6 +1189,8 @@ class FindPy3Plus(ast.NodeVisitor):
 
     FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union(('functools', 'six'))
 
+    MOCK_MODULES = frozenset(('mock', 'mock.mock'))
+
     class ClassInfo:
         def __init__(self, name: str) -> None:
             self.name = name
@@ -1210,6 +1212,9 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
         self.io_open_calls: Set[Offset] = set()
+        self.mock_mock: Set[Offset] = set()
+        self.mock_absolute_imports: Set[Offset] = set()
+        self.mock_relative_imports: Set[Offset] = set()
         self.open_mode_calls: Set[Offset] = set()
         self.os_error_alias_calls: Set[Offset] = set()
         self.os_error_alias_simple: Dict[Offset, NameOrAttr] = {}
@@ -1259,6 +1264,14 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr == 'lru_cache'
         )
 
+    def _is_mock_mock(self, node: ast.expr) -> bool:
+        return (
+            isinstance(node, ast.Attribute) and
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'mock' and
+            node.attr == 'mock'
+        )
+
     def _is_io_open(self, node: ast.expr) -> bool:
         return (
             isinstance(node, ast.Attribute) and
@@ -1303,11 +1316,22 @@ class FindPy3Plus(ast.NodeVisitor):
             for name in node.names:
                 if not name.asname:
                     self._from_imports[node.module].add(name.name)
+        elif node.module in self.MOCK_MODULES:
+            self.mock_relative_imports.add(_ast_to_offset(node))
         elif node.module == 'sys' and any(
             name.name == 'version_info' and not name.asname
             for name in node.names
         ):
             self._version_info_imported = True
+        self.generic_visit(node)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        if (
+                len(node.names) == 1 and
+                node.names[0].name in self.MOCK_MODULES
+        ):
+            self.mock_absolute_imports.add(_ast_to_offset(node))
+
         self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
@@ -1373,6 +1397,8 @@ class FindPy3Plus(ast.NodeVisitor):
     def _visit_simple(self, node: NameOrAttr) -> None:
         if self._is_six(node, SIX_SIMPLE_ATTRS):
             self.six_simple[_ast_to_offset(node)] = node
+        elif self._is_mock_mock(node):
+            self.mock_mock.add(_ast_to_offset(node))
         self.generic_visit(node)
 
     visit_Attribute = visit_Name = _visit_simple
@@ -1918,6 +1944,9 @@ def _fix_py3_plus(contents_text: str, min_version: MinVersion) -> str:
             visitor.native_literals,
             visitor.io_open_calls,
             visitor.open_mode_calls,
+            visitor.mock_mock,
+            visitor.mock_absolute_imports,
+            visitor.mock_relative_imports,
             visitor.os_error_alias_calls,
             visitor.os_error_alias_simple,
             visitor.os_error_alias_excepts,
@@ -2100,6 +2129,31 @@ def _fix_py3_plus(contents_text: str, min_version: MinVersion) -> str:
         elif token.offset in visitor.io_open_calls:
             j = _find_open_paren(tokens, i)
             tokens[i:j] = [token._replace(name='NAME', src='open')]
+        elif token.offset in visitor.mock_mock:
+            j = _find_token(tokens, i + 1, 'mock')
+            del tokens[i + 1:j + 1]
+        elif token.offset in visitor.mock_absolute_imports:
+            j = _find_token(tokens, i, 'mock')
+            if (
+                    j + 2 < len(tokens) and
+                    tokens[j + 1].src == '.' and
+                    tokens[j + 2].src == 'mock'
+            ):
+                j += 2
+            src = 'from unittest import mock'
+            tokens[i:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
+        elif token.offset in visitor.mock_relative_imports:
+            j = _find_token(tokens, i, 'mock')
+            if (
+                    j + 2 < len(tokens) and
+                    tokens[j + 1].src == '.' and
+                    tokens[j + 2].src == 'mock'
+            ):
+                k = j + 2
+            else:
+                k = j
+            src = 'unittest.mock'
+            tokens[j:k + 1] = [tokens[j]._replace(name='NAME', src=src)]
         elif token.offset in visitor.open_mode_calls:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
