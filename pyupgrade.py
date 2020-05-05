@@ -676,6 +676,7 @@ def _build_import_removals() -> Dict[MinVersion, Dict[str, Tuple[str, ...]]]:
         ),
         ((3, 6), ()),
         ((3, 7), ('generator_stop',)),
+        ((3, 8), ()),
     )
 
     prev: Tuple[str, ...] = ()
