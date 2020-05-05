@@ -2,6 +2,8 @@ import io
 import sys
 from unittest import mock
 
+import pytest
+
 from pyupgrade import main
 
 
@@ -9,11 +11,27 @@ def test_main_trivial():
     assert main(()) == 0
 
 
-def test_main_noop(tmpdir):
+@pytest.mark.parametrize(
+    'args',
+    (
+        (),
+        ('--py3-plus',),
+        ('--py36-plus',),
+        ('--py37-plus',),
+        ('--py38-plus',),
+    ),
+)
+def test_main_noop(tmpdir, args):
     f = tmpdir.join('f.py')
-    f.write('x = 5\n')
-    assert main((f.strpath,)) == 0
-    assert f.read() == 'x = 5\n'
+    f.write(
+        'from sys import version_info\n'
+        'x=version_info\n',
+    )
+    assert main((f.strpath, *args)) == 0
+    assert f.read() == (
+        'from sys import version_info\n'
+        'x=version_info\n'
+    )
 
 
 def test_main_changes_a_file(tmpdir, capsys):
