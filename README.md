@@ -449,6 +449,20 @@ _note_: `pyupgrade` is intentionally timid and will not create an f-string
 if it would make the expression longer or if the substitution parameters are
 anything but simple names or dotted names (as this can decrease readability).
 
+### remove parentheses from `@dataclasses.dataclass()`
+
+Availability:
+- `--py37-plus` is passed on the commandline.
+
+```diff
+ import dataclasses
+
+-@dataclasses.dataclass()
++@dataclasses.dataclass
+ class Data:
+     ...
+```
+
 ### remove parentheses from `@functools.lru_cache()`
 
 Availability:

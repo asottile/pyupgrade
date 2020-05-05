@@ -1188,7 +1188,9 @@ class FindPy3Plus(ast.NodeVisitor):
         'socket',
     ))
 
-    FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union(('functools', 'six'))
+    FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union(
+        ('dataclasses', 'functools', 'six'),
+    )
 
     MOCK_MODULES = frozenset(('mock', 'mock.mock'))
 
@@ -1239,7 +1241,8 @@ class FindPy3Plus(ast.NodeVisitor):
         self._in_async_def = False
         self.yield_from_fors: Set[Offset] = set()
 
-        self.no_arg_decorators: Set[Offset] = set()
+        self.dataclass_deco: Set[Offset] = set()
+        self.functools_lru_cache_deco: Set[Offset] = set()
 
     def _is_six(self, node: ast.expr, names: Container[str]) -> bool:
         return (
@@ -1251,6 +1254,18 @@ class FindPy3Plus(ast.NodeVisitor):
             isinstance(node.value, ast.Name) and
             node.value.id == 'six' and
             node.attr in names
+        )
+
+    def _is_dataclass(self, node: ast.expr) -> bool:
+        return (
+            isinstance(node, ast.Name) and
+            node.id == 'dataclass' and
+            node.id in self._from_imports['dataclasses']
+        ) or (
+            isinstance(node, ast.Attribute) and
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'dataclasses' and
+            node.attr == 'dataclass'
         )
 
     def _is_lru_cache(self, node: ast.expr) -> bool:
@@ -1529,9 +1544,15 @@ class FindPy3Plus(ast.NodeVisitor):
         elif (
                 not node.args and
                 not node.keywords and
+                self._is_dataclass(node.func)
+        ):
+            self.dataclass_deco.add(_ast_to_offset(node))
+        elif (
+                not node.args and
+                not node.keywords and
                 self._is_lru_cache(node.func)
         ):
-            self.no_arg_decorators.add(_ast_to_offset(node))
+            self.functools_lru_cache_deco.add(_ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1952,7 +1973,8 @@ def _fix_py3_plus(contents_text: str, min_version: MinVersion) -> str:
             visitor.os_error_alias_calls,
             visitor.os_error_alias_simple,
             visitor.os_error_alias_excepts,
-            visitor.no_arg_decorators,
+            visitor.dataclass_deco,
+            visitor.functools_lru_cache_deco,
             visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
@@ -2236,7 +2258,14 @@ def _fix_py3_plus(contents_text: str, min_version: MinVersion) -> str:
             _replace_yield(tokens, i)
         elif (
                 min_version >= (3, 8) and
-                token.offset in visitor.no_arg_decorators
+                token.offset in visitor.functools_lru_cache_deco
+        ):
+            i = _find_open_paren(tokens, i)
+            j = _find_token(tokens, i, ')')
+            del tokens[i:j + 1]
+        elif (
+                min_version >= (3, 7) and
+                token.offset in visitor.dataclass_deco
         ):
             i = _find_open_paren(tokens, i)
             j = _find_token(tokens, i, ')')
