@@ -127,6 +127,18 @@ from pyupgrade import targets_same
             '\n'
             '    return g',
         ),
+        pytest.param(
+            'def f():\n'
+            '    for x in y:\n'
+            '        yield x\n'
+            '    for z in x:\n'
+            '        yield z\n',
+            'def f():\n'
+            '    for x in y:\n'
+            '        yield x\n'
+            '    yield from x\n',
+            id='leave one loop alone (referenced after assignment)',
+        ),
     ),
 )
 def test_fix_yield_from(s, expected):
@@ -166,6 +178,33 @@ def test_fix_yield_from(s, expected):
         '        yield x\n'
         '    else:\n'
         '        print("boom!")\n',
+        pytest.param(
+            'def f():\n'
+            '    for x in range(5):\n'
+            '        yield x\n'
+            '    print(x)\n',
+            id='variable referenced after loop',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    def g():\n'
+            '        print(x)\n'
+            '    for x in range(5):\n'
+            '        yield x\n'
+            '    g()\n',
+            id='variable referenced after loop, but via function',
+        ),
+        pytest.param(
+            'def f():\n'
+            '    def g():\n'
+            '        def h():\n'
+            '           print(x)\n'
+            '        return h\n'
+            '    for x in range(5):\n'
+            '        yield x\n'
+            '    g()()\n',
+            id='variable referenced after loop, but via nested function',
+        ),
     ),
 )
 def test_fix_yield_from_noop(s):
