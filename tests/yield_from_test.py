@@ -205,6 +205,11 @@ def test_fix_yield_from(s, expected):
             '    g()()\n',
             id='variable referenced after loop, but via nested function',
         ),
+        pytest.param(
+            'def f(x):\n'
+            '    del x\n',
+            id='regression with del ctx (#306)',
+        ),
     ),
 )
 def test_fix_yield_from_noop(s):
