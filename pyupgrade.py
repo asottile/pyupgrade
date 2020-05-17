@@ -1448,7 +1448,7 @@ class FindPy3Plus(ast.NodeVisitor):
         if self._scope_stack:
             if isinstance(node.ctx, ast.Load):
                 self._scope_stack[-1].reads.add(node.id)
-            elif isinstance(node.ctx, ast.Store):
+            elif isinstance(node.ctx, (ast.Store, ast.Del)):
                 self._scope_stack[-1].writes.add(node.id)
             else:
                 raise AssertionError(node)
