@@ -1127,7 +1127,7 @@ SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
 U_MODE_REMOVE = frozenset(('U', 'Ur', 'rU', 'r', 'rt', 'tr'))
 U_MODE_REPLACE_R = frozenset(('Ub', 'bU'))
 U_MODE_REMOVE_U = frozenset(('rUb', 'Urb', 'rbU', 'Ubr', 'bUr', 'brU'))
-U_MODE_ALL = U_MODE_REMOVE | U_MODE_REPLACE_R | U_MODE_REMOVE_U
+U_MODE_REPLACE = U_MODE_REPLACE_R | U_MODE_REMOVE_U
 
 
 def _all_isinstance(
@@ -1570,10 +1570,12 @@ class FindPy3Plus(ast.NodeVisitor):
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'open' and
-                len(node.args) >= 2 and
                 not _starargs(node) and
-                isinstance(node.args[1], ast.Str) and
-                node.args[1].s in U_MODE_ALL
+                len(node.args) >= 2 and
+                isinstance(node.args[1], ast.Str) and (
+                    node.args[1].s in U_MODE_REPLACE or
+                    (len(node.args) == 2 and node.args[1].s in U_MODE_REMOVE)
+                )
         ):
             self.open_mode_calls.add(_ast_to_offset(node))
         elif (
