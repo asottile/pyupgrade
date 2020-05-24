@@ -13,6 +13,8 @@ from pyupgrade import _fix_py3_plus
         'open("foo", "Uw")',
         # TODO: could maybe be rewritten to remove t?
         'open("foo", "wt")',
+        # don't remove this, they meant to use `encoding=`
+        'open("foo", "r", "utf-8")',
     ),
 )
 def test_fix_open_mode_noop(s):
