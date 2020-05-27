@@ -20,6 +20,16 @@ def test_mock_noop(s):
     assert _fix_py3_plus(s, (3,)) == s
 
 
+def test_mock_noop_keep_mock():
+    """This would've been rewritten if keep_mock were False"""
+    s = (
+        'from mock import patch\n'
+        '\n'
+        'patch("func")'
+    )
+    assert _fix_py3_plus(s, (3,), keep_mock=True) == s
+
+
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (

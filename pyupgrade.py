@@ -1209,7 +1209,9 @@ class FindPy3Plus(ast.NodeVisitor):
             self.yield_from_names: Dict[str, Set[Offset]]
             self.yield_from_names = collections.defaultdict(set)
 
-    def __init__(self) -> None:
+    def __init__(self, keep_mock: bool) -> None:
+        self._find_mock = not keep_mock
+
         self.bases_to_remove: Set[Offset] = set()
 
         self.encode_calls: Dict[Offset, ast.Call] = {}
@@ -1330,7 +1332,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 for name in node.names:
                     if not name.asname:
                         self._from_imports[node.module].add(name.name)
-            elif node.module in self.MOCK_MODULES:
+            elif self._find_mock and node.module in self.MOCK_MODULES:
                 self.mock_relative_imports.add(_ast_to_offset(node))
             elif node.module == 'sys' and any(
                 name.name == 'version_info' and not name.asname
@@ -1341,6 +1343,7 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_Import(self, node: ast.Import) -> None:
         if (
+                self._find_mock and
                 len(node.names) == 1 and
                 node.names[0].name in self.MOCK_MODULES
         ):
@@ -1437,7 +1440,7 @@ class FindPy3Plus(ast.NodeVisitor):
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if self._is_six(node, SIX_SIMPLE_ATTRS):
             self.six_simple[_ast_to_offset(node)] = node
-        elif self._is_mock_mock(node):
+        elif self._find_mock and self._is_mock_mock(node):
             self.mock_mock.add(_ast_to_offset(node))
         self.generic_visit(node)
 
@@ -1994,13 +1997,17 @@ def _replace_yield(tokens: List[Token], i: int) -> None:
     tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
 
 
-def _fix_py3_plus(contents_text: str, min_version: MinVersion) -> str:
+def _fix_py3_plus(
+        contents_text: str,
+        min_version: MinVersion,
+        keep_mock: bool = False,
+) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    visitor = FindPy3Plus()
+    visitor = FindPy3Plus(keep_mock)
     visitor.visit(ast_obj)
 
     if not any((
@@ -2637,7 +2644,9 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)
     if args.min_version >= (3,):
-        contents_text = _fix_py3_plus(contents_text, args.min_version)
+        contents_text = _fix_py3_plus(
+            contents_text, args.min_version, args.keep_mock,
+        )
     if args.min_version >= (3, 6):
         contents_text = _fix_py36_plus(contents_text)
 
@@ -2659,6 +2668,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
+    parser.add_argument('--keep-mock', action='store_true')
     parser.add_argument(
         '--py3-plus', '--py3-only',
         action='store_const', dest='min_version', default=(2, 7), const=(3,),
