@@ -243,6 +243,7 @@ Availability:
 
 Availability:
 - `--py3-plus` is passed on the commandline.
+- [Unless `--keep-mock` is passed on the commandline](https://github.com/asottile/pyupgrade/issues/314).
 
 ```diff
 -from mock import patch
