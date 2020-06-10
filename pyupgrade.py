@@ -1157,8 +1157,8 @@ def fields_same(n1: ast.AST, n2: ast.AST) -> bool:
     return True
 
 
-def targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
-    for t1, t2 in zip(ast.walk(target), ast.walk(yield_value)):
+def targets_same(node1: ast.AST, node2: ast.AST) -> bool:
+    for t1, t2 in zip(ast.walk(node1), ast.walk(node2)):
         # ignore `ast.Load` / `ast.Store`
         if _all_isinstance((t1, t2), ast.expr_context):
             continue
@@ -1175,6 +1175,15 @@ def _is_codec(encoding: str, name: str) -> bool:
         return codecs.lookup(encoding).name == name
     except LookupError:
         return False
+
+
+def _is_simple_base(base: ast.AST) -> bool:
+    return (
+        isinstance(base, ast.Name) or (
+            isinstance(base, ast.Attribute) and
+            _is_simple_base(base.value)
+        )
+    )
 
 
 class FindPy3Plus(ast.NodeVisitor):
@@ -1195,8 +1204,9 @@ class FindPy3Plus(ast.NodeVisitor):
     MOCK_MODULES = frozenset(('mock', 'mock.mock'))
 
     class ClassInfo:
-        def __init__(self, name: str) -> None:
-            self.name = name
+        def __init__(self, node: ast.ClassDef) -> None:
+            self.bases = node.bases
+            self.name = node.name
             self.def_depth = 0
             self.first_arg_name = ''
 
@@ -1249,6 +1259,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self._class_info_stack: List[FindPy3Plus.ClassInfo] = []
         self._in_comp = 0
         self.super_calls: Dict[Offset, ast.Call] = {}
+        self.old_style_super_calls: Set[Offset] = set()
         self._in_async_def = False
         self._scope_stack: List[FindPy3Plus.Scope] = []
         self.yield_from_fors: Set[Offset] = set()
@@ -1376,7 +1387,7 @@ class FindPy3Plus(ast.NodeVisitor):
         ):
             self.six_with_metaclass.add(_ast_to_offset(node.bases[0]))
 
-        self._class_info_stack.append(FindPy3Plus.ClassInfo(node.name))
+        self._class_info_stack.append(FindPy3Plus.ClassInfo(node))
         self.generic_visit(node)
         self._class_info_stack.pop()
 
@@ -1542,6 +1553,21 @@ class FindPy3Plus(ast.NodeVisitor):
                 node.args[1].id == self._class_info_stack[-1].first_arg_name
         ):
             self.super_calls[_ast_to_offset(node)] = node
+        elif (
+                not self._in_comp and
+                self._class_info_stack and
+                self._class_info_stack[-1].def_depth == 1 and
+                len(self._class_info_stack[-1].bases) == 1 and
+                _is_simple_base(self._class_info_stack[-1].bases[0]) and
+                isinstance(node.func, ast.Attribute) and
+                targets_same(
+                    self._class_info_stack[-1].bases[0], node.func.value,
+                ) and
+                len(node.args) >= 1 and
+                isinstance(node.args[0], ast.Name) and
+                node.args[0].id == self._class_info_stack[-1].first_arg_name
+        ):
+            self.old_style_super_calls.add(_ast_to_offset(node))
         elif (
                 (
                     self._is_six(node.func, SIX_NATIVE_STR) or
@@ -2038,6 +2064,7 @@ def _fix_py3_plus(
             visitor.six_type_ctx,
             visitor.six_with_metaclass,
             visitor.super_calls,
+            visitor.old_style_super_calls,
             visitor.yield_from_fors,
     )):
         return contents_text
@@ -2197,6 +2224,18 @@ def _fix_py3_plus(
             call = visitor.super_calls[token.offset]
             victims = _victims(tokens, i, call, gen=False)
             del tokens[victims.starts[0] + 1:victims.ends[-1]]
+        elif token.offset in visitor.old_style_super_calls:
+            j = _find_open_paren(tokens, i)
+            k = j - 1
+            while tokens[k].src != '.':
+                k -= 1
+            func_args, end = _parse_call_args(tokens, j)
+            # remove the first argument
+            if len(func_args) == 1:
+                del tokens[func_args[0][0]:func_args[0][0] + 1]
+            else:
+                del tokens[func_args[0][0]:func_args[1][0] + 1]
+            tokens[i:k] = [Token('CODE', 'super()')]
         elif token.offset in visitor.encode_calls:
             i = _find_open_paren(tokens, i)
             call = visitor.encode_calls[token.offset]
