@@ -265,6 +265,25 @@ def test_fix_py2_block_noop(s):
             id='six.PY2, comment after',
         ),
         pytest.param(
+            'if six.PY2:\n'
+            '    def f():\n'
+            '        print("py2")\n'
+            '    def g():\n'
+            '        print("py2")\n'
+            'else:\n'
+            '    def f():\n'
+            '        print("py3")\n'
+            '    def g():\n'
+            '        print("py3")\n',
+
+            'def f():\n'
+            '    print("py3")\n'
+            'def g():\n'
+            '    print("py3")\n',
+
+            id='six.PY2 multiple functions',
+        ),
+        pytest.param(
             'if True:\n'
             '    if six.PY3:\n'
             '        3\n'

@@ -1771,7 +1771,7 @@ class Block(NamedTuple):
         diff = self._minimum_indent(tokens) - self._initial_indent(tokens)
         for i in range(self.block, self.end):
             if (
-                    tokens[i - 1].name in ('NL', 'NEWLINE') and
+                    tokens[i - 1].name in ('DEDENT', 'NL', 'NEWLINE') and
                     tokens[i].name in ('INDENT', UNIMPORTANT_WS)
             ):
                 tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
