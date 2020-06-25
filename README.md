@@ -413,7 +413,7 @@ Availability:
 
 ```python
 # input
-NT = typing.NamedTuple('NT', [('a': int, 'b': Tuple[str, ...])])
+NT = typing.NamedTuple('NT', [('a', int), ('b', Tuple[str, ...])])
 
 D1 = typing.TypedDict('D1', a=int, b=str)
 
