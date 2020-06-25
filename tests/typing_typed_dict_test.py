@@ -20,6 +20,14 @@ from pyupgrade import _fix_py36_plus
             id='key is not a string',
         ),
         pytest.param(
+            'D = typing.TypedDict("D", {"a-b": str})',
+            id='key is not an identifier',
+        ),
+        pytest.param(
+            'D = typing.TypedDict("D", {"class": str})',
+            id='key is a keyword',
+        ),
+        pytest.param(
             'D = typing.TypedDict("D", {**d, "a": str})',
             id='dictionary splat operator',
         ),

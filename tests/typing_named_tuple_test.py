@@ -42,6 +42,10 @@ from pyupgrade import _fix_py36_plus
             id='uses keyword',
         ),
         pytest.param(
+            'C = typing.NamedTuple("C", [("not-ok", int)])',
+            id='uses non-identifier',
+        ),
+        pytest.param(
             'C = typing.NamedTuple("C", *types)',
             id='NamedTuple starargs',
         ),

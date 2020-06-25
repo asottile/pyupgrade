@@ -2449,6 +2449,7 @@ class FindPy36Plus(ast.NodeVisitor):
                         isinstance(tup, ast.Tuple) and
                         len(tup.elts) == 2 and
                         isinstance(tup.elts[0], ast.Str) and
+                        tup.elts[0].s.isidentifier() and
                         tup.elts[0].s not in _KEYWORDS
                         for tup in node.value.args[1].elts
                     )
@@ -2475,7 +2476,9 @@ class FindPy36Plus(ast.NodeVisitor):
                     isinstance(node.value.args[1], ast.Dict) and
                     node.value.args[1].keys and
                     all(
-                        isinstance(k, ast.Str)
+                        isinstance(k, ast.Str) and
+                        k.s.isidentifier() and
+                        k.s not in _KEYWORDS
                         for k in node.value.args[1].keys
                     )
             ):
