@@ -1121,6 +1121,7 @@ SIX_B_TMPL = 'b{args[0]}'
 WITH_METACLASS_NO_BASES_TMPL = 'metaclass={args[0]}'
 WITH_METACLASS_BASES_TMPL = '{rest}, metaclass={args[0]}'
 RAISE_FROM_TMPL = 'raise {args[0]} from {rest}'
+RERAISE_TMPL = 'raise'
 RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
 RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
 SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
@@ -1216,6 +1217,7 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.encode_calls: Dict[Offset, ast.Call] = {}
 
+        self._exc_info_imported = False
         self._version_info_imported = False
         self.if_py3_blocks: Set[Offset] = set()
         self.if_py2_blocks_else: Set[Offset] = set()
@@ -1267,6 +1269,14 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr in names
         )
 
+    def _is_star_sys_exc_info(self, node: ast.Call) -> bool:
+        return (
+            len(node.args) == 1 and
+            isinstance(node.args[0], ast.Starred) and
+            isinstance(node.args[0].value, ast.Call) and
+            self._is_exc_info(node.args[0].value.func)
+        )
+
     def _is_lru_cache(self, node: ast.expr) -> bool:
         return (
             isinstance(node, ast.Name) and
@@ -1314,6 +1324,18 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr == 'error'
         )
 
+    def _is_exc_info(self, node: ast.expr) -> bool:
+        return (
+            isinstance(node, ast.Name) and
+            node.id == 'exc_info' and
+            self._exc_info_imported
+        ) or (
+            isinstance(node, ast.Attribute) and
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'sys' and
+            node.attr == 'exc_info'
+        )
+
     def _is_version_info(self, node: ast.expr) -> bool:
         return (
             isinstance(node, ast.Name) and
@@ -1334,6 +1356,11 @@ class FindPy3Plus(ast.NodeVisitor):
                         self._from_imports[node.module].add(name.name)
             elif self._find_mock and node.module in self.MOCK_MODULES:
                 self.mock_relative_imports.add(_ast_to_offset(node))
+            elif node.module == 'sys' and any(
+                name.name == 'exc_info' and not name.asname
+                for name in node.names
+            ):
+                self._exc_info_imported = True
             elif node.module == 'sys' and any(
                 name.name == 'version_info' and not name.asname
                 for name in node.names
@@ -1526,7 +1553,7 @@ class FindPy3Plus(ast.NodeVisitor):
         elif (
                 isinstance(self._previous_node, ast.Expr) and
                 self._is_six(node.func, ('reraise',)) and
-                not _starargs(node)
+                not _starargs(node) or self._is_star_sys_exc_info(node)
         ):
             self.six_reraise.add(_ast_to_offset(node))
         elif (
@@ -2143,10 +2170,13 @@ def _fix_py3_plus(
         elif token.offset in visitor.six_reraise:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
-            if len(func_args) == 2:
-                _replace_call(tokens, i, end, func_args, RERAISE_2_TMPL)
+            if len(func_args) == 1:
+                tmpl = RERAISE_TMPL
+            elif len(func_args) == 2:
+                tmpl = RERAISE_2_TMPL
             else:
-                _replace_call(tokens, i, end, func_args, RERAISE_3_TMPL)
+                tmpl = RERAISE_3_TMPL
+            _replace_call(tokens, i, end, func_args, tmpl)
         elif token.offset in visitor.six_add_metaclass:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
