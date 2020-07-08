@@ -339,6 +339,8 @@ six.get_function_closure(fn)            # fn.__closure__
 six.get_function_code(fn)               # fn.__code__
 six.get_function_defaults(fn)           # fn.__defaults__
 six.get_function_globals(fn)            # fn.__globals__
+six.raise_from(exc, exc_from)           # raise exc from exc_from
+six.reraise(tp, exc, tb)                # raise exc.with_traceback(tb)
 six.assertCountEqual(self, a1, a2)      # self.assertCountEqual(a1, a2)
 six.assertRaisesRegex(self, e, r, fn)   # self.assertRaisesRegex(e, r, fn)
 six.assertRegex(self, s, r)             # self.assertRegex(s, r)
