@@ -587,6 +587,11 @@ def _fix_format_literal(tokens: List[Token], end: int) -> None:
     parsed_parts = []
     last_int = -1
     for i in parts:
+        # f'foo {0}'.format(...) would get turned into a SyntaxError
+        prefix, _ = parse_string_literal(tokens[i].src)
+        if 'f' in prefix.lower():
+            return
+
         try:
             parsed = parse_format(tokens[i].src)
         except ValueError:
