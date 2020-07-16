@@ -51,6 +51,8 @@ def test_intentionally_not_round_trip(s, expected):
         '("{0}" # {1}\n"{2}").format(1, 2, 3)',
         # TODO: this works by accident (extended escape treated as placeholder)
         r'"\N{snowman} {}".format(1)',
+        # don't touch f-strings (these are wrong but don't make it worse)
+        'f"{0}".format(a)',
     ),
 )
 def test_format_literals_noop(s):
