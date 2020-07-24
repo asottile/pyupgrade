@@ -41,6 +41,7 @@ from pyupgrade import _fix_py3_plus
             'isinstance("foo", text_type)\n',
             id='relative import might not be six',
         ),
+        ('traceback.format_exc(*sys.exc_info())'),
     ),
 )
 def test_fix_six_noop(s):

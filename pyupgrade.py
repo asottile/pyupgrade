@@ -1558,7 +1558,7 @@ class FindPy3Plus(ast.NodeVisitor):
         elif (
                 isinstance(self._previous_node, ast.Expr) and
                 self._is_six(node.func, ('reraise',)) and
-                not _starargs(node) or self._is_star_sys_exc_info(node)
+                (not _starargs(node) or self._is_star_sys_exc_info(node))
         ):
             self.six_reraise.add(_ast_to_offset(node))
         elif (
