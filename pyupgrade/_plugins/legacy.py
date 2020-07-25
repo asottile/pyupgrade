@@ -21,9 +21,7 @@ from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import Block
 from pyupgrade._token_helpers import find_and_replace_call
 from pyupgrade._token_helpers import find_block_start
-from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import find_token
-from pyupgrade._token_helpers import parse_call_args
 
 FUNC_TYPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)
 NON_LAMBDA_FUNC_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
@@ -35,20 +33,6 @@ def _fix_yield(i: int, tokens: List[Token]) -> None:
     block = Block.find(tokens, i, trim_end=True)
     container = tokens_to_src(tokens[in_token + 1:colon]).strip()
     tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
-
-
-def _fix_old_super(i: int, tokens: List[Token]) -> None:
-    j = find_open_paren(tokens, i)
-    k = j - 1
-    while tokens[k].src != '.':
-        k -= 1
-    func_args, end = parse_call_args(tokens, j)
-    # remove the first argument
-    if len(func_args) == 1:
-        del tokens[func_args[0][0]:func_args[0][0] + 1]
-    else:
-        del tokens[func_args[0][0]:func_args[1][0] + 1]
-    tokens[i:k] = [Token('CODE', 'super()')]
 
 
 def _is_simple_base(base: ast.AST) -> bool:
@@ -76,7 +60,7 @@ class Visitor(ast.NodeVisitor):
     def __init__(self) -> None:
         self._scopes: List[Scope] = []
         self.super_offsets: Set[Offset] = set()
-        self.old_super_offsets: Set[Offset] = set()
+        self.old_super_offsets: Set[Tuple[Offset, str]] = set()
         self.yield_offsets: Set[Offset] = set()
 
     @contextlib.contextmanager
@@ -153,7 +137,7 @@ class Visitor(ast.NodeVisitor):
                     node.func.value,
                 )
         ):
-            self.old_super_offsets.add(ast_to_offset(node))
+            self.old_super_offsets.add((ast_to_offset(node), node.func.attr))
 
         self.generic_visit(node)
 
@@ -204,8 +188,10 @@ def visit_Module(
     for offset in visitor.super_offsets:
         yield offset, super_func
 
-    for offset in visitor.old_super_offsets:
-        yield offset, _fix_old_super
+    for offset, func_name in visitor.old_super_offsets:
+        template = f'super().{func_name}({{rest}})'
+        callback = functools.partial(find_and_replace_call, template=template)
+        yield offset, callback
 
     for offset in visitor.yield_offsets:
         yield offset, _fix_yield

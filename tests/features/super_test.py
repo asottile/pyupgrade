@@ -201,6 +201,21 @@ def test_old_style_class_super_noop(s):
             '        super().f()\n'
             '        super().f(arg, arg)\n',
         ),
+        pytest.param(
+            'class C(B):\n'
+            '    def f(self, a):\n'
+            '         B.f(\n'
+            '             self,\n'
+            '             a,\n'
+            '         )\n',
+
+            'class C(B):\n'
+            '    def f(self, a):\n'
+            '         super().f(\n'
+            '             a,\n'
+            '         )\n',
+            id='multi-line super call',
+        ),
     ),
 )
 def test_old_style_class_super(s, expected):
