@@ -2664,6 +2664,23 @@ def _fix_py36_plus(contents_text: str) -> str:
     return tokens_to_src(tokens)
 
 
+def _fixed_str(contents_text: str, args: argparse.Namespace) -> str:
+
+    contents_text = _fix_py2_compatible(contents_text)
+    contents_text = _fix_tokens(contents_text, min_version=args.min_version)
+
+    if not args.keep_percent_format:
+        contents_text = _fix_percent_format(contents_text)
+    if args.min_version >= (3,):
+        contents_text = _fix_py3_plus(
+            contents_text, args.min_version, args.keep_mock,
+        )
+    if args.min_version >= (3, 6):
+        contents_text = _fix_py36_plus(contents_text)
+
+    return contents_text
+
+
 def _fix_file(filename: str, args: argparse.Namespace) -> int:
     if filename == '-':
         contents_bytes = sys.stdin.buffer.read()
@@ -2677,16 +2694,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         print(f'{filename} is non-utf-8 (not supported)')
         return 1
 
-    contents_text = _fix_py2_compatible(contents_text)
-    contents_text = _fix_tokens(contents_text, min_version=args.min_version)
-    if not args.keep_percent_format:
-        contents_text = _fix_percent_format(contents_text)
-    if args.min_version >= (3,):
-        contents_text = _fix_py3_plus(
-            contents_text, args.min_version, args.keep_mock,
-        )
-    if args.min_version >= (3, 6):
-        contents_text = _fix_py36_plus(contents_text)
+    contents_text = _fixed_str(contents_text, args)
 
     if filename == '-':
         print(contents_text, end='')
