@@ -2531,8 +2531,7 @@ def _unparse(node: ast.expr) -> str:
         return '{}()'.format(_unparse(node.func))
     elif isinstance(node, ast.Subscript):
         if sys.version_info >= (3, 9):  # pragma: no cover (py39+)
-            # https://github.com/python/typeshed/pull/3950
-            node_slice: ast.expr = node.slice  # type: ignore
+            node_slice: ast.expr = node.slice
         elif isinstance(node.slice, ast.Index):  # pragma: no cover (<py39)
             node_slice = node.slice.value
         else:
