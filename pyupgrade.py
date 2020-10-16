@@ -4,11 +4,13 @@ import codecs
 import collections
 import contextlib
 import keyword
+import os
 import re
 import string
 import sys
 import tokenize
 import warnings
+from pathlib import Path
 from typing import Any
 from typing import cast
 from typing import Container
@@ -2663,7 +2665,7 @@ def _fix_py36_plus(contents_text: str) -> str:
     return tokens_to_src(tokens)
 
 
-def _fix_file(filename: str, args: argparse.Namespace) -> int:
+def _fix_file(filename: Union[str, Path], args: argparse.Namespace) -> int:
     if filename == '-':
         contents_bytes = sys.stdin.buffer.read()
     else:
@@ -2700,6 +2702,25 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         return contents_text != contents_text_orig
 
 
+def __extract_sources(*filenames: Union[Path, str])->List[Union[str, Path]]:
+    extracted_files = []
+    for filename in filenames:
+        if filename == "-":
+            extracted_files.append(filename)
+            continue
+        if isinstance(filename, str):
+            filename = Path(filename)
+        if __is_python_file(filename):
+            extracted_files.append(filename)
+        elif filename.is_dir():
+            extracted_files.extend(__extract_sources(*list(filename.iterdir())))
+    return extracted_files
+
+
+def __is_python_file(filename: Path):
+    return filename.is_file() and filename.suffix == ".py"
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
@@ -2725,7 +2746,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     ret = 0
-    for filename in args.filenames:
+    for filename in __extract_sources(*args.filenames):
         ret |= _fix_file(filename, args)
     return ret
 
