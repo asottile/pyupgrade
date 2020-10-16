@@ -4,7 +4,6 @@ import codecs
 import collections
 import contextlib
 import keyword
-import os
 import re
 import string
 import sys
@@ -2702,10 +2701,10 @@ def _fix_file(filename: Union[str, Path], args: argparse.Namespace) -> int:
         return contents_text != contents_text_orig
 
 
-def __extract_sources(*filenames: Union[Path, str])->List[Union[str, Path]]:
+def __extract_sources(*filenames: Union[Path, str]) -> List[Union[str, Path]]:
     extracted_files = []
     for filename in filenames:
-        if filename == "-":
+        if filename == '-':
             extracted_files.append(filename)
             continue
         if isinstance(filename, str):
@@ -2713,12 +2712,14 @@ def __extract_sources(*filenames: Union[Path, str])->List[Union[str, Path]]:
         if __is_python_file(filename):
             extracted_files.append(filename)
         elif filename.is_dir():
-            extracted_files.extend(__extract_sources(*list(filename.iterdir())))
+            extracted_files.extend(
+                __extract_sources(*list(filename.iterdir())),
+            )
     return extracted_files
 
 
-def __is_python_file(filename: Path):
-    return filename.is_file() and filename.suffix == ".py"
+def __is_python_file(filename: Path) -> bool:
+    return filename.is_file() and filename.suffix == '.py'
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
