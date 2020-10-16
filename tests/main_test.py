@@ -205,3 +205,30 @@ def test_main_stdin_with_changes(capsys):
         assert main(('-',)) == 1
     out, err = capsys.readouterr()
     assert out == '{1, 2}\n'
+
+
+def test_run_main_on_dir_with_one_file(tmpdir):
+    f1 = tmpdir.join('f1.py')
+    f1.write('"%s" % (1,)')
+    assert main((str(tmpdir), '--py3-plus')) == 1
+    assert f1.read() == '"{}".format(1)'
+
+
+def test_run_main_on_dir_with_two_files(tmpdir):
+    f1 = tmpdir.join('f1.py')
+    f1.write('"%s" % (1,)')
+    f2 = tmpdir.join('f2.py')
+    f2.write('"%s" % (2,)')
+    assert main((str(tmpdir), '--py3-plus')) == 1
+    assert f1.read() == '"{}".format(1)'
+    assert f2.read() == '"{}".format(2)'
+
+
+def test_run_main_on_dir_with_one_python_file(tmpdir):
+    f1 = tmpdir.join('f1.py')
+    f1.write('"%s" % (1,)')
+    f2 = tmpdir.join('f2.txt')
+    f2.write('"%s" % (2,)')
+    assert main((str(tmpdir), '--py3-plus')) == 1
+    assert f1.read() == '"{}".format(1)'
+    assert f2.read() == '"%s" % (2,)'
