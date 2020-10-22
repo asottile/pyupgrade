@@ -2233,7 +2233,7 @@ def _fix_py3_plus(
             victims = _victims(tokens, i, call, gen=False)
             del tokens[victims.starts[0] + 1:victims.ends[-1]]
         elif token.offset in visitor.encode_calls:
-            i = _find_open_paren(tokens, i)
+            i = _find_open_paren(tokens, i + 1)
             call = visitor.encode_calls[token.offset]
             victims = _victims(tokens, i, call, gen=False)
             del tokens[victims.starts[0] + 1:victims.ends[-1]]
