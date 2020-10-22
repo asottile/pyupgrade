@@ -13,6 +13,14 @@ from pyupgrade import _fix_py3_plus
             'sys.stdout.buffer.write(\n    "a"\n    "b".encode("utf-8")\n)',
             'sys.stdout.buffer.write(\n    "a"\n    "b".encode()\n)',
         ),
+        (
+            'x = (\n'
+            '    "y\\u2603"\n'
+            ').encode("utf-8")\n',
+            'x = (\n'
+            '    "y\\u2603"\n'
+            ').encode()\n',
+        ),
     ),
 )
 def test_fix_encode(s, expected):
