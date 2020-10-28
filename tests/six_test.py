@@ -382,6 +382,11 @@ def test_fix_six_noop(s):
             'print(next(iter({1:2}.values())))\n',
             id='six.itervalues inside next(...)',
         ),
+        pytest.param(
+            'six.itervalues({} or {})\n',
+            '({} or {}).values()\n',
+            id='six.itervalues with logic inside call',
+        ),
     ),
 )
 def test_fix_six(s, expected):

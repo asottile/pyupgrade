@@ -1122,6 +1122,9 @@ SIX_CALLS = {
     'assertRaisesRegex': '{args[0]}.assertRaisesRegex({rest})',
     'assertRegex': '{args[0]}.assertRegex({rest})',
 }
+SIX_CALLS_PARENTHESIZED = {
+    k: v.replace('{args[0]}', '({args[0]})') for k, v in SIX_CALLS.items()
+}
 SIX_B_TMPL = 'b{args[0]}'
 WITH_METACLASS_NO_BASES_TMPL = 'metaclass={args[0]}'
 WITH_METACLASS_BASES_TMPL = '{rest}, metaclass={args[0]}'
@@ -1244,6 +1247,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.six_add_metaclass: Set[Offset] = set()
         self.six_b: Set[Offset] = set()
         self.six_calls: Dict[Offset, ast.Call] = {}
+        self.six_calls_parenthesized: Dict[Offset, ast.Call] = {}
         self.six_iter: Dict[Offset, ast.Call] = {}
         self._previous_node: Optional[ast.AST] = None
         self.six_raise_from: Set[Offset] = set()
@@ -1535,7 +1539,15 @@ class FindPy3Plus(ast.NodeVisitor):
         elif self._is_six(node.func, ('b', 'ensure_binary')):
             self.six_b.add(_ast_to_offset(node))
         elif self._is_six(node.func, SIX_CALLS) and not _starargs(node):
-            self.six_calls[_ast_to_offset(node)] = node
+            needs_parenthesis = (
+                node.args and
+                isinstance(node.args[0], ast.BoolOp)
+            )
+            six_calls = (
+                self.six_calls_parenthesized
+                if needs_parenthesis else self.six_calls
+            )
+            six_calls[_ast_to_offset(node)] = node
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'next' and
@@ -2062,6 +2074,7 @@ def _fix_py3_plus(
             visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
+            visitor.six_calls_parenthesized,
             visitor.six_iter,
             visitor.six_raise_from,
             visitor.six_reraise,
@@ -2161,12 +2174,21 @@ def _fix_py3_plus(
             assert isinstance(call.func, (ast.Name, ast.Attribute))
             template = f'iter({_get_tmpl(SIX_CALLS, call.func)})'
             _replace_call(tokens, i, end, func_args, template)
-        elif token.offset in visitor.six_calls:
+        elif (
+            token.offset in visitor.six_calls or
+            token.offset in visitor.six_calls_parenthesized
+        ):
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
-            call = visitor.six_calls[token.offset]
+            if token.offset in visitor.six_calls:
+                six_calls = visitor.six_calls
+                templates = SIX_CALLS
+            else:
+                six_calls = visitor.six_calls_parenthesized
+                templates = SIX_CALLS_PARENTHESIZED
+            call = six_calls[token.offset]
             assert isinstance(call.func, (ast.Name, ast.Attribute))
-            template = _get_tmpl(SIX_CALLS, call.func)
+            template = _get_tmpl(templates, call.func)
             _replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_raise_from:
             j = _find_open_paren(tokens, i)
