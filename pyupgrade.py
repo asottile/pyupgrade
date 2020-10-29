@@ -1543,11 +1543,11 @@ class FindPy3Plus(ast.NodeVisitor):
                 node.args[0],
                 (ast.BoolOp, ast.IfExp, ast.BinOp, ast.GeneratorExp),
             )
-            six_calls = (
-                self.six_calls_parenthesized
-                if needs_parenthesis else self.six_calls
-            )
-            six_calls[_ast_to_offset(node)] = node
+            offset = _ast_to_offset(node)
+            if needs_parenthesis:
+                self.six_calls_parenthesized[offset] = node
+            else:
+                self.six_calls[offset] = node
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'next' and
