@@ -1539,9 +1539,9 @@ class FindPy3Plus(ast.NodeVisitor):
         elif self._is_six(node.func, ('b', 'ensure_binary')):
             self.six_b.add(_ast_to_offset(node))
         elif self._is_six(node.func, SIX_CALLS) and not _starargs(node):
-            needs_parenthesis = (
-                node.args and
-                isinstance(node.args[0], ast.BoolOp)
+            needs_parenthesis = node.args and isinstance(
+                node.args[0],
+                (ast.BoolOp, ast.IfExp, ast.BinOp, ast.GeneratorExp),
             )
             six_calls = (
                 self.six_calls_parenthesized
