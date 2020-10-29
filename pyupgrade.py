@@ -2041,6 +2041,16 @@ def _replace_yield(tokens: List[Token], i: int) -> None:
     tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
 
 
+def _replace_six_calls(
+    tokens: List[Token], call: ast.Call, i: int, templates: Dict[str, str],
+) -> None:
+    j = _find_open_paren(tokens, i)
+    func_args, end = _parse_call_args(tokens, j)
+    assert isinstance(call.func, (ast.Name, ast.Attribute))
+    template = _get_tmpl(templates, call.func)
+    _replace_call(tokens, i, end, func_args, template)
+
+
 def _fix_py3_plus(
         contents_text: str,
         min_version: MinVersion,
@@ -2174,22 +2184,14 @@ def _fix_py3_plus(
             assert isinstance(call.func, (ast.Name, ast.Attribute))
             template = f'iter({_get_tmpl(SIX_CALLS, call.func)})'
             _replace_call(tokens, i, end, func_args, template)
-        elif (
-            token.offset in visitor.six_calls or
-            token.offset in visitor.six_calls_parenthesized
-        ):
-            j = _find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
-            if token.offset in visitor.six_calls:
-                six_calls = visitor.six_calls
-                templates = SIX_CALLS
-            else:
-                six_calls = visitor.six_calls_parenthesized
-                templates = SIX_CALLS_PARENTHESIZED
-            call = six_calls[token.offset]
-            assert isinstance(call.func, (ast.Name, ast.Attribute))
-            template = _get_tmpl(templates, call.func)
-            _replace_call(tokens, i, end, func_args, template)
+        elif token.offset in visitor.six_calls:
+            call = visitor.six_calls[token.offset]
+            templates = SIX_CALLS
+            _replace_six_calls(tokens, call, i, templates)
+        elif token.offset in visitor.six_calls_parenthesized:
+            call = visitor.six_calls_parenthesized[token.offset]
+            templates = SIX_CALLS_PARENTHESIZED
+            _replace_six_calls(tokens, call, i, templates)
         elif token.offset in visitor.six_raise_from:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
