@@ -385,7 +385,22 @@ def test_fix_six_noop(s):
         pytest.param(
             'six.itervalues({} or {})\n',
             '({} or {}).values()\n',
-            id='six.itervalues with logic inside call',
+            id='six.itervalues with boolean logic inside call',
+        ),
+        pytest.param(
+            'six.iterkeys({} if True else {})\n',
+            '({} if True else {}).keys()\n',
+            id='six.itervalues with if-expression inside call',
+        ),
+        pytest.param(
+            'six.iteritems({} for _ in "")\n',
+            '({} for _ in "").items()\n',
+            id='six.itervalues with generator expression inside call',
+        ),
+        pytest.param(
+            'six.int2byte(1 & 1)\n',
+            'bytes(((1 & 1),))\n',
+            id='six.itervalues with binary logic inside call',
         ),
     ),
 )
