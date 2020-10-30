@@ -1122,9 +1122,6 @@ SIX_CALLS = {
     'assertRaisesRegex': '{args[0]}.assertRaisesRegex({rest})',
     'assertRegex': '{args[0]}.assertRegex({rest})',
 }
-SIX_CALLS_PARENTHESIZED = {
-    k: v.replace('{args[0]}', '({args[0]})') for k, v in SIX_CALLS.items()
-}
 SIX_B_TMPL = 'b{args[0]}'
 WITH_METACLASS_NO_BASES_TMPL = 'metaclass={args[0]}'
 WITH_METACLASS_BASES_TMPL = '{rest}, metaclass={args[0]}'
@@ -2042,12 +2039,15 @@ def _replace_yield(tokens: List[Token], i: int) -> None:
 
 
 def _replace_six_calls(
-    tokens: List[Token], call: ast.Call, i: int, templates: Dict[str, str],
+    tokens: List[Token], call: ast.Call, i: int,
+    needs_parenthesis: bool = False,
 ) -> None:
     j = _find_open_paren(tokens, i)
     func_args, end = _parse_call_args(tokens, j)
     assert isinstance(call.func, (ast.Name, ast.Attribute))
-    template = _get_tmpl(templates, call.func)
+    template = _get_tmpl(SIX_CALLS, call.func)
+    if needs_parenthesis:
+        template = template.replace('{args[0]}', '({args[0]})')
     _replace_call(tokens, i, end, func_args, template)
 
 
@@ -2186,12 +2186,10 @@ def _fix_py3_plus(
             _replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_calls:
             call = visitor.six_calls[token.offset]
-            templates = SIX_CALLS
-            _replace_six_calls(tokens, call, i, templates)
+            _replace_six_calls(tokens, call, i)
         elif token.offset in visitor.six_calls_parenthesized:
             call = visitor.six_calls_parenthesized[token.offset]
-            templates = SIX_CALLS_PARENTHESIZED
-            _replace_six_calls(tokens, call, i, templates)
+            _replace_six_calls(tokens, call, i, needs_parenthesis=True)
         elif token.offset in visitor.six_raise_from:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
