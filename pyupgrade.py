@@ -1538,9 +1538,12 @@ class FindPy3Plus(ast.NodeVisitor):
         elif self._is_six(node.func, SIX_CALLS) and not _starargs(node):
             offset = _ast_to_offset(node)
 
-            if node.args and isinstance(
-                node.args[0],
-                (ast.BoolOp, ast.IfExp, ast.BinOp, ast.GeneratorExp),
+            if (
+                    node.args and
+                    isinstance(
+                        node.args[0],
+                        (ast.BoolOp, ast.IfExp, ast.BinOp, ast.GeneratorExp),
+                    )
             ):
                 self.six_calls_parenthesized[offset] = node
             else:
