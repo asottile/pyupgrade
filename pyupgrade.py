@@ -2039,7 +2039,10 @@ def _replace_yield(tokens: List[Token], i: int) -> None:
 
 
 def _replace_six_calls(
-    tokens: List[Token], call: ast.Call, i: int,
+    *,
+    tokens: List[Token],
+    call: ast.Call,
+    i: int,
     needs_parenthesis: bool = False,
 ) -> None:
     j = _find_open_paren(tokens, i)
@@ -2186,10 +2189,12 @@ def _fix_py3_plus(
             _replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_calls:
             call = visitor.six_calls[token.offset]
-            _replace_six_calls(tokens, call, i)
+            _replace_six_calls(tokens=tokens, call=call, i=i)
         elif token.offset in visitor.six_calls_parenthesized:
             call = visitor.six_calls_parenthesized[token.offset]
-            _replace_six_calls(tokens, call, i, needs_parenthesis=True)
+            _replace_six_calls(
+                tokens=tokens, call=call, i=i, needs_parenthesis=True,
+            )
         elif token.offset in visitor.six_raise_from:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
