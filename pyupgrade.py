@@ -1539,6 +1539,7 @@ class FindPy3Plus(ast.NodeVisitor):
             offset = _ast_to_offset(node)
 
             if (
+                    not self._is_six(node.func, ('int2byte',)) and
                     node.args and
                     isinstance(
                         node.args[0],

@@ -388,19 +388,24 @@ def test_fix_six_noop(s):
             id='six.itervalues with boolean logic inside call',
         ),
         pytest.param(
-            'six.iterkeys({} if True else {})\n',
-            '({} if True else {}).keys()\n',
-            id='six.itervalues with if-expression inside call',
+            'six.iteritems({} | {})\n',
+            '({} | {}).items()\n',
+            id='six.iteritems with merge operator inside call',
         ),
         pytest.param(
-            'six.iteritems({} for _ in "")\n',
-            '({} for _ in "").items()\n',
-            id='six.itervalues with generator expression inside call',
+            'six.iterkeys({} if True else {})\n',
+            '({} if True else {}).keys()\n',
+            id='six.iterkeys with if-expression inside call',
         ),
         pytest.param(
             'six.int2byte(1 & 1)\n',
-            'bytes(((1 & 1),))\n',
-            id='six.itervalues with binary logic inside call',
+            'bytes((1 & 1,))\n',
+            id='six.int2byte with binary logic inside call',
+        ),
+        pytest.param(
+            'six.u("a" for _ in "b")\n',
+            '("a" for _ in "b")\n',
+            id='six.u with generator expression inside call',
         ),
     ),
 )
