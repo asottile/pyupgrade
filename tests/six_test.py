@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from pyupgrade import _fix_py3_plus
@@ -42,6 +44,7 @@ from pyupgrade import _fix_py3_plus
             id='relative import might not be six',
         ),
         ('traceback.format_exc(*sys.exc_info())'),
+        pytest.param('six.iteritems()', id='wrong argument count'),
     ),
 )
 def test_fix_six_noop(s):
@@ -382,9 +385,73 @@ def test_fix_six_noop(s):
             'print(next(iter({1:2}.values())))\n',
             id='six.itervalues inside next(...)',
         ),
+        pytest.param(
+            'for _ in six.itervalues({} or y): pass',
+            'for _ in ({} or y).values(): pass',
+            id='needs parenthesizing for BoolOp',
+        ),
+        pytest.param(
+            'for _ in six.itervalues({} | y): pass',
+            'for _ in ({} | y).values(): pass',
+            id='needs parenthesizing for BinOp',
+        ),
+        pytest.param(
+            'six.int2byte(x | y)',
+            'bytes((x | y,))',
+            id='no parenthesize for int2byte BinOP',
+        ),
+        pytest.param(
+            'six.iteritems(+weird_dct)',
+            '(+weird_dct).items()',
+            id='needs parenthesizing for UnaryOp',
+        ),
+        pytest.param(
+            'x = six.get_method_function(lambda: x)',
+            'x = (lambda: x).__func__',
+            id='needs parenthesizing for Lambda',
+        ),
+        pytest.param(
+            'for _ in six.itervalues(x if 1 else y): pass',
+            'for _ in (x if 1 else y).values(): pass',
+            id='needs parenthesizing for IfExp',
+        ),
+        # this one is bogus / impossible, but parenthesize it anyway
+        pytest.param(
+            'six.itervalues(x for x in y)',
+            '(x for x in y).values()',
+            id='needs parentehsizing for GeneratorExp',
+        ),
+        pytest.param(
+            'async def f():\n'
+            '    return six.iteritems(await y)\n',
+            'async def f():\n'
+            '    return (await y).items()\n',
+            id='needs parenthesizing for Await',
+        ),
+        # this one is bogus / impossible, but parenthesize it anyway
+        pytest.param(
+            'six.itervalues(x < y)',
+            '(x < y).values()',
+            id='needs parentehsizing for Compare',
+        ),
     ),
 )
 def test_fix_six(s, expected):
+    assert _fix_py3_plus(s, (3,)) == expected
+
+
+@pytest.mark.xfail(sys.version_info < (3, 8), reason='walrus')
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        pytest.param(
+            'for _ in six.itervalues(x := y): pass',
+            'for _ in (x := y).values(): pass',
+            id='needs parenthesizing for NamedExpr',
+        ),
+    ),
+)
+def test_fix_six_py38_plus(s, expected):
     assert _fix_py3_plus(s, (3,)) == expected
 
 

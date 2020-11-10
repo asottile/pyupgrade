@@ -57,6 +57,13 @@ _stdlib_parse_format = string.Formatter().parse
 
 _KEYWORDS = frozenset(keyword.kwlist)
 
+_EXPR_NEEDS_PARENS: Tuple[Type[ast.expr], ...] = (
+    ast.Await, ast.BinOp, ast.BoolOp, ast.Compare, ast.GeneratorExp, ast.IfExp,
+    ast.Lambda, ast.UnaryOp,
+)
+if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
+    _EXPR_NEEDS_PARENS += (ast.NamedExpr,)
+
 
 def parse_format(s: str) -> Tuple[DotFormatPart, ...]:
     """Makes the empty string not a special case.  In the stdlib, there's
@@ -1103,7 +1110,6 @@ SIX_CALLS = {
     'u': '{args[0]}',
     'byte2int': '{args[0]}[0]',
     'indexbytes': '{args[0]}[{rest}]',
-    'int2byte': 'bytes(({args[0]},))',
     'iteritems': '{args[0]}.items()',
     'iterkeys': '{args[0]}.keys()',
     'itervalues': '{args[0]}.values()',
@@ -1122,6 +1128,7 @@ SIX_CALLS = {
     'assertRaisesRegex': '{args[0]}.assertRaisesRegex({rest})',
     'assertRegex': '{args[0]}.assertRegex({rest})',
 }
+SIX_INT2BYTE_TMPL = 'bytes(({args[0]},))'
 SIX_B_TMPL = 'b{args[0]}'
 WITH_METACLASS_NO_BASES_TMPL = 'metaclass={args[0]}'
 WITH_METACLASS_BASES_TMPL = '{rest}, metaclass={args[0]}'
@@ -1244,6 +1251,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.six_add_metaclass: Set[Offset] = set()
         self.six_b: Set[Offset] = set()
         self.six_calls: Dict[Offset, ast.Call] = {}
+        self.six_calls_int2byte: Set[Offset] = set()
         self.six_iter: Dict[Offset, ast.Call] = {}
         self._previous_node: Optional[ast.AST] = None
         self.six_raise_from: Set[Offset] = set()
@@ -1534,8 +1542,18 @@ class FindPy3Plus(ast.NodeVisitor):
             self.six_type_ctx[_ast_to_offset(node.args[1])] = arg
         elif self._is_six(node.func, ('b', 'ensure_binary')):
             self.six_b.add(_ast_to_offset(node))
-        elif self._is_six(node.func, SIX_CALLS) and not _starargs(node):
+        elif (
+                self._is_six(node.func, SIX_CALLS) and
+                node.args and
+                not _starargs(node)
+        ):
             self.six_calls[_ast_to_offset(node)] = node
+        elif (
+                self._is_six(node.func, ('int2byte',)) and
+                node.args and
+                not _starargs(node)
+        ):
+            self.six_calls_int2byte.add(_ast_to_offset(node))
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'next' and
@@ -2006,8 +2024,12 @@ def _replace_call(
         end: int,
         args: List[Tuple[int, int]],
         tmpl: str,
+        *,
+        parens: Sequence[int] = (),
 ) -> None:
     arg_strs = [_arg_str(tokens, *arg) for arg in args]
+    for paren in parens:
+        arg_strs[paren] = f'({arg_strs[paren]})'
 
     start_rest = args[0][1] + 1
     while (
@@ -2062,6 +2084,7 @@ def _fix_py3_plus(
             visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
+            visitor.six_calls_int2byte,
             visitor.six_iter,
             visitor.six_raise_from,
             visitor.six_reraise,
@@ -2167,7 +2190,14 @@ def _fix_py3_plus(
             call = visitor.six_calls[token.offset]
             assert isinstance(call.func, (ast.Name, ast.Attribute))
             template = _get_tmpl(SIX_CALLS, call.func)
-            _replace_call(tokens, i, end, func_args, template)
+            if isinstance(call.args[0], _EXPR_NEEDS_PARENS):
+                _replace_call(tokens, i, end, func_args, template, parens=(0,))
+            else:
+                _replace_call(tokens, i, end, func_args, template)
+        elif token.offset in visitor.six_calls_int2byte:
+            j = _find_open_paren(tokens, i)
+            func_args, end = _parse_call_args(tokens, j)
+            _replace_call(tokens, i, end, func_args, SIX_INT2BYTE_TMPL)
         elif token.offset in visitor.six_raise_from:
             j = _find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
