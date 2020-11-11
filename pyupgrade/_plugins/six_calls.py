@@ -51,7 +51,7 @@ SIX_CALLS = {
     'assertRegex': '{args[0]}.assertRegex({rest})',
 }
 SIX_INT2BYTE_TMPL = 'bytes(({args[0]},))'
-RAISE_FROM_TMPL = 'raise {args[0]} from {rest}'
+RAISE_FROM_TMPL = 'raise {args[0]} from {args[1]}'
 RERAISE_TMPL = 'raise'
 RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
 RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
