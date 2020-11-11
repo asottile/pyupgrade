@@ -195,7 +195,9 @@ class Block(NamedTuple):
         for i in range(self.block, self.end):
             if (
                     tokens[i - 1].name in ('NL', 'NEWLINE') and
-                    tokens[i].name in ('INDENT', UNIMPORTANT_WS)
+                    tokens[i].name in ('INDENT', UNIMPORTANT_WS) and
+                    # comments can have arbitrary indentation so ignore them
+                    tokens[i + 1].name != 'COMMENT'
             ):
                 token_indent = len(tokens[i].src)
                 if block_indent is None:
@@ -209,13 +211,17 @@ class Block(NamedTuple):
     def dedent(self, tokens: List[Token]) -> None:
         if self.line:
             return
-        diff = self._minimum_indent(tokens) - self._initial_indent(tokens)
+        initial_indent = self._initial_indent(tokens)
+        diff = self._minimum_indent(tokens) - initial_indent
         for i in range(self.block, self.end):
             if (
                     tokens[i - 1].name in ('DEDENT', 'NL', 'NEWLINE') and
                     tokens[i].name in ('INDENT', UNIMPORTANT_WS)
             ):
-                tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
+                # make sure we preserve *at least* the initial indent
+                s = tokens[i].src
+                s = s[:initial_indent] + s[initial_indent + diff:]
+                tokens[i] = tokens[i]._replace(src=s)
 
     def replace_condition(self, tokens: List[Token], new: List[Token]) -> None:
         start = self.start
