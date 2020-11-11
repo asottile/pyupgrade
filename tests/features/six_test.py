@@ -216,6 +216,13 @@ def test_fix_six_noop(s):
             id='elide object base in with_metaclass',
         ),
         pytest.param(
+            'class C(six.with_metaclass(M, B,)): pass',
+
+            'class C(B, metaclass=M): pass',
+
+            id='with_metaclass and trailing comma',
+        ),
+        pytest.param(
             '@six.add_metaclass(M)\n'
             'class C: pass\n',
 
