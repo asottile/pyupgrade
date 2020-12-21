@@ -1,6 +1,6 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.3.0
+    rev: v3.4.0
     hooks:
     -   id: check-docstring-first
     -   id: check-yaml
@@ -11,7 +11,7 @@ repos:
     -   id: requirements-txt-fixer
     -   id: trailing-whitespace
 -   repo: https://github.com/asottile/setup-cfg-fmt
-    rev: v1.15.1
+    rev: v1.16.0
     hooks:
     -   id: setup-cfg-fmt
 -   repo: https://gitlab.com/pycqa/flake8
