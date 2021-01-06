@@ -2717,7 +2717,9 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     if args.min_version >= (3, 6):
         contents_text = _fix_py36_plus(contents_text)
 
-    if filename == '-':
+    if args.check:
+        print(f'Would rewrite {filename}', file=sys.stderr)
+    elif filename == '-':
         print(contents_text, end='')
     elif contents_text != contents_text_orig:
         print(f'Rewriting {filename}', file=sys.stderr)
@@ -2733,6 +2735,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
+    parser.add_argument('--check', action='store_true')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')

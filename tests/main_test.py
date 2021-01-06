@@ -183,6 +183,16 @@ def test_noop_token_error(tmpdir):
     assert main((f.strpath, '--py36-plus')) == 0
 
 
+def test_main_check(tmpdir, capsys):
+    original = 'x = set((1, 2, 3))\n'
+    f = tmpdir.join('f.py')
+    f.write(original)
+    assert main((f.strpath, '--check')) == 1
+    out, err = capsys.readouterr()
+    assert err == f'Would rewrite {f.strpath}\n'
+    assert f.read() == original
+
+
 def test_main_exit_zero_even_if_changed(tmpdir):
     f = tmpdir.join('t.py')
     f.write('set((1, 2))\n')
