@@ -1145,6 +1145,11 @@ U_MODE_REPLACE_R = frozenset(('Ub', 'bU'))
 U_MODE_REMOVE_U = frozenset(('rUb', 'Urb', 'rbU', 'Ubr', 'bUr', 'brU'))
 U_MODE_REPLACE = U_MODE_REPLACE_R | U_MODE_REMOVE_U
 
+PEP585_BUILTINS = {
+    k: k.lower()
+    for k in ('Dict', 'FrozenSet', 'List', 'Set', 'Tuple', 'Type')
+}
+
 
 def _all_isinstance(
         vals: Iterable[Any],
@@ -1206,7 +1211,9 @@ class FindPy3Plus(ast.NodeVisitor):
         'socket',
     ))
 
-    FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union(('functools', 'six'))
+    FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union((
+        'functools', 'six', 'typing',
+    ))
 
     MOCK_MODULES = frozenset(('mock', 'mock.mock'))
 
@@ -1263,6 +1270,8 @@ class FindPy3Plus(ast.NodeVisitor):
         self.six_simple: Dict[Offset, NameOrAttr] = {}
         self.six_type_ctx: Dict[Offset, NameOrAttr] = {}
         self.six_with_metaclass: Set[Offset] = set()
+
+        self.typing_builtin_renames: Dict[Offset, NameOrAttr] = {}
 
         self._class_info_stack: List[FindPy3Plus.ClassInfo] = []
         self._in_comp = 0
@@ -1485,11 +1494,22 @@ class FindPy3Plus(ast.NodeVisitor):
             self.six_simple[_ast_to_offset(node)] = node
         elif self._find_mock and self._is_mock_mock(node):
             self.mock_mock.add(_ast_to_offset(node))
+        elif (
+                isinstance(node.value, ast.Name) and
+                node.value.id == 'typing' and
+                node.attr in PEP585_BUILTINS
+        ):
+            self.typing_builtin_renames[_ast_to_offset(node)] = node
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
         if self._is_six(node, SIX_SIMPLE_ATTRS):
             self.six_simple[_ast_to_offset(node)] = node
+        elif (
+                node.id in PEP585_BUILTINS and
+                node.id in self._from_imports['typing']
+        ):
+            self.typing_builtin_renames[_ast_to_offset(node)] = node
 
         if self._scope_stack:
             if isinstance(node.ctx, ast.Load):
@@ -2064,6 +2084,11 @@ def _fix_py3_plus(
     except SyntaxError:
         return contents_text
 
+    pep585_rewrite = (
+        min_version >= (3, 9) or
+        _imports_future(contents_text, 'annotations')
+    )
+
     visitor = FindPy3Plus(keep_mock)
     visitor.visit(ast_obj)
 
@@ -2096,6 +2121,7 @@ def _fix_py3_plus(
             visitor.six_type_ctx,
             visitor.six_with_metaclass,
             visitor.super_calls,
+            visitor.typing_builtin_renames,
             visitor.yield_from_fors,
     )):
         return contents_text
@@ -2260,6 +2286,9 @@ def _fix_py3_plus(
             else:
                 tmpl = WITH_METACLASS_BASES_TMPL
             _replace_call(tokens, i, end, func_args, tmpl)
+        elif pep585_rewrite and token.offset in visitor.typing_builtin_renames:
+            node = visitor.typing_builtin_renames[token.offset]
+            _replace(i, PEP585_BUILTINS, node)
         elif token.offset in visitor.super_calls:
             i = _find_open_paren(tokens, i)
             call = visitor.super_calls[token.offset]
@@ -2756,8 +2785,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action='store_const', dest='min_version', const=(3, 8),
     )
     parser.add_argument(
-        '--py310-plus',
-        action='store_const', dest='min_version', const=(3, 10),
+        '--py39-plus',
+        action='store_const', dest='min_version', const=(3, 9),
     )
     args = parser.parse_args(argv)
 

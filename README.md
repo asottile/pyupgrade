@@ -467,3 +467,15 @@ Availability:
  def expensive():
      ...
 ```
+
+### pep 585 typing rewrites
+
+Availability:
+- File imports `from __future__ import annotations`
+- `--py310-plus` is passed on the commandline.
+
+```diff
+-def f(x: List[str]) -> None:
++def f(x: list[str]) -> None:
+     ...
+```
