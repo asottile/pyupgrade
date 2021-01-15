@@ -426,7 +426,7 @@ def _fix_py2_compatible(contents_text: str) -> str:
     return tokens_to_src(tokens)
 
 
-def _imports_unicode_literals(contents_text: str) -> bool:
+def _imports_future(contents_text: str, future_name: str) -> bool:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -440,7 +440,7 @@ def _imports_unicode_literals(contents_text: str) -> bool:
             if (
                 node.level == 0 and
                 node.module == '__future__' and
-                any(name.name == 'unicode_literals' for name in node.names)
+                any(name.name == future_name for name in node.names)
             ):
                 return True
             elif node.module == '__future__':
@@ -771,7 +771,10 @@ def _fix_import_removals(
 
 
 def _fix_tokens(contents_text: str, min_version: MinVersion) -> str:
-    remove_u = min_version >= (3,) or _imports_unicode_literals(contents_text)
+    remove_u = (
+        min_version >= (3,) or
+        _imports_future(contents_text, 'unicode_literals')
+    )
 
     try:
         tokens = src_to_tokens(contents_text)
@@ -2751,6 +2754,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         '--py38-plus',
         action='store_const', dest='min_version', const=(3, 8),
+    )
+    parser.add_argument(
+        '--py310-plus',
+        action='store_const', dest='min_version', const=(3, 10),
     )
     args = parser.parse_args(argv)
 
