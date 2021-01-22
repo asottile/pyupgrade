@@ -9,10 +9,22 @@ from pyupgrade import _fix_py3_plus
     ('s', 'version'),
     (
         pytest.param(
+            'x = lambda foo: None',
+            (3, 9),
+            id='lambdas do not have type annotations',
+        ),
+        pytest.param(
             'from typing import List\n'
             'x: List[int]\n',
             (3, 8),
             id='not python 3.9+',
+        ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'from typing import List\n'
+            'SomeAlias = List[int]\n',
+            (3, 8),
+            id='not in a type annotation context',
         ),
         pytest.param(
             'from typing import Union\n'
@@ -47,6 +59,13 @@ def test_fix_generic_types_noop(s, version):
 
             id='import of typing + typing.List',
         ),
+        pytest.param(
+            'from typing import List\n'
+            'SomeAlias = List[int]\n',
+            'from typing import List\n'
+            'SomeAlias = list[int]\n',
+            id='not in a type annotation context',
+        ),
     ),
 )
 def test_fix_generic_types(s, expected):
@@ -57,7 +76,7 @@ def test_fix_generic_types(s, expected):
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
-        (
+        pytest.param(
             'from __future__ import annotations\n'
             'from typing import List\n'
             'x: List[int]\n',
@@ -65,6 +84,30 @@ def test_fix_generic_types(s, expected):
             'from __future__ import annotations\n'
             'from typing import List\n'
             'x: list[int]\n',
+
+            id='variable annotations',
+        ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'from typing import List\n'
+            'def f(x: List[int]) -> None: ...\n',
+
+            'from __future__ import annotations\n'
+            'from typing import List\n'
+            'def f(x: list[int]) -> None: ...\n',
+
+            id='argument annotations',
+        ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'from typing import List\n'
+            'def f() -> List[int]: ...\n',
+
+            'from __future__ import annotations\n'
+            'from typing import List\n'
+            'def f() -> list[int]: ...\n',
+
+            id='return annotations',
         ),
     ),
 )
