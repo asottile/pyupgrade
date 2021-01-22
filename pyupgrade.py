@@ -1232,7 +1232,8 @@ class FindPy3Plus(ast.NodeVisitor):
             self.yield_from_names: Dict[str, Set[Offset]]
             self.yield_from_names = collections.defaultdict(set)
 
-    def __init__(self, keep_mock: bool) -> None:
+    def __init__(self, version: Tuple[int, ...], keep_mock: bool) -> None:
+        self._version = version
         self._find_mock = not keep_mock
 
         self.bases_to_remove: Set[Offset] = set()
@@ -1271,6 +1272,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.six_type_ctx: Dict[Offset, NameOrAttr] = {}
         self.six_with_metaclass: Set[Offset] = set()
 
+        self._in_type_annotation = False
         self.typing_builtin_renames: Dict[Offset, NameOrAttr] = {}
 
         self._class_info_stack: List[FindPy3Plus.ClassInfo] = []
@@ -1462,10 +1464,19 @@ class FindPy3Plus(ast.NodeVisitor):
                 cell_reads = info.reads - info.writes
                 self._scope_stack[-1].reads.update(cell_reads)
 
+    def _visit_annotation(self, node: ast.AST) -> None:
+        orig, self._in_type_annotation = self._in_type_annotation, True
+        self.generic_visit(node)
+        self._in_type_annotation = orig
+
     def _visit_func(self, node: AnyFunctionDef) -> None:
         with contextlib.ExitStack() as ctx, self._scope():
             if self._class_info_stack:
                 ctx.enter_context(self._track_def_depth(node))
+
+            if not isinstance(node, ast.Lambda) and node.returns is not None:
+                self._visit_annotation(node.returns)
+
             self.generic_visit(node)
 
     def _visit_sync_func(self, node: SyncFunctionDef) -> None:
@@ -1479,6 +1490,15 @@ class FindPy3Plus(ast.NodeVisitor):
         self._in_async_def, orig = True, self._in_async_def
         self._visit_func(node)
         self._in_async_def = orig
+
+    def visit_arg(self, node: ast.arg) -> None:
+        if node.annotation is not None:
+            self._visit_annotation(node.annotation)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        self._visit_annotation(node.annotation)
+        self.generic_visit(node)
 
     def _visit_comp(self, node: ast.expr) -> None:
         self._in_comp += 1
@@ -1495,6 +1515,10 @@ class FindPy3Plus(ast.NodeVisitor):
         elif self._find_mock and self._is_mock_mock(node):
             self.mock_mock.add(_ast_to_offset(node))
         elif (
+                (
+                    self._version >= (3, 9) or
+                    self._in_type_annotation
+                ) and
                 isinstance(node.value, ast.Name) and
                 node.value.id == 'typing' and
                 node.attr in PEP585_BUILTINS
@@ -1506,6 +1530,10 @@ class FindPy3Plus(ast.NodeVisitor):
         if self._is_six(node, SIX_SIMPLE_ATTRS):
             self.six_simple[_ast_to_offset(node)] = node
         elif (
+                (
+                    self._version >= (3, 9) or
+                    self._in_type_annotation
+                ) and
                 node.id in PEP585_BUILTINS and
                 node.id in self._from_imports['typing']
         ):
@@ -2089,7 +2117,7 @@ def _fix_py3_plus(
         _imports_future(contents_text, 'annotations')
     )
 
-    visitor = FindPy3Plus(keep_mock)
+    visitor = FindPy3Plus(min_version, keep_mock)
     visitor.visit(ast_obj)
 
     if not any((
