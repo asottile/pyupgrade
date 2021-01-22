@@ -1,32 +1,6 @@
 import pytest
 
 from pyupgrade import _fix_tokens
-from pyupgrade import _imports_unicode_literals
-
-
-@pytest.mark.parametrize(
-    ('s', 'expected'),
-    (
-        ('', False),
-        ('import x', False),
-        ('from foo import bar', False),
-        ('x = 5', False),
-        ('from __future__ import unicode_literals', True),
-        (
-            '"""docstring"""\n'
-            'from __future__ import unicode_literals',
-            True,
-        ),
-        (
-            'from __future__ import absolute_import\n'
-            'from __future__ import unicode_literals\n',
-            True,
-        ),
-        ('from .__future__ import unicode_literals\n', False),
-    ),
-)
-def test_imports_unicode_literals(s, expected):
-    assert _imports_unicode_literals(s) is expected
 
 
 @pytest.mark.parametrize(
