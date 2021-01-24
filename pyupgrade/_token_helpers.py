@@ -148,3 +148,54 @@ def remove_brace(tokens: List[Token], i: int) -> None:
         del tokens[i - 1:i + 2]
     else:
         del tokens[i]
+
+
+def remove_base_class(i: int, tokens: List[Token]) -> None:
+    # look forward and backward to find commas / parens
+    brace_stack = []
+    j = i
+    while tokens[j].src not in {',', ':'}:
+        if tokens[j].src == ')':
+            brace_stack.append(j)
+        j += 1
+    right = j
+
+    if tokens[right].src == ':':
+        brace_stack.pop()
+    else:
+        # if there's a close-paren after a trailing comma
+        j = right + 1
+        while tokens[j].name in NON_CODING_TOKENS:
+            j += 1
+        if tokens[j].src == ')':
+            while tokens[j].src != ':':
+                j += 1
+            right = j
+
+    if brace_stack:
+        last_part = brace_stack[-1]
+    else:
+        last_part = i
+
+    j = i
+    while brace_stack:
+        if tokens[j].src == '(':
+            brace_stack.pop()
+        j -= 1
+
+    while tokens[j].src not in {',', '('}:
+        j -= 1
+    left = j
+
+    # single base, remove the entire bases
+    if tokens[left].src == '(' and tokens[right].src == ':':
+        del tokens[left:right]
+    # multiple bases, base is first
+    elif tokens[left].src == '(' and tokens[right].src != ':':
+        # if there's space / comment afterwards remove that too
+        while tokens[right + 1].name in {UNIMPORTANT_WS, 'COMMENT'}:
+            right += 1
+        del tokens[left + 1:right + 1]
+    # multiple bases, base is not first
+    else:
+        del tokens[left:last_part + 1]

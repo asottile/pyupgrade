@@ -1,5 +1,8 @@
 import ast
 import warnings
+from typing import Container
+from typing import Dict
+from typing import Set
 from typing import Union
 
 from tokenize_rt import Offset
@@ -14,3 +17,21 @@ def ast_parse(contents_text: str) -> ast.Module:
 
 def ast_to_offset(node: Union[ast.expr, ast.stmt]) -> Offset:
     return Offset(node.lineno, node.col_offset)
+
+
+def is_name_attr(
+        node: ast.AST,
+        imports: Dict[str, Set[str]],
+        mod: str,
+        names: Container[str],
+) -> bool:
+    return (
+        isinstance(node, ast.Name) and
+        node.id in names and
+        node.id in imports[mod]
+    ) or (
+        isinstance(node, ast.Attribute) and
+        isinstance(node.value, ast.Name) and
+        node.value.id == mod and
+        node.attr in names
+    )

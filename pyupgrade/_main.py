@@ -671,8 +671,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self._version = version
         self._find_mock = not keep_mock
 
-        self.bases_to_remove: Set[Offset] = set()
-
         self.encode_calls: Dict[Offset, ast.Call] = {}
 
         self._exc_info_imported = False
@@ -850,12 +848,6 @@ class FindPy3Plus(ast.NodeVisitor):
                     not _starargs(decorator)
             ):
                 self.six_add_metaclass.add(ast_to_offset(decorator))
-
-        for base in node.bases:
-            if isinstance(base, ast.Name) and base.id == 'object':
-                self.bases_to_remove.add(ast_to_offset(base))
-            elif self._is_six(base, ('Iterator',)):
-                self.bases_to_remove.add(ast_to_offset(base))
 
         if (
                 len(node.bases) == 1 and
@@ -1414,57 +1406,6 @@ def _remove_decorator(tokens: List[Token], i: int) -> None:
     del tokens[i - 1:end + 1]
 
 
-def _remove_base_class(tokens: List[Token], i: int) -> None:
-    # look forward and backward to find commas / parens
-    brace_stack = []
-    j = i
-    while tokens[j].src not in {',', ':'}:
-        if tokens[j].src == ')':
-            brace_stack.append(j)
-        j += 1
-    right = j
-
-    if tokens[right].src == ':':
-        brace_stack.pop()
-    else:
-        # if there's a close-paren after a trailing comma
-        j = right + 1
-        while tokens[j].name in NON_CODING_TOKENS:
-            j += 1
-        if tokens[j].src == ')':
-            while tokens[j].src != ':':
-                j += 1
-            right = j
-
-    if brace_stack:
-        last_part = brace_stack[-1]
-    else:
-        last_part = i
-
-    j = i
-    while brace_stack:
-        if tokens[j].src == '(':
-            brace_stack.pop()
-        j -= 1
-
-    while tokens[j].src not in {',', '('}:
-        j -= 1
-    left = j
-
-    # single base, remove the entire bases
-    if tokens[left].src == '(' and tokens[right].src == ':':
-        del tokens[left:right]
-    # multiple bases, base is first
-    elif tokens[left].src == '(' and tokens[right].src != ':':
-        # if there's space / comment afterwards remove that too
-        while tokens[right + 1].name in {UNIMPORTANT_WS, 'COMMENT'}:
-            right += 1
-        del tokens[left + 1:right + 1]
-    # multiple bases, base is not first
-    else:
-        del tokens[left:last_part + 1]
-
-
 def _parse_call_args(
         tokens: List[Token],
         i: int,
@@ -1556,7 +1497,6 @@ def _fix_py3_plus(
     visitor.visit(ast_obj)
 
     if not any((
-            visitor.bases_to_remove,
             visitor.encode_calls,
             visitor.if_py2_blocks_else,
             visitor.if_py3_blocks,
@@ -1612,8 +1552,6 @@ def _fix_py3_plus(
     for i, token in reversed_enumerate(tokens):
         if not token.src:
             continue
-        elif token.offset in visitor.bases_to_remove:
-            _remove_base_class(tokens, i)
         elif token.offset in visitor.if_py3_blocks:
             if tokens[i].src == 'if':
                 if_block = Block.find(tokens, i)

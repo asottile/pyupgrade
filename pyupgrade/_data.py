@@ -6,6 +6,7 @@ from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import NamedTuple
+from typing import Set
 from typing import Tuple
 from typing import Type
 from typing import TYPE_CHECKING
@@ -27,11 +28,14 @@ Version = Tuple[int, ...]
 class State(NamedTuple):
     min_version: Version
     keep_percent_format: bool
+    from_imports: Dict[str, Set[str]]
 
 
 AST_T = TypeVar('AST_T', bound=ast.AST)
 TokenFunc = Callable[[int, List[Token]], None]
 ASTFunc = Callable[[State, AST_T], Iterable[Tuple[Offset, TokenFunc]]]
+
+RECORD_FROM_IMPORTS = frozenset(('six',))
 
 FUNCS = collections.defaultdict(list)
 
@@ -57,6 +61,7 @@ def visit(
     initial_state = State(
         min_version=min_version,
         keep_percent_format=keep_percent_format,
+        from_imports=collections.defaultdict(set),
     )
     nodes = [(tree, initial_state)]
 
@@ -68,6 +73,15 @@ def visit(
         for ast_func in funcs[tp]:
             for offset, token_func in ast_func(state, node):
                 ret[offset].append(token_func)
+
+        if (
+                isinstance(node, ast.ImportFrom) and
+                not node.level and
+                node.module in RECORD_FROM_IMPORTS
+        ):
+            state.from_imports[node.module].update(
+                name.name for name in node.names if not name.asname
+            )
 
         for name in reversed(node._fields):
             value = getattr(node, name)

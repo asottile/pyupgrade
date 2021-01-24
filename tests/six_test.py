@@ -2,6 +2,7 @@ import sys
 
 import pytest
 
+from pyupgrade._main import _fix_plugins
 from pyupgrade._main import _fix_py3_plus
 
 
@@ -503,4 +504,5 @@ def test_fix_six_py38_plus(s, expected):
     ),
 )
 def test_fix_base_classes(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    assert ret == expected
