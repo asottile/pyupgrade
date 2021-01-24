@@ -8,7 +8,6 @@ import re
 import string
 import sys
 import tokenize
-import warnings
 from typing import Any
 from typing import cast
 from typing import Container
@@ -35,6 +34,9 @@ from tokenize_rt import src_to_tokens
 from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 from tokenize_rt import UNIMPORTANT_WS
+
+from pyupgrade._ast_helpers import ast_parse
+from pyupgrade._ast_helpers import ast_to_offset
 
 MinVersion = Tuple[int, ...]
 DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
@@ -91,17 +93,6 @@ def unparse_parsed_string(parsed: Sequence[DotFormatPart]) -> str:
         return ret
 
     return ''.join(_convert_tup(tup) for tup in parsed)
-
-
-def _ast_to_offset(node: Union[ast.expr, ast.stmt]) -> Offset:
-    return Offset(node.lineno, node.col_offset)
-
-
-def ast_parse(contents_text: str) -> ast.Module:
-    # intentionally ignore warnings, we might be fixing warning-ridden syntax
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        return ast.parse(contents_text.encode())
 
 
 def inty(s: str) -> bool:
@@ -362,7 +353,7 @@ class Py2CompatibleVisitor(ast.NodeVisitor):
                 isinstance(node.args[0], SET_TRANSFORM)
         ):
             arg, = node.args
-            key = _ast_to_offset(node.func)
+            key = ast_to_offset(node.func)
             if isinstance(arg, (ast.List, ast.Tuple)) and not arg.elts:
                 self.set_empty_literals[key] = arg
             else:
@@ -376,7 +367,7 @@ class Py2CompatibleVisitor(ast.NodeVisitor):
                 isinstance(node.args[0].elt, (ast.Tuple, ast.List)) and
                 len(node.args[0].elt.elts) == 2
         ):
-            self.dicts[_ast_to_offset(node.func)] = node.args[0]
+            self.dicts[ast_to_offset(node.func)] = node.args[0]
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:
@@ -389,7 +380,7 @@ class Py2CompatibleVisitor(ast.NodeVisitor):
                         isinstance(right, LITERAL_TYPES)
                     )
             ):
-                self.is_literal[_ast_to_offset(right)] = op
+                self.is_literal[ast_to_offset(right)] = op
             left = right
 
         self.generic_visit(node)
@@ -920,7 +911,7 @@ class FindPercentFormats(ast.NodeVisitor):
                     if isinstance(node.right, ast.Dict) and not key:
                         break
                 else:
-                    self.found[_ast_to_offset(node)] = node
+                    self.found[ast_to_offset(node)] = node
         self.generic_visit(node)
 
 
@@ -1024,7 +1015,7 @@ def _fix_percent_format_dict(
         elif k.s in _KEYWORDS:
             return
         seen_keys.add(k.s)
-        keys[_ast_to_offset(k)] = k
+        keys[ast_to_offset(k)] = k
 
     # TODO: this is overly timid
     brace = start + 4
@@ -1383,7 +1374,7 @@ class FindPy3Plus(ast.NodeVisitor):
                     if not name.asname:
                         self._from_imports[node.module].add(name.name)
             elif self._find_mock and node.module in self.MOCK_MODULES:
-                self.mock_relative_imports.add(_ast_to_offset(node))
+                self.mock_relative_imports.add(ast_to_offset(node))
             elif node.module == 'sys' and any(
                 name.name == 'exc_info' and not name.asname
                 for name in node.names
@@ -1402,26 +1393,26 @@ class FindPy3Plus(ast.NodeVisitor):
                 len(node.names) == 1 and
                 node.names[0].name in self.MOCK_MODULES
         ):
-            self.mock_absolute_imports.add(_ast_to_offset(node))
+            self.mock_absolute_imports.add(ast_to_offset(node))
 
         self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         for decorator in node.decorator_list:
             if self._is_six(decorator, ('python_2_unicode_compatible',)):
-                self.six_remove_decorators.add(_ast_to_offset(decorator))
+                self.six_remove_decorators.add(ast_to_offset(decorator))
             elif (
                     isinstance(decorator, ast.Call) and
                     self._is_six(decorator.func, ('add_metaclass',)) and
                     not _starargs(decorator)
             ):
-                self.six_add_metaclass.add(_ast_to_offset(decorator))
+                self.six_add_metaclass.add(ast_to_offset(decorator))
 
         for base in node.bases:
             if isinstance(base, ast.Name) and base.id == 'object':
-                self.bases_to_remove.add(_ast_to_offset(base))
+                self.bases_to_remove.add(ast_to_offset(base))
             elif self._is_six(base, ('Iterator',)):
-                self.bases_to_remove.add(_ast_to_offset(base))
+                self.bases_to_remove.add(ast_to_offset(base))
 
         if (
                 len(node.bases) == 1 and
@@ -1429,7 +1420,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 self._is_six(node.bases[0].func, ('with_metaclass',)) and
                 not _starargs(node.bases[0])
         ):
-            self.six_with_metaclass.add(_ast_to_offset(node.bases[0]))
+            self.six_with_metaclass.add(ast_to_offset(node.bases[0]))
 
         self._class_info_stack.append(FindPy3Plus.ClassInfo(node.name))
         self.generic_visit(node)
@@ -1512,9 +1503,9 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if self._is_six(node, SIX_SIMPLE_ATTRS):
-            self.six_simple[_ast_to_offset(node)] = node
+            self.six_simple[ast_to_offset(node)] = node
         elif self._find_mock and self._is_mock_mock(node):
-            self.mock_mock.add(_ast_to_offset(node))
+            self.mock_mock.add(ast_to_offset(node))
         elif (
                 (
                     self._version >= (3, 9) or
@@ -1524,12 +1515,12 @@ class FindPy3Plus(ast.NodeVisitor):
                 node.value.id == 'typing' and
                 node.attr in PEP585_BUILTINS
         ):
-            self.typing_builtin_renames[_ast_to_offset(node)] = node
+            self.typing_builtin_renames[ast_to_offset(node)] = node
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
         if self._is_six(node, SIX_SIMPLE_ATTRS):
-            self.six_simple[_ast_to_offset(node)] = node
+            self.six_simple[ast_to_offset(node)] = node
         elif (
                 (
                     self._version >= (3, 9) or
@@ -1538,7 +1529,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 node.id in PEP585_BUILTINS and
                 node.id in self._from_imports['typing']
         ):
-            self.typing_builtin_renames[_ast_to_offset(node)] = node
+            self.typing_builtin_renames[ast_to_offset(node)] = node
 
         if self._scope_stack:
             if isinstance(node.ctx, ast.Load):
@@ -1555,7 +1546,7 @@ class FindPy3Plus(ast.NodeVisitor):
             htype = handler.type
             if self._is_os_error_alias(htype):
                 assert isinstance(htype, (ast.Name, ast.Attribute))
-                self.os_error_alias_simple[_ast_to_offset(htype)] = htype
+                self.os_error_alias_simple[ast_to_offset(htype)] = htype
             elif (
                     isinstance(htype, ast.Tuple) and
                     any(
@@ -1563,7 +1554,7 @@ class FindPy3Plus(ast.NodeVisitor):
                         for elt in htype.elts
                     )
             ):
-                self.os_error_alias_excepts.add(_ast_to_offset(htype))
+                self.os_error_alias_excepts.add(ast_to_offset(htype))
 
         self.generic_visit(node)
 
@@ -1572,12 +1563,12 @@ class FindPy3Plus(ast.NodeVisitor):
 
         if exc is not None and self._is_os_error_alias(exc):
             assert isinstance(exc, (ast.Name, ast.Attribute))
-            self.os_error_alias_simple[_ast_to_offset(exc)] = exc
+            self.os_error_alias_simple[ast_to_offset(exc)] = exc
         elif (
                 isinstance(exc, ast.Call) and
                 self._is_os_error_alias(exc.func)
         ):
-            self.os_error_alias_calls.add(_ast_to_offset(exc))
+            self.os_error_alias_calls.add(ast_to_offset(exc))
 
         self.generic_visit(node)
 
@@ -1591,21 +1582,21 @@ class FindPy3Plus(ast.NodeVisitor):
             arg = node.args[1]
             # _is_six() enforces this
             assert isinstance(arg, (ast.Name, ast.Attribute))
-            self.six_type_ctx[_ast_to_offset(node.args[1])] = arg
+            self.six_type_ctx[ast_to_offset(node.args[1])] = arg
         elif self._is_six(node.func, ('b', 'ensure_binary')):
-            self.six_b.add(_ast_to_offset(node))
+            self.six_b.add(ast_to_offset(node))
         elif (
                 self._is_six(node.func, SIX_CALLS) and
                 node.args and
                 not _starargs(node)
         ):
-            self.six_calls[_ast_to_offset(node)] = node
+            self.six_calls[ast_to_offset(node)] = node
         elif (
                 self._is_six(node.func, ('int2byte',)) and
                 node.args and
                 not _starargs(node)
         ):
-            self.six_calls_int2byte.add(_ast_to_offset(node))
+            self.six_calls_int2byte.add(ast_to_offset(node))
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'next' and
@@ -1618,19 +1609,19 @@ class FindPy3Plus(ast.NodeVisitor):
                 ) and
                 not _starargs(node.args[0])
         ):
-            self.six_iter[_ast_to_offset(node.args[0])] = node.args[0]
+            self.six_iter[ast_to_offset(node.args[0])] = node.args[0]
         elif (
                 isinstance(self._previous_node, ast.Expr) and
                 self._is_six(node.func, ('raise_from',)) and
                 not _starargs(node)
         ):
-            self.six_raise_from.add(_ast_to_offset(node))
+            self.six_raise_from.add(ast_to_offset(node))
         elif (
                 isinstance(self._previous_node, ast.Expr) and
                 self._is_six(node.func, ('reraise',)) and
                 (not _starargs(node) or self._is_star_sys_exc_info(node))
         ):
-            self.six_reraise.add(_ast_to_offset(node))
+            self.six_reraise.add(ast_to_offset(node))
         elif (
                 not self._in_comp and
                 self._class_info_stack and
@@ -1643,7 +1634,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 node.args[0].id == self._class_info_stack[-1].name and
                 node.args[1].id == self._class_info_stack[-1].first_arg_name
         ):
-            self.super_calls[_ast_to_offset(node)] = node
+            self.super_calls[ast_to_offset(node)] = node
         elif (
                 (
                     self._is_six(node.func, SIX_NATIVE_STR) or
@@ -1659,7 +1650,7 @@ class FindPy3Plus(ast.NodeVisitor):
                     )
                 )
         ):
-            self.native_literals.add(_ast_to_offset(node))
+            self.native_literals.add(ast_to_offset(node))
         elif (
                 isinstance(node.func, ast.Attribute) and
                 isinstance(node.func.value, ast.Str) and
@@ -1669,9 +1660,9 @@ class FindPy3Plus(ast.NodeVisitor):
                 isinstance(node.args[0], ast.Str) and
                 _is_codec(node.args[0].s, 'utf-8')
         ):
-            self.encode_calls[_ast_to_offset(node)] = node
+            self.encode_calls[ast_to_offset(node)] = node
         elif self._is_io_open(node.func):
-            self.io_open_calls.add(_ast_to_offset(node))
+            self.io_open_calls.add(ast_to_offset(node))
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'open' and
@@ -1682,13 +1673,13 @@ class FindPy3Plus(ast.NodeVisitor):
                     (len(node.args) == 2 and node.args[1].s in U_MODE_REMOVE)
                 )
         ):
-            self.open_mode_calls.add(_ast_to_offset(node))
+            self.open_mode_calls.add(ast_to_offset(node))
         elif (
                 not node.args and
                 not node.keywords and
                 self._is_lru_cache(node.func)
         ):
-            self.no_arg_decorators.add(_ast_to_offset(node))
+            self.no_arg_decorators.add(ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1701,7 +1692,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 isinstance(node.value, ast.Name) and
                 node.value.id == 'type'
         ):
-            self.metaclass_type_assignments.add(_ast_to_offset(node))
+            self.metaclass_type_assignments.add(ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1752,7 +1743,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 )
         ):
             if node.orelse and not isinstance(node.orelse[0], ast.If):
-                self.if_py2_blocks_else.add(_ast_to_offset(node))
+                self.if_py2_blocks_else.add(ast_to_offset(node))
         elif (
                 # if six.PY3:
                 self._is_six(node.test, 'PY3') or
@@ -1773,9 +1764,9 @@ class FindPy3Plus(ast.NodeVisitor):
                 )
         ):
             if node.orelse and not isinstance(node.orelse[0], ast.If):
-                self.if_py3_blocks_else.add(_ast_to_offset(node))
+                self.if_py3_blocks_else.add(ast_to_offset(node))
             elif not node.orelse:
-                self.if_py3_blocks.add(_ast_to_offset(node))
+                self.if_py3_blocks.add(ast_to_offset(node))
         self.generic_visit(node)
 
     def visit_For(self, node: ast.For) -> None:
@@ -1788,7 +1779,7 @@ class FindPy3Plus(ast.NodeVisitor):
             targets_same(node.target, node.body[0].value.value) and
             not node.orelse
         ):
-            offset = _ast_to_offset(node)
+            offset = ast_to_offset(node)
             func_info = self._scope_stack[-1]
             func_info.yield_from_fors.add(offset)
             for target_node in ast.walk(node.target):
@@ -2548,7 +2539,7 @@ class FindPy36Plus(ast.NodeVisitor):
                     if not candidate:
                         i += 1
             else:
-                self.fstrings[_ast_to_offset(node)] = node
+                self.fstrings[ast_to_offset(node)] = node
 
         self.generic_visit(node)
 
@@ -2580,7 +2571,7 @@ class FindPy36Plus(ast.NodeVisitor):
                         for tup in node.value.args[1].elts
                     )
             ):
-                self.named_tuples[_ast_to_offset(node)] = node.value
+                self.named_tuples[ast_to_offset(node)] = node.value
             elif (
                     self._is_attr(
                         node.value.func,
@@ -2590,7 +2581,7 @@ class FindPy36Plus(ast.NodeVisitor):
                     len(node.value.args) == 1 and
                     len(node.value.keywords) > 0
             ):
-                self.kw_typed_dicts[_ast_to_offset(node)] = node.value
+                self.kw_typed_dicts[ast_to_offset(node)] = node.value
             elif (
                     self._is_attr(
                         node.value.func,
@@ -2608,7 +2599,7 @@ class FindPy36Plus(ast.NodeVisitor):
                         for k in node.value.args[1].keys
                     )
             ):
-                self.dict_typed_dicts[_ast_to_offset(node)] = node.value
+                self.dict_typed_dicts[ast_to_offset(node)] = node.value
 
         self.generic_visit(node)
 
