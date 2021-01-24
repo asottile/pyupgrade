@@ -199,3 +199,14 @@ def remove_base_class(i: int, tokens: List[Token]) -> None:
     # multiple bases, base is not first
     else:
         del tokens[left:last_part + 1]
+
+
+def remove_decorator(i: int, tokens: List[Token]) -> None:
+    while tokens[i - 1].src != '@':
+        i -= 1
+    if i > 1 and tokens[i - 2].name not in {'NEWLINE', 'NL'}:
+        i -= 1
+    end = i + 1
+    while tokens[end].name != 'NEWLINE':
+        end += 1
+    del tokens[i - 1:end + 1]

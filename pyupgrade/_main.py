@@ -45,6 +45,7 @@ from pyupgrade._token_helpers import find_token
 from pyupgrade._token_helpers import KEYWORDS
 from pyupgrade._token_helpers import OPENING
 from pyupgrade._token_helpers import remove_brace
+from pyupgrade._token_helpers import remove_decorator
 from pyupgrade._token_helpers import victims
 
 DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
@@ -700,7 +701,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self._previous_node: Optional[ast.AST] = None
         self.six_raise_from: Set[Offset] = set()
         self.six_reraise: Set[Offset] = set()
-        self.six_remove_decorators: Set[Offset] = set()
         self.six_simple: Dict[Offset, NameOrAttr] = {}
         self.six_type_ctx: Dict[Offset, NameOrAttr] = {}
         self.six_with_metaclass: Set[Offset] = set()
@@ -826,9 +826,7 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         for decorator in node.decorator_list:
-            if self._is_six(decorator, ('python_2_unicode_compatible',)):
-                self.six_remove_decorators.add(ast_to_offset(decorator))
-            elif (
+            if (
                     isinstance(decorator, ast.Call) and
                     self._is_six(decorator.func, ('add_metaclass',)) and
                     not _starargs(decorator)
@@ -1375,17 +1373,6 @@ def _find_elif(tokens: List[Token], i: int) -> int:
     return i
 
 
-def _remove_decorator(tokens: List[Token], i: int) -> None:
-    while tokens[i - 1].src != '@':
-        i -= 1
-    if i > 1 and tokens[i - 2].name not in {'NEWLINE', 'NL'}:
-        i -= 1
-    end = i + 1
-    while tokens[end].name != 'NEWLINE':
-        end += 1
-    del tokens[i - 1:end + 1]
-
-
 def _parse_call_args(
         tokens: List[Token],
         i: int,
@@ -1498,7 +1485,6 @@ def _fix_py3_plus(
             visitor.six_iter,
             visitor.six_raise_from,
             visitor.six_reraise,
-            visitor.six_remove_decorators,
             visitor.six_simple,
             visitor.six_type_ctx,
             visitor.six_with_metaclass,
@@ -1575,8 +1561,6 @@ def _fix_py3_plus(
             _replace(i, SIX_TYPE_CTX_ATTRS, visitor.six_type_ctx[token.offset])
         elif token.offset in visitor.six_simple:
             _replace(i, SIX_SIMPLE_ATTRS, visitor.six_simple[token.offset])
-        elif token.offset in visitor.six_remove_decorators:
-            _remove_decorator(tokens, i)
         elif token.offset in visitor.six_b:
             j = find_open_paren(tokens, i)
             if (
@@ -1651,7 +1635,7 @@ def _fix_py3_plus(
                 else:
                     src = f' {metaclass},'
                 tokens.insert(insert + 1, Token('CODE', src))
-            _remove_decorator(tokens, i)
+            remove_decorator(i, tokens)
         elif token.offset in visitor.six_with_metaclass:
             j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
