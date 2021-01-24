@@ -2,7 +2,7 @@ import sys
 
 import pytest
 
-from pyupgrade import _fix_py2_compatible
+from pyupgrade._main import _fix_py2_compatible
 
 
 @pytest.mark.parametrize(

@@ -2,10 +2,10 @@ import ast
 
 import pytest
 
-from pyupgrade import _fix_percent_format
-from pyupgrade import _percent_to_format
-from pyupgrade import _simplify_conversion_flag
-from pyupgrade import parse_percent_format
+from pyupgrade._main import _fix_percent_format
+from pyupgrade._main import _percent_to_format
+from pyupgrade._main import _simplify_conversion_flag
+from pyupgrade._main import parse_percent_format
 
 
 @pytest.mark.parametrize(

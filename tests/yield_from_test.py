@@ -2,9 +2,9 @@ import ast
 
 import pytest
 
-from pyupgrade import _fix_py3_plus
-from pyupgrade import fields_same
-from pyupgrade import targets_same
+from pyupgrade._main import _fix_py3_plus
+from pyupgrade._main import fields_same
+from pyupgrade._main import targets_same
 
 
 @pytest.mark.parametrize(

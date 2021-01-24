@@ -2,7 +2,7 @@ import sys
 
 import pytest
 
-from pyupgrade import _fix_py3_plus
+from pyupgrade._main import _fix_py3_plus
 
 
 @pytest.mark.parametrize(

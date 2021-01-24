@@ -1,7 +1,7 @@
 import pytest
 
-from pyupgrade import _fix_py3_plus
-from pyupgrade import FindPy3Plus
+from pyupgrade._main import _fix_py3_plus
+from pyupgrade._main import FindPy3Plus
 
 
 @pytest.mark.parametrize('alias', FindPy3Plus.OS_ERROR_ALIASES)

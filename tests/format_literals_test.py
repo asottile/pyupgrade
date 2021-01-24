@@ -1,8 +1,8 @@
 import pytest
 
-from pyupgrade import _fix_tokens
-from pyupgrade import parse_format
-from pyupgrade import unparse_parsed_string
+from pyupgrade._main import _fix_tokens
+from pyupgrade._main import parse_format
+from pyupgrade._main import unparse_parsed_string
 
 
 @pytest.mark.parametrize(

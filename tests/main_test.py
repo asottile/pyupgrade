@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from pyupgrade import main
+from pyupgrade._main import main
 
 
 def test_main_trivial():
