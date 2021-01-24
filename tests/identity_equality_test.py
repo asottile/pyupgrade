@@ -20,7 +20,7 @@ from pyupgrade._main import _fix_py2_compatible
     ),
 )
 def test_fix_is_compare_to_literal_noop(s):
-    assert _fix_py2_compatible(s) == s
+    assert _fix_py2_compatible(s, (2, 7)) == s
 
 
 @pytest.mark.parametrize(
@@ -61,5 +61,5 @@ def test_fix_is_compare_to_literal_noop(s):
     ),
 )
 def test_fix_is_compare_to_literal(s, expected):
-    ret = _fix_py2_compatible(s)
+    ret = _fix_py2_compatible(s, (2, 7))
     assert ret == expected

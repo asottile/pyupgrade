@@ -37,8 +37,17 @@ from tokenize_rt import UNIMPORTANT_WS
 
 from pyupgrade._ast_helpers import ast_parse
 from pyupgrade._ast_helpers import ast_to_offset
+from pyupgrade._data import FUNCS
+from pyupgrade._data import Version
+from pyupgrade._data import visit
+from pyupgrade._token_helpers import BRACES
+from pyupgrade._token_helpers import CLOSING
+from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import OPENING
+from pyupgrade._token_helpers import remove_brace
+from pyupgrade._token_helpers import victims
 
-MinVersion = Tuple[int, ...]
 DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
 PercentFormatPart = Tuple[
     Optional[str],
@@ -49,8 +58,6 @@ PercentFormatPart = Tuple[
 ]
 PercentFormat = Tuple[str, Optional[PercentFormatPart]]
 
-ListCompOrGeneratorExp = Union[ast.ListComp, ast.GeneratorExp]
-ListOrTuple = Union[ast.List, ast.Tuple]
 NameOrAttr = Union[ast.Name, ast.Attribute]
 AnyFunctionDef = Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda]
 SyncFunctionDef = Union[ast.FunctionDef, ast.Lambda]
@@ -103,317 +110,28 @@ def inty(s: str) -> bool:
         return False
 
 
-BRACES = {'(': ')', '[': ']', '{': '}'}
-OPENING, CLOSING = frozenset(BRACES), frozenset(BRACES.values())
-SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
-
-
-def _is_wtf(func: str, tokens: List[Token], i: int) -> bool:
-    return tokens[i].src != func or tokens[i + 1].src != '('
-
-
-def _process_set_empty_literal(tokens: List[Token], start: int) -> None:
-    if _is_wtf('set', tokens, start):
-        return
-
-    i = start + 2
-    brace_stack = ['(']
-    while brace_stack:
-        token = tokens[i].src
-        if token == BRACES[brace_stack[-1]]:
-            brace_stack.pop()
-        elif token in BRACES:
-            brace_stack.append(token)
-        elif '\n' in token:
-            # Contains a newline, could cause a SyntaxError, bail
-            return
-        i += 1
-
-    # Remove the inner tokens
-    del tokens[start + 2:i - 1]
-
-
-def _search_until(tokens: List[Token], idx: int, arg: ast.expr) -> int:
-    while (
-            idx < len(tokens) and
-            not (
-                tokens[idx].line == arg.lineno and
-                tokens[idx].utf8_byte_offset == arg.col_offset
-            )
-    ):
-        idx += 1
-    return idx
-
-
-if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
-    # python 3.8 fixed the offsets of generators / tuples
-    def _arg_token_index(tokens: List[Token], i: int, arg: ast.expr) -> int:
-        idx = _search_until(tokens, i, arg) + 1
-        while idx < len(tokens) and tokens[idx].name in NON_CODING_TOKENS:
-            idx += 1
-        return idx
-else:  # pragma: no cover (<py38)
-    def _arg_token_index(tokens: List[Token], i: int, arg: ast.expr) -> int:
-        # lists containing non-tuples report the first element correctly
-        if isinstance(arg, ast.List):
-            # If the first element is a tuple, the ast lies to us about its col
-            # offset.  We must find the first `(` token after the start of the
-            # list element.
-            if isinstance(arg.elts[0], ast.Tuple):
-                i = _search_until(tokens, i, arg)
-                return _find_open_paren(tokens, i)
-            else:
-                return _search_until(tokens, i, arg.elts[0])
-            # others' start position points at their first child node already
-        else:
-            return _search_until(tokens, i, arg)
-
-
-class Victims(NamedTuple):
-    starts: List[int]
-    ends: List[int]
-    first_comma_index: Optional[int]
-    arg_index: int
-
-
-def _victims(
-        tokens: List[Token],
-        start: int,
-        arg: ast.expr,
-        gen: bool,
-) -> Victims:
-    starts = [start]
-    start_depths = [1]
-    ends: List[int] = []
-    first_comma_index = None
-    arg_depth = None
-    arg_index = _arg_token_index(tokens, start, arg)
-    brace_stack = [tokens[start].src]
-    i = start + 1
-
-    while brace_stack:
-        token = tokens[i].src
-        is_start_brace = token in BRACES
-        is_end_brace = token == BRACES[brace_stack[-1]]
-
-        if i == arg_index:
-            arg_depth = len(brace_stack)
-
-        if is_start_brace:
-            brace_stack.append(token)
-
-        # Remove all braces before the first element of the inner
-        # comprehension's target.
-        if is_start_brace and arg_depth is None:
-            start_depths.append(len(brace_stack))
-            starts.append(i)
-
-        if (
-                token == ',' and
-                len(brace_stack) == arg_depth and
-                first_comma_index is None
-        ):
-            first_comma_index = i
-
-        if is_end_brace and len(brace_stack) in start_depths:
-            if tokens[i - 2].src == ',' and tokens[i - 1].src == ' ':
-                ends.extend((i - 2, i - 1, i))
-            elif tokens[i - 1].src == ',':
-                ends.extend((i - 1, i))
-            else:
-                ends.append(i)
-            if len(brace_stack) > 1 and tokens[i + 1].src == ',':
-                ends.append(i + 1)
-
-        if is_end_brace:
-            brace_stack.pop()
-
-        i += 1
-
-    # May need to remove a trailing comma for a comprehension
-    if gen:
-        i -= 2
-        while tokens[i].name in NON_CODING_TOKENS:
-            i -= 1
-        if tokens[i].src == ',':
-            ends.append(i)
-
-    return Victims(starts, sorted(set(ends)), first_comma_index, arg_index)
-
-
-def _find_token(tokens: List[Token], i: int, src: str) -> int:
-    while tokens[i].src != src:
-        i += 1
-    return i
-
-
-def _find_open_paren(tokens: List[Token], i: int) -> int:
-    return _find_token(tokens, i, '(')
-
-
-def _is_on_a_line_by_self(tokens: List[Token], i: int) -> bool:
-    return (
-        tokens[i - 2].name == 'NL' and
-        tokens[i - 1].name == UNIMPORTANT_WS and
-        tokens[i + 1].name == 'NL'
-    )
-
-
-def _remove_brace(tokens: List[Token], i: int) -> None:
-    if _is_on_a_line_by_self(tokens, i):
-        del tokens[i - 1:i + 2]
-    else:
-        del tokens[i]
-
-
-def _process_set_literal(
-        tokens: List[Token],
-        start: int,
-        arg: ast.expr,
-) -> None:
-    if _is_wtf('set', tokens, start):
-        return
-
-    gen = isinstance(arg, ast.GeneratorExp)
-    set_victims = _victims(tokens, start + 1, arg, gen=gen)
-
-    del set_victims.starts[0]
-    end_index = set_victims.ends.pop()
-
-    tokens[end_index] = Token('OP', '}')
-    for index in reversed(set_victims.starts + set_victims.ends):
-        _remove_brace(tokens, index)
-    tokens[start:start + 2] = [Token('OP', '{')]
-
-
-def _process_dict_comp(
-        tokens: List[Token],
-        start: int,
-        arg: ListCompOrGeneratorExp,
-) -> None:
-    if _is_wtf('dict', tokens, start):
-        return
-
-    dict_victims = _victims(tokens, start + 1, arg, gen=True)
-    elt_victims = _victims(tokens, dict_victims.arg_index, arg.elt, gen=True)
-
-    del dict_victims.starts[0]
-    end_index = dict_victims.ends.pop()
-
-    tokens[end_index] = Token('OP', '}')
-    for index in reversed(dict_victims.ends):
-        _remove_brace(tokens, index)
-    # See #6, Fix SyntaxError from rewriting dict((a, b)for a, b in y)
-    if tokens[elt_victims.ends[-1] + 1].src == 'for':
-        tokens.insert(elt_victims.ends[-1] + 1, Token(UNIMPORTANT_WS, ' '))
-    for index in reversed(elt_victims.ends):
-        _remove_brace(tokens, index)
-    assert elt_victims.first_comma_index is not None
-    tokens[elt_victims.first_comma_index] = Token('OP', ':')
-    for index in reversed(dict_victims.starts + elt_victims.starts):
-        _remove_brace(tokens, index)
-    tokens[start:start + 2] = [Token('OP', '{')]
-
-
-def _process_is_literal(
-        tokens: List[Token],
-        i: int,
-        compare: Union[ast.Is, ast.IsNot],
-) -> None:
-    while tokens[i].src != 'is':
-        i -= 1
-    if isinstance(compare, ast.Is):
-        tokens[i] = tokens[i]._replace(src='==')
-    else:
-        tokens[i] = tokens[i]._replace(src='!=')
-        # since we iterate backward, the dummy tokens keep the same length
-        i += 1
-        while tokens[i].src != 'not':
-            tokens[i] = Token('DUMMY', '')
-            i += 1
-        tokens[i] = Token('DUMMY', '')
-
-
-LITERAL_TYPES = (ast.Str, ast.Num, ast.Bytes)
-
-
-class Py2CompatibleVisitor(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.dicts: Dict[Offset, ListCompOrGeneratorExp] = {}
-        self.sets: Dict[Offset, ast.expr] = {}
-        self.set_empty_literals: Dict[Offset, ListOrTuple] = {}
-        self.is_literal: Dict[Offset, Union[ast.Is, ast.IsNot]] = {}
-
-    def visit_Call(self, node: ast.Call) -> None:
-        if (
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'set' and
-                len(node.args) == 1 and
-                not node.keywords and
-                isinstance(node.args[0], SET_TRANSFORM)
-        ):
-            arg, = node.args
-            key = ast_to_offset(node.func)
-            if isinstance(arg, (ast.List, ast.Tuple)) and not arg.elts:
-                self.set_empty_literals[key] = arg
-            else:
-                self.sets[key] = arg
-        elif (
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'dict' and
-                len(node.args) == 1 and
-                not node.keywords and
-                isinstance(node.args[0], (ast.ListComp, ast.GeneratorExp)) and
-                isinstance(node.args[0].elt, (ast.Tuple, ast.List)) and
-                len(node.args[0].elt.elts) == 2
-        ):
-            self.dicts[ast_to_offset(node.func)] = node.args[0]
-        self.generic_visit(node)
-
-    def visit_Compare(self, node: ast.Compare) -> None:
-        left = node.left
-        for op, right in zip(node.ops, node.comparators):
-            if (
-                    isinstance(op, (ast.Is, ast.IsNot)) and
-                    (
-                        isinstance(left, LITERAL_TYPES) or
-                        isinstance(right, LITERAL_TYPES)
-                    )
-            ):
-                self.is_literal[ast_to_offset(right)] = op
-            left = right
-
-        self.generic_visit(node)
-
-
-def _fix_py2_compatible(contents_text: str) -> str:
+def _fix_py2_compatible(contents_text: str, min_version: Version) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
-    visitor = Py2CompatibleVisitor()
-    visitor.visit(ast_obj)
-    if not any((
-            visitor.dicts,
-            visitor.sets,
-            visitor.set_empty_literals,
-            visitor.is_literal,
-    )):
+
+    callbacks = visit(FUNCS, ast_obj, min_version)
+
+    if not callbacks:
         return contents_text
 
     try:
         tokens = src_to_tokens(contents_text)
     except tokenize.TokenError:  # pragma: no cover (bpo-2180)
         return contents_text
+
     for i, token in reversed_enumerate(tokens):
-        if token.offset in visitor.dicts:
-            _process_dict_comp(tokens, i, visitor.dicts[token.offset])
-        elif token.offset in visitor.set_empty_literals:
-            _process_set_empty_literal(tokens, i)
-        elif token.offset in visitor.sets:
-            _process_set_literal(tokens, i, visitor.sets[token.offset])
-        elif token.offset in visitor.is_literal:
-            _process_is_literal(tokens, i, visitor.is_literal[token.offset])
+        # though this is a defaultdict, by using `.get()` this function's
+        # self time is almost 50% faster
+        for callback in callbacks.get(token.offset, ()):
+            callback(i, tokens)
+
     return tokens_to_src(tokens)
 
 
@@ -569,8 +287,8 @@ def _fix_extraneous_parens(tokens: List[Token], i: int) -> None:
         i += 1
 
     if tokens[i].src == ')':
-        _remove_brace(tokens, end)
-        _remove_brace(tokens, start)
+        remove_brace(tokens, end)
+        remove_brace(tokens, start)
 
 
 def _remove_fmt(tup: DotFormatPart) -> DotFormatPart:
@@ -668,9 +386,9 @@ def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
     del tokens[victims]
 
 
-def _build_import_removals() -> Dict[MinVersion, Dict[str, Tuple[str, ...]]]:
+def _build_import_removals() -> Dict[Version, Dict[str, Tuple[str, ...]]]:
     ret = {}
-    future: Tuple[Tuple[MinVersion, Tuple[str, ...]], ...] = (
+    future: Tuple[Tuple[Version, Tuple[str, ...]], ...] = (
         ((2, 7), ('nested_scopes', 'generators', 'with_statement')),
         (
             (3,), (
@@ -711,7 +429,7 @@ IMPORT_REMOVALS = _build_import_removals()
 def _fix_import_removals(
         tokens: List[Token],
         start: int,
-        min_version: MinVersion,
+        min_version: Version,
 ) -> None:
     i = start + 1
     name_parts = []
@@ -762,7 +480,7 @@ def _fix_import_removals(
                 del tokens[j:idx + 1]
 
 
-def _fix_tokens(contents_text: str, min_version: MinVersion) -> str:
+def _fix_tokens(contents_text: str, min_version: Version) -> str:
     remove_u = (
         min_version >= (3,) or
         _imports_future(contents_text, 'unicode_literals')
@@ -980,11 +698,11 @@ def _fix_percent_format_tuple(
     if tokens_to_src(tokens[start + 1:paren + 1]) != ' % (':
         return
 
-    victims = _victims(tokens, paren, node.right, gen=False)
-    victims.ends.pop()
+    fmt_victims = victims(tokens, paren, node.right, gen=False)
+    fmt_victims.ends.pop()
 
-    for index in reversed(victims.starts + victims.ends):
-        _remove_brace(tokens, index)
+    for index in reversed(fmt_victims.starts + fmt_victims.ends):
+        remove_brace(tokens, index)
 
     newsrc = _percent_to_format(tokens[start].src)
     tokens[start] = tokens[start]._replace(src=newsrc)
@@ -1022,8 +740,8 @@ def _fix_percent_format_dict(
     if tokens_to_src(tokens[start + 1:brace + 1]) != ' % {':
         return
 
-    victims = _victims(tokens, brace, node.right, gen=False)
-    brace_end = victims.ends[-1]
+    fmt_victims = victims(tokens, brace, node.right, gen=False)
+    brace_end = fmt_victims.ends[-1]
 
     key_indices = []
     for i, token in enumerate(tokens[brace:brace_end], brace):
@@ -2087,7 +1805,7 @@ def _replace_call(
 
 
 def _replace_yield(tokens: List[Token], i: int) -> None:
-    in_token = _find_token(tokens, i, 'in')
+    in_token = find_token(tokens, i, 'in')
     colon = _find_block_start(tokens, i)
     block = Block.find(tokens, i, trim_end=True)
     container = tokens_to_src(tokens[in_token + 1:colon]).strip()
@@ -2096,7 +1814,7 @@ def _replace_yield(tokens: List[Token], i: int) -> None:
 
 def _fix_py3_plus(
         contents_text: str,
-        min_version: MinVersion,
+        min_version: Version,
         keep_mock: bool = False,
 ) -> str:
     try:
@@ -2203,7 +1921,7 @@ def _fix_py3_plus(
             j = _find_end(tokens, i)
             del tokens[i:j + 1]
         elif token.offset in visitor.native_literals:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
             if any(tok.name == 'NL' for tok in tokens[i:end]):
                 continue
@@ -2218,7 +1936,7 @@ def _fix_py3_plus(
         elif token.offset in visitor.six_remove_decorators:
             _remove_decorator(tokens, i)
         elif token.offset in visitor.six_b:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             if (
                     tokens[j + 1].name == 'STRING' and
                     _is_ascii(tokens[j + 1].src) and
@@ -2227,14 +1945,14 @@ def _fix_py3_plus(
                 func_args, end = _parse_call_args(tokens, j)
                 _replace_call(tokens, i, end, func_args, SIX_B_TMPL)
         elif token.offset in visitor.six_iter:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
             call = visitor.six_iter[token.offset]
             assert isinstance(call.func, (ast.Name, ast.Attribute))
             template = f'iter({_get_tmpl(SIX_CALLS, call.func)})'
             _replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_calls:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
             call = visitor.six_calls[token.offset]
             assert isinstance(call.func, (ast.Name, ast.Attribute))
@@ -2244,15 +1962,15 @@ def _fix_py3_plus(
             else:
                 _replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_calls_int2byte:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
             _replace_call(tokens, i, end, func_args, SIX_INT2BYTE_TMPL)
         elif token.offset in visitor.six_raise_from:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
             _replace_call(tokens, i, end, func_args, RAISE_FROM_TMPL)
         elif token.offset in visitor.six_reraise:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
             if len(func_args) == 1:
                 tmpl = RERAISE_TMPL
@@ -2262,7 +1980,7 @@ def _fix_py3_plus(
                 tmpl = RERAISE_3_TMPL
             _replace_call(tokens, i, end, func_args, tmpl)
         elif token.offset in visitor.six_add_metaclass:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
             metaclass = f'metaclass={_arg_str(tokens, *func_args[0])}'
             # insert `metaclass={args[0]}` into `class:`
@@ -2293,7 +2011,7 @@ def _fix_py3_plus(
                 tokens.insert(insert + 1, Token('CODE', src))
             _remove_decorator(tokens, i)
         elif token.offset in visitor.six_with_metaclass:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
             if len(func_args) == 1:
                 tmpl = WITH_METACLASS_NO_BASES_TMPL
@@ -2310,23 +2028,23 @@ def _fix_py3_plus(
             node = visitor.typing_builtin_renames[token.offset]
             _replace(i, PEP585_BUILTINS, node)
         elif token.offset in visitor.super_calls:
-            i = _find_open_paren(tokens, i)
+            i = find_open_paren(tokens, i)
             call = visitor.super_calls[token.offset]
-            victims = _victims(tokens, i, call, gen=False)
-            del tokens[victims.starts[0] + 1:victims.ends[-1]]
+            super_victims = victims(tokens, i, call, gen=False)
+            del tokens[super_victims.starts[0] + 1:super_victims.ends[-1]]
         elif token.offset in visitor.encode_calls:
-            i = _find_open_paren(tokens, i + 1)
+            i = find_open_paren(tokens, i + 1)
             call = visitor.encode_calls[token.offset]
-            victims = _victims(tokens, i, call, gen=False)
-            del tokens[victims.starts[0] + 1:victims.ends[-1]]
+            encode_victims = victims(tokens, i, call, gen=False)
+            del tokens[encode_victims.starts[0] + 1:encode_victims.ends[-1]]
         elif token.offset in visitor.io_open_calls:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             tokens[i:j] = [token._replace(name='NAME', src='open')]
         elif token.offset in visitor.mock_mock:
-            j = _find_token(tokens, i + 1, 'mock')
+            j = find_token(tokens, i + 1, 'mock')
             del tokens[i + 1:j + 1]
         elif token.offset in visitor.mock_absolute_imports:
-            j = _find_token(tokens, i, 'mock')
+            j = find_token(tokens, i, 'mock')
             if (
                     j + 2 < len(tokens) and
                     tokens[j + 1].src == '.' and
@@ -2336,7 +2054,7 @@ def _fix_py3_plus(
             src = 'from unittest import mock'
             tokens[i:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
         elif token.offset in visitor.mock_relative_imports:
-            j = _find_token(tokens, i, 'mock')
+            j = find_token(tokens, i, 'mock')
             if (
                     j + 2 < len(tokens) and
                     tokens[j + 1].src == '.' and
@@ -2348,7 +2066,7 @@ def _fix_py3_plus(
             src = 'unittest.mock'
             tokens[j:k + 1] = [tokens[j]._replace(name='NAME', src=src)]
         elif token.offset in visitor.open_mode_calls:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             func_args, end = _parse_call_args(tokens, j)
             mode = tokens_to_src(tokens[slice(*func_args[1])])
             mode_stripped = mode.strip().strip('"\'')
@@ -2363,7 +2081,7 @@ def _fix_py3_plus(
             else:
                 raise AssertionError(f'unreachable: {mode!r}')
         elif token.offset in visitor.os_error_alias_calls:
-            j = _find_open_paren(tokens, i)
+            j = find_open_paren(tokens, i)
             tokens[i:j] = [token._replace(name='NAME', src='OSError')]
         elif token.offset in visitor.os_error_alias_simple:
             node = visitor.os_error_alias_simple[token.offset]
@@ -2375,7 +2093,7 @@ def _fix_py3_plus(
             except_index = i
             while tokens[except_index].src != 'except':
                 except_index -= 1
-            start = _find_open_paren(tokens, except_index)
+            start = find_open_paren(tokens, except_index)
             func_args, end = _parse_call_args(tokens, start)
 
             # save the exceptions and remove the block
@@ -2429,8 +2147,8 @@ def _fix_py3_plus(
                 min_version >= (3, 8) and
                 token.offset in visitor.no_arg_decorators
         ):
-            i = _find_open_paren(tokens, i)
-            j = _find_token(tokens, i, ')')
+            i = find_open_paren(tokens, i)
+            j = find_token(tokens, i, ')')
             del tokens[i:j + 1]
 
     return tokens_to_src(tokens)
@@ -2709,8 +2427,8 @@ def _fix_py36_plus(contents_text: str) -> str:
                 continue
 
             # we don't actually care about arg position, so we pass `node`
-            victims = _victims(tokens, paren, node, gen=False)
-            end = victims.ends[-1]
+            fmt_victims = victims(tokens, paren, node, gen=False)
+            end = fmt_victims.ends[-1]
             # if it spans more than one line, bail
             if tokens[end].line != token.line:
                 continue
@@ -2758,7 +2476,9 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         print(f'{filename} is non-utf-8 (not supported)')
         return 1
 
-    contents_text = _fix_py2_compatible(contents_text)
+    contents_text = _fix_py2_compatible(
+        contents_text, min_version=args.min_version,
+    )
     contents_text = _fix_tokens(contents_text, min_version=args.min_version)
     if not args.keep_percent_format:
         contents_text = _fix_percent_format(contents_text)

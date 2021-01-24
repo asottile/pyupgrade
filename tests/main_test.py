@@ -23,16 +23,16 @@ def test_main_trivial():
     ),
 )
 def test_main_noop(tmpdir, args):
+    s = '''\
+from sys import version_info
+x=version_info
+def f():
+    global x, y
+'''
     f = tmpdir.join('f.py')
-    f.write(
-        'from sys import version_info\n'
-        'x=version_info\n',
-    )
+    f.write(s)
     assert main((f.strpath, *args)) == 0
-    assert f.read() == (
-        'from sys import version_info\n'
-        'x=version_info\n'
-    )
+    assert f.read() == s
 
 
 def test_main_changes_a_file(tmpdir, capsys):
