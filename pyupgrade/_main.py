@@ -715,8 +715,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self._scope_stack: List[FindPy3Plus.Scope] = []
         self.yield_from_fors: Set[Offset] = set()
 
-        self.no_arg_decorators: Set[Offset] = set()
-
     def _is_six(self, node: ast.expr, names: Container[str]) -> bool:
         return (
             isinstance(node, ast.Name) and
@@ -735,18 +733,6 @@ class FindPy3Plus(ast.NodeVisitor):
             isinstance(node.args[0], ast.Starred) and
             isinstance(node.args[0].value, ast.Call) and
             self._is_exc_info(node.args[0].value.func)
-        )
-
-    def _is_lru_cache(self, node: ast.expr) -> bool:
-        return (
-            isinstance(node, ast.Name) and
-            node.id == 'lru_cache' and
-            node.id in self._from_imports['functools']
-        ) or (
-            isinstance(node, ast.Attribute) and
-            isinstance(node.value, ast.Name) and
-            node.value.id == 'functools' and
-            node.attr == 'lru_cache'
         )
 
     def _is_mock_mock(self, node: ast.expr) -> bool:
@@ -1109,12 +1095,6 @@ class FindPy3Plus(ast.NodeVisitor):
                 )
         ):
             self.open_mode_calls.add(ast_to_offset(node))
-        elif (
-                not node.args and
-                not node.keywords and
-                self._is_lru_cache(node.func)
-        ):
-            self.no_arg_decorators.add(ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1511,7 +1491,6 @@ def _fix_py3_plus(
             visitor.os_error_alias_calls,
             visitor.os_error_alias_simple,
             visitor.os_error_alias_excepts,
-            visitor.no_arg_decorators,
             visitor.six_add_metaclass,
             visitor.six_b,
             visitor.six_calls,
@@ -1806,13 +1785,6 @@ def _fix_py3_plus(
             visitor.os_error_alias_excepts.discard(token.offset)
         elif token.offset in visitor.yield_from_fors:
             _replace_yield(tokens, i)
-        elif (
-                min_version >= (3, 8) and
-                token.offset in visitor.no_arg_decorators
-        ):
-            i = find_open_paren(tokens, i)
-            j = find_token(tokens, i, ')')
-            del tokens[i:j + 1]
 
     return tokens_to_src(tokens)
 

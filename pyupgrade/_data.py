@@ -35,7 +35,7 @@ AST_T = TypeVar('AST_T', bound=ast.AST)
 TokenFunc = Callable[[int, List[Token]], None]
 ASTFunc = Callable[[State, AST_T], Iterable[Tuple[Offset, TokenFunc]]]
 
-RECORD_FROM_IMPORTS = frozenset(('six',))
+RECORD_FROM_IMPORTS = frozenset(('functools', 'six'))
 
 FUNCS = collections.defaultdict(list)
 
