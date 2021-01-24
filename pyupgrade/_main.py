@@ -3,7 +3,6 @@ import ast
 import codecs
 import collections
 import contextlib
-import keyword
 import re
 import string
 import sys
@@ -18,7 +17,6 @@ from typing import List
 from typing import Match
 from typing import NamedTuple
 from typing import Optional
-from typing import Pattern
 from typing import Sequence
 from typing import Set
 from typing import Tuple
@@ -44,27 +42,18 @@ from pyupgrade._token_helpers import BRACES
 from pyupgrade._token_helpers import CLOSING
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import KEYWORDS
 from pyupgrade._token_helpers import OPENING
 from pyupgrade._token_helpers import remove_brace
 from pyupgrade._token_helpers import victims
 
 DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
-PercentFormatPart = Tuple[
-    Optional[str],
-    Optional[str],
-    Optional[str],
-    Optional[str],
-    str,
-]
-PercentFormat = Tuple[str, Optional[PercentFormatPart]]
 
 NameOrAttr = Union[ast.Name, ast.Attribute]
 AnyFunctionDef = Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda]
 SyncFunctionDef = Union[ast.FunctionDef, ast.Lambda]
 
 _stdlib_parse_format = string.Formatter().parse
-
-_KEYWORDS = frozenset(keyword.kwlist)
 
 _EXPR_NEEDS_PARENS: Tuple[Type[ast.expr], ...] = (
     ast.Await, ast.BinOp, ast.BoolOp, ast.Compare, ast.GeneratorExp, ast.IfExp,
@@ -110,13 +99,23 @@ def inty(s: str) -> bool:
         return False
 
 
-def _fix_py2_compatible(contents_text: str, min_version: Version) -> str:
+def _fix_plugins(
+        contents_text: str,
+        *,
+        min_version: Version,
+        keep_percent_format: bool,
+) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    callbacks = visit(FUNCS, ast_obj, min_version)
+    callbacks = visit(
+        FUNCS,
+        ast_obj,
+        min_version=min_version,
+        keep_percent_format=keep_percent_format,
+    )
 
     if not callbacks:
         return contents_text
@@ -519,285 +518,11 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
     return tokens_to_src(tokens).lstrip()
 
 
-MAPPING_KEY_RE = re.compile(r'\(([^()]*)\)')
-CONVERSION_FLAG_RE = re.compile('[#0+ -]*')
-WIDTH_RE = re.compile(r'(?:\*|\d*)')
-PRECISION_RE = re.compile(r'(?:\.(?:\*|\d*))?')
-LENGTH_RE = re.compile('[hlL]?')
-
-
-def _must_match(regex: Pattern[str], string: str, pos: int) -> Match[str]:
-    match = regex.match(string, pos)
-    assert match is not None
-    return match
-
-
-def parse_percent_format(s: str) -> Tuple[PercentFormat, ...]:
-    def _parse_inner() -> Generator[PercentFormat, None, None]:
-        string_start = 0
-        string_end = 0
-        in_fmt = False
-
-        i = 0
-        while i < len(s):
-            if not in_fmt:
-                try:
-                    i = s.index('%', i)
-                except ValueError:  # no more % fields!
-                    yield s[string_start:], None
-                    return
-                else:
-                    string_end = i
-                    i += 1
-                    in_fmt = True
-            else:
-                key_match = MAPPING_KEY_RE.match(s, i)
-                if key_match:
-                    key: Optional[str] = key_match.group(1)
-                    i = key_match.end()
-                else:
-                    key = None
-
-                conversion_flag_match = _must_match(CONVERSION_FLAG_RE, s, i)
-                conversion_flag = conversion_flag_match.group() or None
-                i = conversion_flag_match.end()
-
-                width_match = _must_match(WIDTH_RE, s, i)
-                width = width_match.group() or None
-                i = width_match.end()
-
-                precision_match = _must_match(PRECISION_RE, s, i)
-                precision = precision_match.group() or None
-                i = precision_match.end()
-
-                # length modifier is ignored
-                i = _must_match(LENGTH_RE, s, i).end()
-
-                try:
-                    conversion = s[i]
-                except IndexError:
-                    raise ValueError('end-of-string while parsing format')
-                i += 1
-
-                fmt = (key, conversion_flag, width, precision, conversion)
-                yield s[string_start:string_end], fmt
-
-                in_fmt = False
-                string_start = i
-
-        if in_fmt:
-            raise ValueError('end-of-string while parsing format')
-
-    return tuple(_parse_inner())
-
-
-class FindPercentFormats(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.found: Dict[Offset, ast.BinOp] = {}
-
-    def visit_BinOp(self, node: ast.BinOp) -> None:
-        if isinstance(node.op, ast.Mod) and isinstance(node.left, ast.Str):
-            try:
-                parsed = parse_percent_format(node.left.s)
-            except ValueError:
-                pass
-            else:
-                for _, fmt in parsed:
-                    if not fmt:
-                        continue
-                    key, conversion_flag, width, precision, conversion = fmt
-                    # timid: these require out-of-order parameter consumption
-                    if width == '*' or precision == '.*':
-                        break
-                    # these conversions require modification of parameters
-                    if conversion in {'d', 'i', 'u', 'c'}:
-                        break
-                    # timid: py2: %#o formats different from {:#o} (--py3?)
-                    if '#' in (conversion_flag or '') and conversion == 'o':
-                        break
-                    # no equivalent in format
-                    if key == '':
-                        break
-                    # timid: py2: conversion is subject to modifiers (--py3?)
-                    nontrivial_fmt = any((conversion_flag, width, precision))
-                    if conversion == '%' and nontrivial_fmt:
-                        break
-                    # no equivalent in format
-                    if conversion in {'a', 'r'} and nontrivial_fmt:
-                        break
-                    # all dict substitutions must be named
-                    if isinstance(node.right, ast.Dict) and not key:
-                        break
-                else:
-                    self.found[ast_to_offset(node)] = node
-        self.generic_visit(node)
-
-
-def _simplify_conversion_flag(flag: str) -> str:
-    parts: List[str] = []
-    for c in flag:
-        if c in parts:
-            continue
-        c = c.replace('-', '<')
-        parts.append(c)
-        if c == '<' and '0' in parts:
-            parts.remove('0')
-        elif c == '+' and ' ' in parts:
-            parts.remove(' ')
-    return ''.join(parts)
-
-
-def _percent_to_format(s: str) -> str:
-    def _handle_part(part: PercentFormat) -> str:
-        s, fmt = part
-        s = s.replace('{', '{{').replace('}', '}}')
-        if fmt is None:
-            return s
-        else:
-            key, conversion_flag, width, precision, conversion = fmt
-            if conversion == '%':
-                return s + '%'
-            parts = [s, '{']
-            if width and conversion == 's' and not conversion_flag:
-                conversion_flag = '>'
-            if conversion == 's':
-                conversion = ''
-            if key:
-                parts.append(key)
-            if conversion in {'r', 'a'}:
-                converter = f'!{conversion}'
-                conversion = ''
-            else:
-                converter = ''
-            if any((conversion_flag, width, precision, conversion)):
-                parts.append(':')
-            if conversion_flag:
-                parts.append(_simplify_conversion_flag(conversion_flag))
-            parts.extend(x for x in (width, precision, conversion) if x)
-            parts.extend(converter)
-            parts.append('}')
-            return ''.join(parts)
-
-    return ''.join(_handle_part(part) for part in parse_percent_format(s))
-
-
 def _is_ascii(s: str) -> bool:
     if sys.version_info >= (3, 7):  # pragma: no cover (py37+)
         return s.isascii()
     else:  # pragma: no cover (<py37)
         return all(c in string.printable for c in s)
-
-
-def _fix_percent_format_tuple(
-        tokens: List[Token],
-        start: int,
-        node: ast.BinOp,
-) -> None:
-    # TODO: this is overly timid
-    paren = start + 4
-    if tokens_to_src(tokens[start + 1:paren + 1]) != ' % (':
-        return
-
-    fmt_victims = victims(tokens, paren, node.right, gen=False)
-    fmt_victims.ends.pop()
-
-    for index in reversed(fmt_victims.starts + fmt_victims.ends):
-        remove_brace(tokens, index)
-
-    newsrc = _percent_to_format(tokens[start].src)
-    tokens[start] = tokens[start]._replace(src=newsrc)
-    tokens[start + 1:paren] = [Token('Format', '.format'), Token('OP', '(')]
-
-
-def _fix_percent_format_dict(
-        tokens: List[Token],
-        start: int,
-        node: ast.BinOp,
-) -> None:
-    seen_keys: Set[str] = set()
-    keys = {}
-
-    # the caller has enforced this
-    assert isinstance(node.right, ast.Dict)
-    for k in node.right.keys:
-        # not a string key
-        if not isinstance(k, ast.Str):
-            return
-        # duplicate key
-        elif k.s in seen_keys:
-            return
-        # not an identifier
-        elif not k.s.isidentifier():
-            return
-        # a keyword
-        elif k.s in _KEYWORDS:
-            return
-        seen_keys.add(k.s)
-        keys[ast_to_offset(k)] = k
-
-    # TODO: this is overly timid
-    brace = start + 4
-    if tokens_to_src(tokens[start + 1:brace + 1]) != ' % {':
-        return
-
-    fmt_victims = victims(tokens, brace, node.right, gen=False)
-    brace_end = fmt_victims.ends[-1]
-
-    key_indices = []
-    for i, token in enumerate(tokens[brace:brace_end], brace):
-        key = keys.pop(token.offset, None)
-        if key is None:
-            continue
-        # we found the key, but the string didn't match (implicit join?)
-        elif ast.literal_eval(token.src) != key.s:
-            return
-        # the map uses some strange syntax that's not `'key': value`
-        elif tokens_to_src(tokens[i + 1:i + 3]) != ': ':
-            return
-        else:
-            key_indices.append((i, key.s))
-    assert not keys, keys
-
-    tokens[brace_end] = tokens[brace_end]._replace(src=')')
-    for (key_index, s) in reversed(key_indices):
-        tokens[key_index:key_index + 3] = [Token('CODE', f'{s}=')]
-    newsrc = _percent_to_format(tokens[start].src)
-    tokens[start] = tokens[start]._replace(src=newsrc)
-    tokens[start + 1:brace + 1] = [Token('CODE', '.format'), Token('OP', '(')]
-
-
-def _fix_percent_format(contents_text: str) -> str:
-    try:
-        ast_obj = ast_parse(contents_text)
-    except SyntaxError:
-        return contents_text
-
-    visitor = FindPercentFormats()
-    visitor.visit(ast_obj)
-
-    if not visitor.found:
-        return contents_text
-
-    try:
-        tokens = src_to_tokens(contents_text)
-    except tokenize.TokenError:  # pragma: no cover (bpo-2180)
-        return contents_text
-
-    for i, token in reversed_enumerate(tokens):
-        node = visitor.found.get(token.offset)
-        if node is None:
-            continue
-
-        # TODO: handle \N escape sequences
-        if r'\N' in token.src:
-            continue
-
-        if isinstance(node.right, ast.Tuple):
-            _fix_percent_format_tuple(tokens, i, node)
-        elif isinstance(node.right, ast.Dict):
-            _fix_percent_format_dict(tokens, i, node)
-
-    return tokens_to_src(tokens)
 
 
 SIX_SIMPLE_ATTRS = {
@@ -2285,7 +2010,7 @@ class FindPy36Plus(ast.NodeVisitor):
                         len(tup.elts) == 2 and
                         isinstance(tup.elts[0], ast.Str) and
                         tup.elts[0].s.isidentifier() and
-                        tup.elts[0].s not in _KEYWORDS
+                        tup.elts[0].s not in KEYWORDS
                         for tup in node.value.args[1].elts
                     )
             ):
@@ -2313,7 +2038,7 @@ class FindPy36Plus(ast.NodeVisitor):
                     all(
                         isinstance(k, ast.Str) and
                         k.s.isidentifier() and
-                        k.s not in _KEYWORDS
+                        k.s not in KEYWORDS
                         for k in node.value.args[1].keys
                     )
             ):
@@ -2476,12 +2201,12 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         print(f'{filename} is non-utf-8 (not supported)')
         return 1
 
-    contents_text = _fix_py2_compatible(
-        contents_text, min_version=args.min_version,
+    contents_text = _fix_plugins(
+        contents_text,
+        min_version=args.min_version,
+        keep_percent_format=args.keep_percent_format,
     )
     contents_text = _fix_tokens(contents_text, min_version=args.min_version)
-    if not args.keep_percent_format:
-        contents_text = _fix_percent_format(contents_text)
     if args.min_version >= (3,):
         contents_text = _fix_py3_plus(
             contents_text, args.min_version, args.keep_mock,

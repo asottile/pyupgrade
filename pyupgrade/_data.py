@@ -26,6 +26,7 @@ Version = Tuple[int, ...]
 
 class State(NamedTuple):
     min_version: Version
+    keep_percent_format: bool
 
 
 AST_T = TypeVar('AST_T', bound=ast.AST)
@@ -49,9 +50,15 @@ class ASTCallbackMapping(Protocol):
 def visit(
         funcs: ASTCallbackMapping,
         tree: ast.AST,
-        version: Version,
+        *,
+        min_version: Version,
+        keep_percent_format: bool,
 ) -> Dict[Offset, List[TokenFunc]]:
-    nodes = [(tree, State(min_version=version))]
+    initial_state = State(
+        min_version=min_version,
+        keep_percent_format=keep_percent_format,
+    )
+    nodes = [(tree, initial_state)]
 
     ret = collections.defaultdict(list)
     while nodes:

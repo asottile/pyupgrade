@@ -1,4 +1,5 @@
 import ast
+import keyword
 import sys
 from typing import List
 from typing import NamedTuple
@@ -10,6 +11,7 @@ from tokenize_rt import UNIMPORTANT_WS
 
 BRACES = {'(': ')', '[': ']', '{': '}'}
 OPENING, CLOSING = frozenset(BRACES), frozenset(BRACES.values())
+KEYWORDS = frozenset(keyword.kwlist)
 
 
 def immediately_paren(func: str, tokens: List[Token], i: int) -> bool:

@@ -2,10 +2,10 @@ import ast
 
 import pytest
 
-from pyupgrade._main import _fix_percent_format
-from pyupgrade._main import _percent_to_format
-from pyupgrade._main import _simplify_conversion_flag
-from pyupgrade._main import parse_percent_format
+from pyupgrade._main import _fix_plugins
+from pyupgrade._plugins.percent_format import _parse_percent_format
+from pyupgrade._plugins.percent_format import _percent_to_format
+from pyupgrade._plugins.percent_format import _simplify_conversion_flag
 
 
 @pytest.mark.parametrize(
@@ -104,7 +104,7 @@ from pyupgrade._main import parse_percent_format
     ),
 )
 def test_parse_percent_format(s, expected):
-    assert parse_percent_format(s) == expected
+    assert _parse_percent_format(s) == expected
 
 
 @pytest.mark.parametrize(
@@ -178,10 +178,11 @@ def test_simplify_conversion_flag(s, expected):
         '"%" % {}', '"%(hi)" % {}', '"%2" % {}',
         # TODO: handle \N escape sequences
         r'"%s \N{snowman}" % (a,)',
+        r'"%(foo)s \N{snowman}" % {"foo": 1}',
     ),
 )
 def test_percent_format_noop(s):
-    assert _fix_percent_format(s) == s
+    assert _fix_plugins(s, min_version=(2, 7), keep_percent_format=False) == s
 
 
 def _has_16806_bug():
@@ -194,7 +195,7 @@ def _has_16806_bug():
 @pytest.mark.xfail(not _has_16806_bug(), reason='multiline string parse bug')
 def test_percent_format_noop_if_bug_16806():
     s = '"""%s\n""" % ("issue16806",)'
-    assert _fix_percent_format(s) == s
+    assert _fix_plugins(s, min_version=(2, 7), keep_percent_format=False) == s
 
 
 @pytest.mark.parametrize(
@@ -223,7 +224,8 @@ def test_percent_format_noop_if_bug_16806():
     ),
 )
 def test_percent_format(s, expected):
-    assert _fix_percent_format(s) == expected
+    ret = _fix_plugins(s, min_version=(2, 7), keep_percent_format=False)
+    assert ret == expected
 
 
 @pytest.mark.xfail
@@ -274,4 +276,5 @@ def test_percent_format(s, expected):
     ),
 )
 def test_percent_format_todo(s, expected):
-    assert _fix_percent_format(s) == expected
+    ret = _fix_plugins(s, min_version=(2, 7), keep_percent_format=False)
+    assert ret == expected

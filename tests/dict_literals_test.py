@@ -1,6 +1,6 @@
 import pytest
 
-from pyupgrade._main import _fix_py2_compatible
+from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
@@ -19,7 +19,7 @@ from pyupgrade._main import _fix_py2_compatible
     ),
 )
 def test_fix_dict_noop(s):
-    assert _fix_py2_compatible(s, (2, 7)) == s
+    assert _fix_plugins(s, min_version=(2, 7), keep_percent_format=False) == s
 
 
 @pytest.mark.parametrize(
@@ -78,5 +78,5 @@ def test_fix_dict_noop(s):
     ),
 )
 def test_dictcomps(s, expected):
-    ret = _fix_py2_compatible(s, (2, 7))
+    ret = _fix_plugins(s, min_version=(2, 7), keep_percent_format=False)
     assert ret == expected
