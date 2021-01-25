@@ -682,7 +682,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self.native_literals: Set[Offset] = set()
 
         self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
-        self.io_open_calls: Set[Offset] = set()
         self.mock_mock: Set[Offset] = set()
         self.mock_absolute_imports: Set[Offset] = set()
         self.mock_relative_imports: Set[Offset] = set()
@@ -738,14 +737,6 @@ class FindPy3Plus(ast.NodeVisitor):
             isinstance(node.value, ast.Name) and
             node.value.id == 'mock' and
             node.attr == 'mock'
-        )
-
-    def _is_io_open(self, node: ast.expr) -> bool:
-        return (
-            isinstance(node, ast.Attribute) and
-            isinstance(node.value, ast.Name) and
-            node.value.id == 'io' and
-            node.attr == 'open'
         )
 
     def _is_os_error_alias(self, node: Optional[ast.expr]) -> bool:
@@ -1075,8 +1066,6 @@ class FindPy3Plus(ast.NodeVisitor):
                 _is_codec(node.args[0].s, 'utf-8')
         ):
             self.encode_calls[ast_to_offset(node)] = node
-        elif self._is_io_open(node.func):
-            self.io_open_calls.add(ast_to_offset(node))
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'open' and
@@ -1379,7 +1368,6 @@ def _fix_py3_plus(
             visitor.if_py3_blocks,
             visitor.if_py3_blocks_else,
             visitor.native_literals,
-            visitor.io_open_calls,
             visitor.open_mode_calls,
             visitor.mock_mock,
             visitor.mock_absolute_imports,
@@ -1559,9 +1547,6 @@ def _fix_py3_plus(
             call = visitor.encode_calls[token.offset]
             encode_victims = victims(tokens, i, call, gen=False)
             del tokens[encode_victims.starts[0] + 1:encode_victims.ends[-1]]
-        elif token.offset in visitor.io_open_calls:
-            j = find_open_paren(tokens, i)
-            tokens[i:j] = [token._replace(name='NAME', src='open')]
         elif token.offset in visitor.mock_mock:
             j = find_token(tokens, i + 1, 'mock')
             del tokens[i + 1:j + 1]
