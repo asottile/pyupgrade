@@ -10,6 +10,7 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
+from pyupgrade._plugins.native_literals import is_a_native_literal_call
 from pyupgrade._token_helpers import replace_name
 
 NAMES = {
@@ -52,6 +53,13 @@ def visit_Attribute(
             node.value.id == 'six' and
             node.attr in NAMES
     ):
+        # these will be handled by the native literals plugin
+        if (
+                isinstance(state.parent_node, ast.Call) and
+                is_a_native_literal_call(state.parent_node, state.from_imports)
+        ):
+            return
+
         if node.attr in NAMES_TYPE_CTX and _is_type_check(state.parent_node):
             new = NAMES_TYPE_CTX[node.attr]
         else:
@@ -71,6 +79,13 @@ def visit_Name(
             node.id in state.from_imports['six'] and
             node.id in NAMES
     ):
+        # these will be handled by the native literals plugin
+        if (
+                isinstance(state.parent_node, ast.Call) and
+                is_a_native_literal_call(state.parent_node, state.from_imports)
+        ):
+            return
+
         if node.id in NAMES_TYPE_CTX and _is_type_check(state.parent_node):
             new = NAMES_TYPE_CTX[node.id]
         else:

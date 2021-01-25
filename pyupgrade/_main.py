@@ -555,7 +555,6 @@ RAISE_FROM_TMPL = 'raise {args[0]} from {rest}'
 RERAISE_TMPL = 'raise'
 RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
 RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
-SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
 U_MODE_REMOVE = frozenset(('U', 'Ur', 'rU', 'r', 'rt', 'tr'))
 U_MODE_REPLACE_R = frozenset(('Ub', 'bU'))
 U_MODE_REMOVE_U = frozenset(('rUb', 'Urb', 'rbU', 'Ubr', 'bUr', 'brU'))
@@ -645,8 +644,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self.if_py3_blocks: Set[Offset] = set()
         self.if_py2_blocks_else: Set[Offset] = set()
         self.if_py3_blocks_else: Set[Offset] = set()
-
-        self.native_literals: Set[Offset] = set()
 
         self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
         self.mock_mock: Set[Offset] = set()
@@ -952,22 +949,6 @@ class FindPy3Plus(ast.NodeVisitor):
         ):
             self.super_calls[ast_to_offset(node)] = node
         elif (
-                (
-                    self._is_six(node.func, SIX_NATIVE_STR) or
-                    isinstance(node.func, ast.Name) and node.func.id == 'str'
-                ) and
-                not node.keywords and
-                not has_starargs(node) and
-                (
-                    len(node.args) == 0 or
-                    (
-                        len(node.args) == 1 and
-                        isinstance(node.args[0], ast.Str)
-                    )
-                )
-        ):
-            self.native_literals.add(ast_to_offset(node))
-        elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'open' and
                 not has_starargs(node) and
@@ -1262,7 +1243,6 @@ def _fix_py3_plus(
             visitor.if_py2_blocks_else,
             visitor.if_py3_blocks,
             visitor.if_py3_blocks_else,
-            visitor.native_literals,
             visitor.open_mode_calls,
             visitor.mock_mock,
             visitor.mock_absolute_imports,
@@ -1333,15 +1313,6 @@ def _fix_py3_plus(
                 if_block, else_block = _find_if_else_block(tokens, j)
                 del tokens[if_block.end:else_block.end]
                 if_block.replace_condition(tokens, [Token('NAME', 'else')])
-        elif token.offset in visitor.native_literals:
-            j = find_open_paren(tokens, i)
-            func_args, end = parse_call_args(tokens, j)
-            if any(tok.name == 'NL' for tok in tokens[i:end]):
-                continue
-            if func_args:
-                replace_call(tokens, i, end, func_args, '{args[0]}')
-            else:
-                tokens[i:end] = [token._replace(name='STRING', src="''")]
         elif token.offset in visitor.six_iter:
             j = find_open_paren(tokens, i)
             func_args, end = parse_call_args(tokens, j)

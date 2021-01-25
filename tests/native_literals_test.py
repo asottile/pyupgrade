@@ -1,6 +1,6 @@
 import pytest
 
-from pyupgrade._main import _fix_py3_plus
+from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
@@ -14,7 +14,7 @@ from pyupgrade._main import _fix_py3_plus
     ),
 )
 def test_fix_native_literals_noop(s):
-    assert _fix_py3_plus(s, (3,)) == s
+    assert _fix_plugins(s, min_version=(3,), keep_percent_format=False) == s
 
 
 @pytest.mark.parametrize(
@@ -26,7 +26,17 @@ def test_fix_native_literals_noop(s):
         ('six.ensure_str("foo")', '"foo"'),
         ('six.ensure_text("foo")', '"foo"'),
         ('six.text_type("foo")', '"foo"'),
+        pytest.param(
+            'from six import text_type\n'
+            'text_type("foo")\n',
+
+            'from six import text_type\n'
+            '"foo"\n',
+
+            id='from import of rewritten name',
+        ),
     ),
 )
 def test_fix_native_literals(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    assert ret == expected
