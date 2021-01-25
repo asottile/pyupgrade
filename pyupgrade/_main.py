@@ -35,17 +35,21 @@ from tokenize_rt import UNIMPORTANT_WS
 
 from pyupgrade._ast_helpers import ast_parse
 from pyupgrade._ast_helpers import ast_to_offset
+from pyupgrade._ast_helpers import has_starargs
 from pyupgrade._data import FUNCS
 from pyupgrade._data import Version
 from pyupgrade._data import visit
-from pyupgrade._token_helpers import BRACES
+from pyupgrade._string_helpers import is_ascii
+from pyupgrade._token_helpers import arg_str
 from pyupgrade._token_helpers import CLOSING
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import find_token
 from pyupgrade._token_helpers import KEYWORDS
 from pyupgrade._token_helpers import OPENING
+from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import remove_brace
 from pyupgrade._token_helpers import remove_decorator
+from pyupgrade._token_helpers import replace_call
 from pyupgrade._token_helpers import victims
 
 DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
@@ -127,6 +131,8 @@ def _fix_plugins(
         return contents_text
 
     for i, token in reversed_enumerate(tokens):
+        if not token.src:
+            continue
         # though this is a defaultdict, by using `.get()` this function's
         # self time is almost 50% faster
         for callback in callbacks.get(token.offset, ()):
@@ -370,7 +376,7 @@ def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
         prefix, rest = parse_string_literal(tokens[part].src)
         escapes = set(ESCAPE_RE.findall(rest))
         if (
-                not _is_ascii(rest) or
+                not is_ascii(rest) or
                 '\\u' in escapes or
                 '\\U' in escapes or
                 '\\N' in escapes or
@@ -519,13 +525,6 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
     return tokens_to_src(tokens).lstrip()
 
 
-def _is_ascii(s: str) -> bool:
-    if sys.version_info >= (3, 7):  # pragma: no cover (py37+)
-        return s.isascii()
-    else:  # pragma: no cover (<py37)
-        return all(c in string.printable for c in s)
-
-
 SIX_SIMPLE_ATTRS = {
     'text_type': 'str',
     'binary_type': 'bytes',
@@ -568,7 +567,6 @@ SIX_CALLS = {
     'assertRegex': '{args[0]}.assertRegex({rest})',
 }
 SIX_INT2BYTE_TMPL = 'bytes(({args[0]},))'
-SIX_B_TMPL = 'b{args[0]}'
 WITH_METACLASS_NO_BASES_TMPL = 'metaclass={args[0]}'
 WITH_METACLASS_BASES_TMPL = '{rest}, metaclass={args[0]}'
 RAISE_FROM_TMPL = 'raise {args[0]} from {rest}'
@@ -694,7 +692,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self.os_error_alias_excepts: Set[Offset] = set()
 
         self.six_add_metaclass: Set[Offset] = set()
-        self.six_b: Set[Offset] = set()
         self.six_calls: Dict[Offset, ast.Call] = {}
         self.six_calls_int2byte: Set[Offset] = set()
         self.six_iter: Dict[Offset, ast.Call] = {}
@@ -829,7 +826,7 @@ class FindPy3Plus(ast.NodeVisitor):
             if (
                     isinstance(decorator, ast.Call) and
                     self._is_six(decorator.func, ('add_metaclass',)) and
-                    not _starargs(decorator)
+                    not has_starargs(decorator)
             ):
                 self.six_add_metaclass.add(ast_to_offset(decorator))
 
@@ -837,7 +834,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 len(node.bases) == 1 and
                 isinstance(node.bases[0], ast.Call) and
                 self._is_six(node.bases[0].func, ('with_metaclass',)) and
-                not _starargs(node.bases[0])
+                not has_starargs(node.bases[0])
         ):
             self.six_with_metaclass.add(ast_to_offset(node.bases[0]))
 
@@ -1002,43 +999,41 @@ class FindPy3Plus(ast.NodeVisitor):
             # _is_six() enforces this
             assert isinstance(arg, (ast.Name, ast.Attribute))
             self.six_type_ctx[ast_to_offset(node.args[1])] = arg
-        elif self._is_six(node.func, ('b', 'ensure_binary')):
-            self.six_b.add(ast_to_offset(node))
         elif (
                 self._is_six(node.func, SIX_CALLS) and
                 node.args and
-                not _starargs(node)
+                not has_starargs(node)
         ):
             self.six_calls[ast_to_offset(node)] = node
         elif (
                 self._is_six(node.func, ('int2byte',)) and
                 node.args and
-                not _starargs(node)
+                not has_starargs(node)
         ):
             self.six_calls_int2byte.add(ast_to_offset(node))
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'next' and
-                not _starargs(node) and
+                not has_starargs(node) and
                 len(node.args) == 1 and
                 isinstance(node.args[0], ast.Call) and
                 self._is_six(
                     node.args[0].func,
                     ('iteritems', 'iterkeys', 'itervalues'),
                 ) and
-                not _starargs(node.args[0])
+                not has_starargs(node.args[0])
         ):
             self.six_iter[ast_to_offset(node.args[0])] = node.args[0]
         elif (
                 isinstance(self._previous_node, ast.Expr) and
                 self._is_six(node.func, ('raise_from',)) and
-                not _starargs(node)
+                not has_starargs(node)
         ):
             self.six_raise_from.add(ast_to_offset(node))
         elif (
                 isinstance(self._previous_node, ast.Expr) and
                 self._is_six(node.func, ('reraise',)) and
-                (not _starargs(node) or self._is_star_sys_exc_info(node))
+                (not has_starargs(node) or self._is_star_sys_exc_info(node))
         ):
             self.six_reraise.add(ast_to_offset(node))
         elif (
@@ -1060,7 +1055,7 @@ class FindPy3Plus(ast.NodeVisitor):
                     isinstance(node.func, ast.Name) and node.func.id == 'str'
                 ) and
                 not node.keywords and
-                not _starargs(node) and
+                not has_starargs(node) and
                 (
                     len(node.args) == 0 or
                     (
@@ -1074,7 +1069,7 @@ class FindPy3Plus(ast.NodeVisitor):
                 isinstance(node.func, ast.Attribute) and
                 isinstance(node.func.value, ast.Str) and
                 node.func.attr == 'encode' and
-                not _starargs(node) and
+                not has_starargs(node) and
                 len(node.args) == 1 and
                 isinstance(node.args[0], ast.Str) and
                 _is_codec(node.args[0].s, 'utf-8')
@@ -1085,7 +1080,7 @@ class FindPy3Plus(ast.NodeVisitor):
         elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'open' and
-                not _starargs(node) and
+                not has_starargs(node) and
                 len(node.args) >= 2 and
                 isinstance(node.args[1], ast.Str) and (
                     node.args[1].s in U_MODE_REPLACE or
@@ -1373,68 +1368,11 @@ def _find_elif(tokens: List[Token], i: int) -> int:
     return i
 
 
-def _parse_call_args(
-        tokens: List[Token],
-        i: int,
-) -> Tuple[List[Tuple[int, int]], int]:
-    args = []
-    stack = [i]
-    i += 1
-    arg_start = i
-
-    while stack:
-        token = tokens[i]
-
-        if len(stack) == 1 and token.src == ',':
-            args.append((arg_start, i))
-            arg_start = i + 1
-        elif token.src in BRACES:
-            stack.append(i)
-        elif token.src == BRACES[tokens[stack[-1]].src]:
-            stack.pop()
-            # if we're at the end, append that argument
-            if not stack and tokens_to_src(tokens[arg_start:i]).strip():
-                args.append((arg_start, i))
-
-        i += 1
-
-    return args, i
-
-
 def _get_tmpl(mapping: Dict[str, str], node: NameOrAttr) -> str:
     if isinstance(node, ast.Name):
         return mapping[node.id]
     else:
         return mapping[node.attr]
-
-
-def _arg_str(tokens: List[Token], start: int, end: int) -> str:
-    return tokens_to_src(tokens[start:end]).strip()
-
-
-def _replace_call(
-        tokens: List[Token],
-        start: int,
-        end: int,
-        args: List[Tuple[int, int]],
-        tmpl: str,
-        *,
-        parens: Sequence[int] = (),
-) -> None:
-    arg_strs = [_arg_str(tokens, *arg) for arg in args]
-    for paren in parens:
-        arg_strs[paren] = f'({arg_strs[paren]})'
-
-    start_rest = args[0][1] + 1
-    while (
-            start_rest < end and
-            tokens[start_rest].name in {'COMMENT', UNIMPORTANT_WS}
-    ):
-        start_rest += 1
-
-    rest = tokens_to_src(tokens[start_rest:end - 1])
-    src = tmpl.format(args=arg_strs, rest=rest)
-    tokens[start:end] = [Token('CODE', src)]
 
 
 def _replace_yield(tokens: List[Token], i: int) -> None:
@@ -1479,7 +1417,6 @@ def _fix_py3_plus(
             visitor.os_error_alias_simple,
             visitor.os_error_alias_excepts,
             visitor.six_add_metaclass,
-            visitor.six_b,
             visitor.six_calls,
             visitor.six_calls_int2byte,
             visitor.six_iter,
@@ -1550,65 +1487,56 @@ def _fix_py3_plus(
             del tokens[i:j + 1]
         elif token.offset in visitor.native_literals:
             j = find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
+            func_args, end = parse_call_args(tokens, j)
             if any(tok.name == 'NL' for tok in tokens[i:end]):
                 continue
             if func_args:
-                _replace_call(tokens, i, end, func_args, '{args[0]}')
+                replace_call(tokens, i, end, func_args, '{args[0]}')
             else:
                 tokens[i:end] = [token._replace(name='STRING', src="''")]
         elif token.offset in visitor.six_type_ctx:
             _replace(i, SIX_TYPE_CTX_ATTRS, visitor.six_type_ctx[token.offset])
         elif token.offset in visitor.six_simple:
             _replace(i, SIX_SIMPLE_ATTRS, visitor.six_simple[token.offset])
-        elif token.offset in visitor.six_b:
-            j = find_open_paren(tokens, i)
-            if (
-                    tokens[j + 1].name == 'STRING' and
-                    _is_ascii(tokens[j + 1].src) and
-                    tokens[j + 2].src == ')'
-            ):
-                func_args, end = _parse_call_args(tokens, j)
-                _replace_call(tokens, i, end, func_args, SIX_B_TMPL)
         elif token.offset in visitor.six_iter:
             j = find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
+            func_args, end = parse_call_args(tokens, j)
             call = visitor.six_iter[token.offset]
             assert isinstance(call.func, (ast.Name, ast.Attribute))
             template = f'iter({_get_tmpl(SIX_CALLS, call.func)})'
-            _replace_call(tokens, i, end, func_args, template)
+            replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_calls:
             j = find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
+            func_args, end = parse_call_args(tokens, j)
             call = visitor.six_calls[token.offset]
             assert isinstance(call.func, (ast.Name, ast.Attribute))
             template = _get_tmpl(SIX_CALLS, call.func)
             if isinstance(call.args[0], _EXPR_NEEDS_PARENS):
-                _replace_call(tokens, i, end, func_args, template, parens=(0,))
+                replace_call(tokens, i, end, func_args, template, parens=(0,))
             else:
-                _replace_call(tokens, i, end, func_args, template)
+                replace_call(tokens, i, end, func_args, template)
         elif token.offset in visitor.six_calls_int2byte:
             j = find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
-            _replace_call(tokens, i, end, func_args, SIX_INT2BYTE_TMPL)
+            func_args, end = parse_call_args(tokens, j)
+            replace_call(tokens, i, end, func_args, SIX_INT2BYTE_TMPL)
         elif token.offset in visitor.six_raise_from:
             j = find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
-            _replace_call(tokens, i, end, func_args, RAISE_FROM_TMPL)
+            func_args, end = parse_call_args(tokens, j)
+            replace_call(tokens, i, end, func_args, RAISE_FROM_TMPL)
         elif token.offset in visitor.six_reraise:
             j = find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
+            func_args, end = parse_call_args(tokens, j)
             if len(func_args) == 1:
                 tmpl = RERAISE_TMPL
             elif len(func_args) == 2:
                 tmpl = RERAISE_2_TMPL
             else:
                 tmpl = RERAISE_3_TMPL
-            _replace_call(tokens, i, end, func_args, tmpl)
+            replace_call(tokens, i, end, func_args, tmpl)
         elif token.offset in visitor.six_add_metaclass:
             j = find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
-            metaclass = f'metaclass={_arg_str(tokens, *func_args[0])}'
+            func_args, end = parse_call_args(tokens, j)
+            metaclass = f'metaclass={arg_str(tokens, *func_args[0])}'
             # insert `metaclass={args[0]}` into `class:`
             # search forward for the `class` token
             j = i + 1
@@ -1638,18 +1566,18 @@ def _fix_py3_plus(
             remove_decorator(i, tokens)
         elif token.offset in visitor.six_with_metaclass:
             j = find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
+            func_args, end = parse_call_args(tokens, j)
             if len(func_args) == 1:
                 tmpl = WITH_METACLASS_NO_BASES_TMPL
             elif len(func_args) == 2:
-                base = _arg_str(tokens, *func_args[1])
+                base = arg_str(tokens, *func_args[1])
                 if base == 'object':
                     tmpl = WITH_METACLASS_NO_BASES_TMPL
                 else:
                     tmpl = WITH_METACLASS_BASES_TMPL
             else:
                 tmpl = WITH_METACLASS_BASES_TMPL
-            _replace_call(tokens, i, end, func_args, tmpl)
+            replace_call(tokens, i, end, func_args, tmpl)
         elif pep585_rewrite and token.offset in visitor.typing_builtin_renames:
             node = visitor.typing_builtin_renames[token.offset]
             _replace(i, PEP585_BUILTINS, node)
@@ -1693,7 +1621,7 @@ def _fix_py3_plus(
             tokens[j:k + 1] = [tokens[j]._replace(name='NAME', src=src)]
         elif token.offset in visitor.open_mode_calls:
             j = find_open_paren(tokens, i)
-            func_args, end = _parse_call_args(tokens, j)
+            func_args, end = parse_call_args(tokens, j)
             mode = tokens_to_src(tokens[slice(*func_args[1])])
             mode_stripped = mode.strip().strip('"\'')
             if mode_stripped in U_MODE_REMOVE:
@@ -1720,10 +1648,10 @@ def _fix_py3_plus(
             while tokens[except_index].src != 'except':
                 except_index -= 1
             start = find_open_paren(tokens, except_index)
-            func_args, end = _parse_call_args(tokens, start)
+            func_args, end = parse_call_args(tokens, start)
 
             # save the exceptions and remove the block
-            arg_strs = [_arg_str(tokens, *arg) for arg in func_args]
+            arg_strs = [arg_str(tokens, *arg) for arg in func_args]
             del tokens[start:end]
 
             # rewrite the block without dupes
@@ -1785,13 +1713,6 @@ def _simple_arg(arg: ast.expr) -> bool:
     )
 
 
-def _starargs(call: ast.Call) -> bool:
-    return (
-        any(k.arg is None for k in call.keywords) or
-        any(isinstance(a, ast.Starred) for a in call.args)
-    )
-
-
 def _format_params(call: ast.Call) -> Dict[str, str]:
     params = {}
     for i, arg in enumerate(call.args):
@@ -1840,7 +1761,7 @@ class FindPy36Plus(ast.NodeVisitor):
                 node.func.attr == 'format' and
                 all(_simple_arg(arg) for arg in node.args) and
                 all(_simple_arg(k.value) for k in node.keywords) and
-                not _starargs(node)
+                not has_starargs(node)
         ):
             return None
 
@@ -1889,7 +1810,7 @@ class FindPy36Plus(ast.NodeVisitor):
                 len(node.value.args) >= 1 and
                 isinstance(node.value.args[0], ast.Str) and
                 node.targets[0].id == node.value.args[0].s and
-                not _starargs(node.value)
+                not has_starargs(node.value)
         ):
             if (
                     self._is_attr(

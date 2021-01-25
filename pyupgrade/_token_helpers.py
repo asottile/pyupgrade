@@ -4,9 +4,12 @@ import sys
 from typing import List
 from typing import NamedTuple
 from typing import Optional
+from typing import Sequence
+from typing import Tuple
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Token
+from tokenize_rt import tokens_to_src
 from tokenize_rt import UNIMPORTANT_WS
 
 BRACES = {'(': ')', '[': ']', '{': '}'}
@@ -210,3 +213,60 @@ def remove_decorator(i: int, tokens: List[Token]) -> None:
     while tokens[end].name != 'NEWLINE':
         end += 1
     del tokens[i - 1:end + 1]
+
+
+def parse_call_args(
+        tokens: List[Token],
+        i: int,
+) -> Tuple[List[Tuple[int, int]], int]:
+    args = []
+    stack = [i]
+    i += 1
+    arg_start = i
+
+    while stack:
+        token = tokens[i]
+
+        if len(stack) == 1 and token.src == ',':
+            args.append((arg_start, i))
+            arg_start = i + 1
+        elif token.src in BRACES:
+            stack.append(i)
+        elif token.src == BRACES[tokens[stack[-1]].src]:
+            stack.pop()
+            # if we're at the end, append that argument
+            if not stack and tokens_to_src(tokens[arg_start:i]).strip():
+                args.append((arg_start, i))
+
+        i += 1
+
+    return args, i
+
+
+def arg_str(tokens: List[Token], start: int, end: int) -> str:
+    return tokens_to_src(tokens[start:end]).strip()
+
+
+def replace_call(
+        tokens: List[Token],
+        start: int,
+        end: int,
+        args: List[Tuple[int, int]],
+        tmpl: str,
+        *,
+        parens: Sequence[int] = (),
+) -> None:
+    arg_strs = [arg_str(tokens, *arg) for arg in args]
+    for paren in parens:
+        arg_strs[paren] = f'({arg_strs[paren]})'
+
+    start_rest = args[0][1] + 1
+    while (
+            start_rest < end and
+            tokens[start_rest].name in {'COMMENT', UNIMPORTANT_WS}
+    ):
+        start_rest += 1
+
+    rest = tokens_to_src(tokens[start_rest:end - 1])
+    src = tmpl.format(args=arg_strs, rest=rest)
+    tokens[start:end] = [Token('CODE', src)]

@@ -35,3 +35,10 @@ def is_name_attr(
         node.value.id == mod and
         node.attr in names
     )
+
+
+def has_starargs(call: ast.Call) -> bool:
+    return (
+        any(k.arg is None for k in call.keywords) or
+        any(isinstance(a, ast.Starred) for a in call.args)
+    )

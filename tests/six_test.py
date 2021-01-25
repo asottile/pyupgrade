@@ -22,14 +22,10 @@ from pyupgrade._main import _fix_py3_plus
         'isinstance(s, text_type)\n',
         # don't rewrite things that would become `raise` in non-statements
         'print(six.raise_from(exc, exc_from))',
-        # non-ascii bytestring
-        'print(six.b("£"))',
-        # extra whitespace
-        'print(six.b(   "123"))',
         # intentionally not handling this case due to it being a bug (?)
         'class C(six.with_metaclass(Meta, B), D): pass',
         # cannot determine args to rewrite them
-        'six.reraise(*err)', 'six.b(*a)', 'six.u(*a)',
+        'six.reraise(*err)', 'six.u(*a)',
         'class C(six.with_metaclass(*a)): pass',
         '@six.add_metaclass(*a)\n'
         'class C: pass\n',
@@ -89,26 +85,6 @@ def test_fix_six_noop(s):
 
             'from six import string_types\n'
             'STRING_TYPES = (str,)\n',
-        ),
-        (
-            'six.b("123")',
-            'b"123"',
-        ),
-        (
-            'six.b(r"123")',
-            'br"123"',
-        ),
-        (
-            r'six.b("\x12\xef")',
-            r'b"\x12\xef"',
-        ),
-        (
-            'six.ensure_binary("foo")',
-            'b"foo"',
-        ),
-        (
-            'from six import b\n\n' r'b("\x12\xef")',
-            'from six import b\n\n' r'b"\x12\xef"',
         ),
         (
             'six.byte2int(b"f")',
