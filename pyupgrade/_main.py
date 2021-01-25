@@ -571,10 +571,6 @@ RAISE_FROM_TMPL = 'raise {args[0]} from {rest}'
 RERAISE_TMPL = 'raise'
 RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
 RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
-U_MODE_REMOVE = frozenset(('U', 'Ur', 'rU', 'r', 'rt', 'tr'))
-U_MODE_REPLACE_R = frozenset(('Ub', 'bU'))
-U_MODE_REMOVE_U = frozenset(('rUb', 'Urb', 'rbU', 'Ubr', 'bUr', 'brU'))
-U_MODE_REPLACE = U_MODE_REPLACE_R | U_MODE_REMOVE_U
 
 
 def _all_isinstance(
@@ -661,7 +657,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self.mock_mock: Set[Offset] = set()
         self.mock_absolute_imports: Set[Offset] = set()
         self.mock_relative_imports: Set[Offset] = set()
-        self.open_mode_calls: Set[Offset] = set()
         self.os_error_alias_calls: Set[Offset] = set()
         self.os_error_alias_simple: Dict[Offset, NameOrAttr] = {}
         self.os_error_alias_excepts: Set[Offset] = set()
@@ -943,17 +938,6 @@ class FindPy3Plus(ast.NodeVisitor):
                 node.args[1].id == self._class_info_stack[-1].first_arg_name
         ):
             self.super_calls[ast_to_offset(node)] = node
-        elif (
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'open' and
-                not has_starargs(node) and
-                len(node.args) >= 2 and
-                isinstance(node.args[1], ast.Str) and (
-                    node.args[1].s in U_MODE_REPLACE or
-                    (len(node.args) == 2 and node.args[1].s in U_MODE_REMOVE)
-                )
-        ):
-            self.open_mode_calls.add(ast_to_offset(node))
 
         self.generic_visit(node)
 
@@ -1020,7 +1004,6 @@ def _fix_py3_plus(
     visitor.visit(ast_obj)
 
     if not any((
-            visitor.open_mode_calls,
             visitor.mock_mock,
             visitor.mock_absolute_imports,
             visitor.mock_relative_imports,
@@ -1170,21 +1153,6 @@ def _fix_py3_plus(
                 k = j
             src = 'unittest.mock'
             tokens[j:k + 1] = [tokens[j]._replace(name='NAME', src=src)]
-        elif token.offset in visitor.open_mode_calls:
-            j = find_open_paren(tokens, i)
-            func_args, end = parse_call_args(tokens, j)
-            mode = tokens_to_src(tokens[slice(*func_args[1])])
-            mode_stripped = mode.strip().strip('"\'')
-            if mode_stripped in U_MODE_REMOVE:
-                del tokens[func_args[0][1]:func_args[1][1]]
-            elif mode_stripped in U_MODE_REPLACE_R:
-                new_mode = mode.replace('U', 'r')
-                tokens[slice(*func_args[1])] = [Token('SRC', new_mode)]
-            elif mode_stripped in U_MODE_REMOVE_U:
-                new_mode = mode.replace('U', '')
-                tokens[slice(*func_args[1])] = [Token('SRC', new_mode)]
-            else:
-                raise AssertionError(f'unreachable: {mode!r}')
         elif token.offset in visitor.os_error_alias_calls:
             j = find_open_paren(tokens, i)
             tokens[i:j] = [token._replace(name='NAME', src='OSError')]
