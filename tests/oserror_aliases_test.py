@@ -101,6 +101,14 @@ def test_fix_oserror_aliases_try(alias, tpl, expected):
         'except (OSError, KeyError):\n'
         '    pass\n',
         pytest.param(
+            'import mmap\n'
+            'try:\n'
+            '    pass\n'
+            'except (mmap).error:\n'
+            '    pass\n',
+            id='weird parens',
+        ),
+        pytest.param(
             'from .mmap import error\n'
             'raise error("hi")\n',
             id='relative imports',

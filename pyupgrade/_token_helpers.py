@@ -285,3 +285,14 @@ def replace_call(
     rest = tokens_to_src(tokens[start_rest:end - 1])
     src = tmpl.format(args=arg_strs, rest=rest)
     tokens[start:end] = [Token('CODE', src)]
+
+
+def replace_name(i: int, tokens: List[Token], *, name: str, new: str) -> None:
+    new_token = Token('CODE', new)
+    j = i
+    while tokens[j].src != name:
+        # timid: if we see a parenthesis here, skip it
+        if tokens[j].src == ')':
+            return
+        j += 1
+    tokens[i:j + 1] = [new_token]

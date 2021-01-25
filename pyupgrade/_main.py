@@ -526,25 +526,6 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
     return tokens_to_src(tokens).lstrip()
 
 
-SIX_SIMPLE_ATTRS = {
-    'text_type': 'str',
-    'binary_type': 'bytes',
-    'class_types': '(type,)',
-    'string_types': '(str,)',
-    'integer_types': '(int,)',
-    'unichr': 'chr',
-    'iterbytes': 'iter',
-    'print_': 'print',
-    'exec_': 'exec',
-    'advance_iterator': 'next',
-    'next': 'next',
-    'callable': 'callable',
-}
-SIX_TYPE_CTX_ATTRS = {
-    'class_types': 'type',
-    'string_types': 'str',
-    'integer_types': 'int',
-}
 SIX_CALLS = {
     'u': '{args[0]}',
     'byte2int': '{args[0]}[0]',
@@ -697,8 +678,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self._previous_node: Optional[ast.AST] = None
         self.six_raise_from: Set[Offset] = set()
         self.six_reraise: Set[Offset] = set()
-        self.six_simple: Dict[Offset, NameOrAttr] = {}
-        self.six_type_ctx: Dict[Offset, NameOrAttr] = {}
         self.six_with_metaclass: Set[Offset] = set()
 
         self._in_type_annotation = False
@@ -909,9 +888,7 @@ class FindPy3Plus(ast.NodeVisitor):
     visit_DictComp = visit_GeneratorExp = _visit_comp
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        if self._is_six(node, SIX_SIMPLE_ATTRS):
-            self.six_simple[ast_to_offset(node)] = node
-        elif self._find_mock and self._is_mock_mock(node):
+        if self._find_mock and self._is_mock_mock(node):
             self.mock_mock.add(ast_to_offset(node))
         elif (
                 (
@@ -926,9 +903,7 @@ class FindPy3Plus(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
-        if self._is_six(node, SIX_SIMPLE_ATTRS):
-            self.six_simple[ast_to_offset(node)] = node
-        elif (
+        if (
                 (
                     self._version >= (3, 9) or
                     self._in_type_annotation
@@ -981,16 +956,6 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         if (
-                isinstance(node.func, ast.Name) and
-                node.func.id in {'isinstance', 'issubclass'} and
-                len(node.args) == 2 and
-                self._is_six(node.args[1], SIX_TYPE_CTX_ATTRS)
-        ):
-            arg = node.args[1]
-            # _is_six() enforces this
-            assert isinstance(arg, (ast.Name, ast.Attribute))
-            self.six_type_ctx[ast_to_offset(node.args[1])] = arg
-        elif (
                 self._is_six(node.func, SIX_CALLS) and
                 node.args and
                 not has_starargs(node)
@@ -1381,8 +1346,6 @@ def _fix_py3_plus(
             visitor.six_iter,
             visitor.six_raise_from,
             visitor.six_reraise,
-            visitor.six_simple,
-            visitor.six_type_ctx,
             visitor.six_with_metaclass,
             visitor.super_calls,
             visitor.typing_builtin_renames,
@@ -1450,10 +1413,6 @@ def _fix_py3_plus(
                 replace_call(tokens, i, end, func_args, '{args[0]}')
             else:
                 tokens[i:end] = [token._replace(name='STRING', src="''")]
-        elif token.offset in visitor.six_type_ctx:
-            _replace(i, SIX_TYPE_CTX_ATTRS, visitor.six_type_ctx[token.offset])
-        elif token.offset in visitor.six_simple:
-            _replace(i, SIX_SIMPLE_ATTRS, visitor.six_simple[token.offset])
         elif token.offset in visitor.six_iter:
             j = find_open_paren(tokens, i)
             func_args, end = parse_call_args(tokens, j)

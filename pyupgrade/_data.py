@@ -6,6 +6,7 @@ from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import NamedTuple
+from typing import Optional
 from typing import Set
 from typing import Tuple
 from typing import Type
@@ -29,6 +30,7 @@ class State(NamedTuple):
     min_version: Version
     keep_percent_format: bool
     from_imports: Dict[str, Set[str]]
+    parent_node: Optional[ast.AST] = None
 
 
 AST_T = TypeVar('AST_T', bound=ast.AST)
@@ -74,6 +76,7 @@ def visit(
             for offset, token_func in ast_func(state, node):
                 ret[offset].append(token_func)
 
+        state = state._replace(parent_node=node)
         if (
                 isinstance(node, ast.ImportFrom) and
                 not node.level and

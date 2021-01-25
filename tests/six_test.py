@@ -17,9 +17,6 @@ from pyupgrade._main import _fix_py3_plus
         # unrelated decorator
         '@mydec\n'
         'class C: pass',
-        # renaming things for weird reasons
-        'from six import StringIO as text_type\n'
-        'isinstance(s, text_type)\n',
         # don't rewrite things that would become `raise` in non-statements
         'print(six.raise_from(exc, exc_from))',
         # intentionally not handling this case due to it being a bug (?)
@@ -29,17 +26,8 @@ from pyupgrade._main import _fix_py3_plus
         'class C(six.with_metaclass(*a)): pass',
         '@six.add_metaclass(*a)\n'
         'class C: pass\n',
-        # parenthesized part of attribute
-        '(\n'
-        '    six\n'
-        ').text_type(u)\n',
         # next is shadowed
         'next()',
-        pytest.param(
-            'from .six import text_type\n'
-            'isinstance("foo", text_type)\n',
-            id='relative import might not be six',
-        ),
         ('traceback.format_exc(*sys.exc_info())'),
         pytest.param('six.iteritems()', id='wrong argument count'),
     ),
@@ -51,41 +39,6 @@ def test_fix_six_noop(s):
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
-        (
-            'isinstance(s, six.text_type)',
-            'isinstance(s, str)',
-        ),
-        pytest.param(
-            'isinstance(s, six   .    string_types)',
-            'isinstance(s, str)',
-            id='weird spacing on six.attr',
-        ),
-        (
-            'isinstance(s, six.string_types)',
-            'isinstance(s, str)',
-        ),
-        (
-            'issubclass(tp, six.string_types)',
-            'issubclass(tp, str)',
-        ),
-        (
-            'STRING_TYPES = six.string_types',
-            'STRING_TYPES = (str,)',
-        ),
-        (
-            'from six import string_types\n'
-            'isinstance(s, string_types)\n',
-
-            'from six import string_types\n'
-            'isinstance(s, str)\n',
-        ),
-        (
-            'from six import string_types\n'
-            'STRING_TYPES = string_types\n',
-
-            'from six import string_types\n'
-            'STRING_TYPES = (str,)\n',
-        ),
         (
             'six.byte2int(b"f")',
             'b"f"[0]',
