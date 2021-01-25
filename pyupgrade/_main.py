@@ -7,14 +7,12 @@ import string
 import sys
 import tokenize
 from typing import Any
-from typing import cast
 from typing import Container
 from typing import Dict
 from typing import Generator
 from typing import Iterable
 from typing import List
 from typing import Match
-from typing import NamedTuple
 from typing import Optional
 from typing import Sequence
 from typing import Set
@@ -41,8 +39,9 @@ from pyupgrade._data import visit
 from pyupgrade._string_helpers import is_ascii
 from pyupgrade._string_helpers import is_codec
 from pyupgrade._token_helpers import arg_str
+from pyupgrade._token_helpers import Block
 from pyupgrade._token_helpers import CLOSING
-from pyupgrade._token_helpers import find_end
+from pyupgrade._token_helpers import find_block_start
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import find_token
 from pyupgrade._token_helpers import KEYWORDS
@@ -105,6 +104,21 @@ def inty(s: str) -> bool:
         return False
 
 
+def _fixup_dedent_tokens(tokens: List[Token]) -> None:
+    """For whatever reason the DEDENT / UNIMPORTANT_WS tokens are misordered
+
+    | if True:
+    |     if True:
+    |         pass
+    |     else:
+    |^    ^- DEDENT
+    |+----UNIMPORTANT_WS
+    """
+    for i, token in enumerate(tokens):
+        if token.name == UNIMPORTANT_WS and tokens[i + 1].name == 'DEDENT':
+            tokens[i], tokens[i + 1] = tokens[i + 1], tokens[i]
+
+
 def _fix_plugins(
         contents_text: str,
         *,
@@ -130,6 +144,8 @@ def _fix_plugins(
         tokens = src_to_tokens(contents_text)
     except tokenize.TokenError:  # pragma: no cover (bpo-2180)
         return contents_text
+
+    _fixup_dedent_tokens(tokens)
 
     for i, token in reversed_enumerate(tokens):
         if not token.src:
@@ -640,10 +656,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self._find_mock = not keep_mock
 
         self._exc_info_imported = False
-        self._version_info_imported = False
-        self.if_py3_blocks: Set[Offset] = set()
-        self.if_py2_blocks_else: Set[Offset] = set()
-        self.if_py3_blocks_else: Set[Offset] = set()
 
         self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
         self.mock_mock: Set[Offset] = set()
@@ -729,18 +741,6 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr == 'exc_info'
         )
 
-    def _is_version_info(self, node: ast.expr) -> bool:
-        return (
-            isinstance(node, ast.Name) and
-            node.id == 'version_info' and
-            self._version_info_imported
-        ) or (
-            isinstance(node, ast.Attribute) and
-            isinstance(node.value, ast.Name) and
-            node.value.id == 'sys' and
-            node.attr == 'version_info'
-        )
-
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if not node.level:
             if node.module in self.FROM_IMPORTED_MODULES:
@@ -754,11 +754,6 @@ class FindPy3Plus(ast.NodeVisitor):
                 for name in node.names
             ):
                 self._exc_info_imported = True
-            elif node.module == 'sys' and any(
-                name.name == 'version_info' and not name.asname
-                for name in node.names
-            ):
-                self._version_info_imported = True
         self.generic_visit(node)
 
     def visit_Import(self, node: ast.Import) -> None:
@@ -962,79 +957,6 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    @staticmethod
-    def _eq(test: ast.Compare, n: int) -> bool:
-        return (
-            isinstance(test.ops[0], ast.Eq) and
-            isinstance(test.comparators[0], ast.Num) and
-            test.comparators[0].n == n
-        )
-
-    @staticmethod
-    def _compare_to_3(
-        test: ast.Compare,
-        op: Union[Type[ast.cmpop], Tuple[Type[ast.cmpop], ...]],
-    ) -> bool:
-        if not (
-                isinstance(test.ops[0], op) and
-                isinstance(test.comparators[0], ast.Tuple) and
-                len(test.comparators[0].elts) >= 1 and
-                all(isinstance(n, ast.Num) for n in test.comparators[0].elts)
-        ):
-            return False
-
-        # checked above but mypy needs help
-        elts = cast('List[ast.Num]', test.comparators[0].elts)
-
-        return elts[0].n == 3 and all(n.n == 0 for n in elts[1:])
-
-    def visit_If(self, node: ast.If) -> None:
-        if (
-                # if six.PY2:
-                self._is_six(node.test, ('PY2',)) or
-                # if not six.PY3:
-                (
-                    isinstance(node.test, ast.UnaryOp) and
-                    isinstance(node.test.op, ast.Not) and
-                    self._is_six(node.test.operand, ('PY3',))
-                ) or
-                # sys.version_info == 2 or < (3,)
-                (
-                    isinstance(node.test, ast.Compare) and
-                    self._is_version_info(node.test.left) and
-                    len(node.test.ops) == 1 and (
-                        self._eq(node.test, 2) or
-                        self._compare_to_3(node.test, ast.Lt)
-                    )
-                )
-        ):
-            if node.orelse and not isinstance(node.orelse[0], ast.If):
-                self.if_py2_blocks_else.add(ast_to_offset(node))
-        elif (
-                # if six.PY3:
-                self._is_six(node.test, 'PY3') or
-                # if not six.PY2:
-                (
-                    isinstance(node.test, ast.UnaryOp) and
-                    isinstance(node.test.op, ast.Not) and
-                    self._is_six(node.test.operand, ('PY2',))
-                ) or
-                # sys.version_info == 3 or >= (3,) or > (3,)
-                (
-                    isinstance(node.test, ast.Compare) and
-                    self._is_version_info(node.test.left) and
-                    len(node.test.ops) == 1 and (
-                        self._eq(node.test, 3) or
-                        self._compare_to_3(node.test, (ast.Gt, ast.GtE))
-                    )
-                )
-        ):
-            if node.orelse and not isinstance(node.orelse[0], ast.If):
-                self.if_py3_blocks_else.add(ast_to_offset(node))
-            elif not node.orelse:
-                self.if_py3_blocks.add(ast_to_offset(node))
-        self.generic_visit(node)
-
     def visit_For(self, node: ast.For) -> None:
         if (
             not self._in_async_def and
@@ -1069,148 +991,6 @@ class FindPy3Plus(ast.NodeVisitor):
         super().generic_visit(node)
 
 
-def _fixup_dedent_tokens(tokens: List[Token]) -> None:
-    """For whatever reason the DEDENT / UNIMPORTANT_WS tokens are misordered
-
-    | if True:
-    |     if True:
-    |         pass
-    |     else:
-    |^    ^- DEDENT
-    |+----UNIMPORTANT_WS
-    """
-    for i, token in enumerate(tokens):
-        if token.name == UNIMPORTANT_WS and tokens[i + 1].name == 'DEDENT':
-            tokens[i], tokens[i + 1] = tokens[i + 1], tokens[i]
-
-
-def _find_block_start(tokens: List[Token], i: int) -> int:
-    depth = 0
-    while depth or tokens[i].src != ':':
-        if tokens[i].src in OPENING:
-            depth += 1
-        elif tokens[i].src in CLOSING:
-            depth -= 1
-        i += 1
-    return i
-
-
-class Block(NamedTuple):
-    start: int
-    colon: int
-    block: int
-    end: int
-    line: bool
-
-    def _initial_indent(self, tokens: List[Token]) -> int:
-        if tokens[self.start].src.isspace():
-            return len(tokens[self.start].src)
-        else:
-            return 0
-
-    def _minimum_indent(self, tokens: List[Token]) -> int:
-        block_indent = None
-        for i in range(self.block, self.end):
-            if (
-                    tokens[i - 1].name in ('NL', 'NEWLINE') and
-                    tokens[i].name in ('INDENT', UNIMPORTANT_WS)
-            ):
-                token_indent = len(tokens[i].src)
-                if block_indent is None:
-                    block_indent = token_indent
-                else:
-                    block_indent = min(block_indent, token_indent)
-
-        assert block_indent is not None
-        return block_indent
-
-    def dedent(self, tokens: List[Token]) -> None:
-        if self.line:
-            return
-        diff = self._minimum_indent(tokens) - self._initial_indent(tokens)
-        for i in range(self.block, self.end):
-            if (
-                    tokens[i - 1].name in ('DEDENT', 'NL', 'NEWLINE') and
-                    tokens[i].name in ('INDENT', UNIMPORTANT_WS)
-            ):
-                tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
-
-    def replace_condition(self, tokens: List[Token], new: List[Token]) -> None:
-        tokens[self.start:self.colon] = new
-
-    def _trim_end(self, tokens: List[Token]) -> 'Block':
-        """the tokenizer reports the end of the block at the beginning of
-        the next block
-        """
-        i = last_token = self.end - 1
-        while tokens[i].name in NON_CODING_TOKENS | {'DEDENT', 'NEWLINE'}:
-            # if we find an indented comment inside our block, keep it
-            if (
-                    tokens[i].name in {'NL', 'NEWLINE'} and
-                    tokens[i + 1].name == UNIMPORTANT_WS and
-                    len(tokens[i + 1].src) > self._initial_indent(tokens)
-            ):
-                break
-            # otherwise we've found another line to remove
-            elif tokens[i].name in {'NL', 'NEWLINE'}:
-                last_token = i
-            i -= 1
-        return self._replace(end=last_token + 1)
-
-    @classmethod
-    def find(
-            cls,
-            tokens: List[Token],
-            i: int,
-            trim_end: bool = False,
-    ) -> 'Block':
-        if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
-            i -= 1
-        start = i
-        colon = _find_block_start(tokens, i)
-
-        j = colon + 1
-        while (
-                tokens[j].name != 'NEWLINE' and
-                tokens[j].name in NON_CODING_TOKENS
-        ):
-            j += 1
-
-        if tokens[j].name == 'NEWLINE':  # multi line block
-            block = j + 1
-            while tokens[j].name != 'INDENT':
-                j += 1
-            level = 1
-            j += 1
-            while level:
-                level += {'INDENT': 1, 'DEDENT': -1}.get(tokens[j].name, 0)
-                j += 1
-            ret = cls(start, colon, block, j, line=False)
-            if trim_end:
-                return ret._trim_end(tokens)
-            else:
-                return ret
-        else:  # single line block
-            block = j
-            j = find_end(tokens, j)
-            return cls(start, colon, block, j, line=True)
-
-
-def _find_if_else_block(tokens: List[Token], i: int) -> Tuple[Block, Block]:
-    if_block = Block.find(tokens, i)
-    i = if_block.end
-    while tokens[i].src != 'else':
-        i += 1
-    else_block = Block.find(tokens, i, trim_end=True)
-    return if_block, else_block
-
-
-def _find_elif(tokens: List[Token], i: int) -> int:
-    while tokens[i].src != 'elif':  # pragma: no cover (only for <3.8.1)
-        i -= 1
-    return i
-
-
 def _get_tmpl(mapping: Dict[str, str], node: NameOrAttr) -> str:
     if isinstance(node, ast.Name):
         return mapping[node.id]
@@ -1220,7 +1000,7 @@ def _get_tmpl(mapping: Dict[str, str], node: NameOrAttr) -> str:
 
 def _replace_yield(tokens: List[Token], i: int) -> None:
     in_token = find_token(tokens, i, 'in')
-    colon = _find_block_start(tokens, i)
+    colon = find_block_start(tokens, i)
     block = Block.find(tokens, i, trim_end=True)
     container = tokens_to_src(tokens[in_token + 1:colon]).strip()
     tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
@@ -1240,9 +1020,6 @@ def _fix_py3_plus(
     visitor.visit(ast_obj)
 
     if not any((
-            visitor.if_py2_blocks_else,
-            visitor.if_py3_blocks,
-            visitor.if_py3_blocks_else,
             visitor.open_mode_calls,
             visitor.mock_mock,
             visitor.mock_absolute_imports,
@@ -1267,8 +1044,6 @@ def _fix_py3_plus(
     except tokenize.TokenError:  # pragma: no cover (bpo-2180)
         return contents_text
 
-    _fixup_dedent_tokens(tokens)
-
     def _replace(i: int, mapping: Dict[str, str], node: NameOrAttr) -> None:
         new_token = Token('CODE', _get_tmpl(mapping, node))
         if isinstance(node, ast.Name):
@@ -1285,34 +1060,6 @@ def _fix_py3_plus(
     for i, token in reversed_enumerate(tokens):
         if not token.src:
             continue
-        elif token.offset in visitor.if_py3_blocks:
-            if tokens[i].src == 'if':
-                if_block = Block.find(tokens, i)
-                if_block.dedent(tokens)
-                del tokens[if_block.start:if_block.block]
-            else:
-                if_block = Block.find(tokens, _find_elif(tokens, i))
-                if_block.replace_condition(tokens, [Token('NAME', 'else')])
-        elif token.offset in visitor.if_py2_blocks_else:
-            if tokens[i].src == 'if':
-                if_block, else_block = _find_if_else_block(tokens, i)
-                else_block.dedent(tokens)
-                del tokens[if_block.start:else_block.block]
-            else:
-                j = _find_elif(tokens, i)
-                if_block, else_block = _find_if_else_block(tokens, j)
-                del tokens[if_block.start:else_block.start]
-        elif token.offset in visitor.if_py3_blocks_else:
-            if tokens[i].src == 'if':
-                if_block, else_block = _find_if_else_block(tokens, i)
-                if_block.dedent(tokens)
-                del tokens[if_block.end:else_block.end]
-                del tokens[if_block.start:if_block.block]
-            else:
-                j = _find_elif(tokens, i)
-                if_block, else_block = _find_if_else_block(tokens, j)
-                del tokens[if_block.end:else_block.end]
-                if_block.replace_condition(tokens, [Token('NAME', 'else')])
         elif token.offset in visitor.six_iter:
             j = find_open_paren(tokens, i)
             func_args, end = parse_call_args(tokens, j)
@@ -1359,7 +1106,7 @@ def _fix_py3_plus(
                 j += 1
             class_token = j
             # then search forward for a `:` token, not inside a brace
-            j = _find_block_start(tokens, j)
+            j = find_block_start(tokens, j)
             last_paren = -1
             for k in range(class_token, j):
                 if tokens[k].src == ')':

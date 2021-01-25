@@ -1,6 +1,6 @@
 import pytest
 
-from pyupgrade._main import _fix_py3_plus
+from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
@@ -44,7 +44,7 @@ from pyupgrade._main import _fix_py3_plus
     ),
 )
 def test_fix_py2_block_noop(s):
-    assert _fix_py3_plus(s, (3,)) == s
+    assert _fix_plugins(s, min_version=(3,), keep_percent_format=False) == s
 
 
 @pytest.mark.parametrize(
@@ -417,7 +417,8 @@ def test_fix_py2_block_noop(s):
     ),
 )
 def test_fix_py2_blocks(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    assert ret == expected
 
 
 @pytest.mark.parametrize(
@@ -433,4 +434,5 @@ def test_fix_py2_blocks(s, expected):
     ),
 )
 def test_fix_py3_only_code(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    assert ret == expected
