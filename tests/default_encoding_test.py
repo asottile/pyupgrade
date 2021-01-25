@@ -1,6 +1,6 @@
 import pytest
 
-from pyupgrade._main import _fix_py3_plus
+from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
@@ -9,6 +9,11 @@ from pyupgrade._main import _fix_py3_plus
         ('"asd".encode("utf-8")', '"asd".encode()'),
         ('"asd".encode("utf8")', '"asd".encode()'),
         ('"asd".encode("UTF-8")', '"asd".encode()'),
+        pytest.param(
+            '"asd".encode(("UTF-8"))',
+            '"asd".encode()',
+            id='parenthesized encoding',
+        ),
         (
             'sys.stdout.buffer.write(\n    "a"\n    "b".encode("utf-8")\n)',
             'sys.stdout.buffer.write(\n    "a"\n    "b".encode()\n)',
@@ -24,7 +29,8 @@ from pyupgrade._main import _fix_py3_plus
     ),
 )
 def test_fix_encode(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    assert ret == expected
 
 
 @pytest.mark.parametrize(
@@ -43,4 +49,4 @@ def test_fix_encode(s, expected):
     ),
 )
 def test_fix_encode_noop(s):
-    assert _fix_py3_plus(s, (3,)) == s
+    assert _fix_plugins(s, min_version=(3,), keep_percent_format=False) == s

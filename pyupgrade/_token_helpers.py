@@ -153,6 +153,19 @@ def victims(
     return Victims(starts, sorted(set(ends)), first_comma_index, arg_index)
 
 
+def find_closing_bracket(tokens: List[Token], i: int) -> int:
+    assert tokens[i].src in OPENING
+    depth = 1
+    i += 1
+    while depth:
+        if tokens[i].src in OPENING:
+            depth += 1
+        elif tokens[i].src in CLOSING:
+            depth -= 1
+        i += 1
+    return i - 1
+
+
 def _is_on_a_line_by_self(tokens: List[Token], i: int) -> bool:
     return (
         tokens[i - 2].name == 'NL' and

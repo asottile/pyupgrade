@@ -1,6 +1,5 @@
 import argparse
 import ast
-import codecs
 import collections
 import contextlib
 import re
@@ -40,6 +39,7 @@ from pyupgrade._data import FUNCS
 from pyupgrade._data import Version
 from pyupgrade._data import visit
 from pyupgrade._string_helpers import is_ascii
+from pyupgrade._string_helpers import is_codec
 from pyupgrade._token_helpers import arg_str
 from pyupgrade._token_helpers import CLOSING
 from pyupgrade._token_helpers import find_end
@@ -360,9 +360,9 @@ def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
         if 'f' in prefix.lower():
             return
         encoding = ast.literal_eval(prefix + rest)
-        if _is_codec(encoding, 'ascii') or _is_codec(encoding, 'utf-8'):
+        if is_codec(encoding, 'ascii') or is_codec(encoding, 'utf-8'):
             latin1_ok = False
-        elif _is_codec(encoding, 'iso8859-1'):
+        elif is_codec(encoding, 'iso8859-1'):
             latin1_ok = True
         else:
             return
@@ -602,13 +602,6 @@ def targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
         return True
 
 
-def _is_codec(encoding: str, name: str) -> bool:
-    try:
-        return codecs.lookup(encoding).name == name
-    except LookupError:
-        return False
-
-
 class FindPy3Plus(ast.NodeVisitor):
     OS_ERROR_ALIASES = frozenset((
         'EnvironmentError',
@@ -646,8 +639,6 @@ class FindPy3Plus(ast.NodeVisitor):
     def __init__(self, version: Tuple[int, ...], keep_mock: bool) -> None:
         self._version = version
         self._find_mock = not keep_mock
-
-        self.encode_calls: Dict[Offset, ast.Call] = {}
 
         self._exc_info_imported = False
         self._version_info_imported = False
@@ -977,16 +968,6 @@ class FindPy3Plus(ast.NodeVisitor):
         ):
             self.native_literals.add(ast_to_offset(node))
         elif (
-                isinstance(node.func, ast.Attribute) and
-                isinstance(node.func.value, ast.Str) and
-                node.func.attr == 'encode' and
-                not has_starargs(node) and
-                len(node.args) == 1 and
-                isinstance(node.args[0], ast.Str) and
-                _is_codec(node.args[0].s, 'utf-8')
-        ):
-            self.encode_calls[ast_to_offset(node)] = node
-        elif (
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'open' and
                 not has_starargs(node) and
@@ -1278,7 +1259,6 @@ def _fix_py3_plus(
     visitor.visit(ast_obj)
 
     if not any((
-            visitor.encode_calls,
             visitor.if_py2_blocks_else,
             visitor.if_py3_blocks,
             visitor.if_py3_blocks_else,
@@ -1447,11 +1427,6 @@ def _fix_py3_plus(
             call = visitor.super_calls[token.offset]
             super_victims = victims(tokens, i, call, gen=False)
             del tokens[super_victims.starts[0] + 1:super_victims.ends[-1]]
-        elif token.offset in visitor.encode_calls:
-            i = find_open_paren(tokens, i + 1)
-            call = visitor.encode_calls[token.offset]
-            encode_victims = victims(tokens, i, call, gen=False)
-            del tokens[encode_victims.starts[0] + 1:encode_victims.ends[-1]]
         elif token.offset in visitor.mock_mock:
             j = find_token(tokens, i + 1, 'mock')
             del tokens[i + 1:j + 1]
