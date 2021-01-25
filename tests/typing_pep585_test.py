@@ -1,5 +1,3 @@
-import sys
-
 import pytest
 
 from pyupgrade import _fix_py3_plus
@@ -72,7 +70,6 @@ def test_fix_generic_types(s, expected):
     assert _fix_py3_plus(s, (3, 9)) == expected
 
 
-@pytest.mark.xfail(sys.version_info < (3, 7), reason='py37+ feature')
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
