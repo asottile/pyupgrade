@@ -42,6 +42,7 @@ from pyupgrade._data import visit
 from pyupgrade._string_helpers import is_ascii
 from pyupgrade._token_helpers import arg_str
 from pyupgrade._token_helpers import CLOSING
+from pyupgrade._token_helpers import find_end
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import find_token
 from pyupgrade._token_helpers import KEYWORDS
@@ -677,7 +678,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self.if_py3_blocks: Set[Offset] = set()
         self.if_py2_blocks_else: Set[Offset] = set()
         self.if_py3_blocks_else: Set[Offset] = set()
-        self.metaclass_type_assignments: Set[Offset] = set()
 
         self.native_literals: Set[Offset] = set()
 
@@ -1091,19 +1091,6 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_Assign(self, node: ast.Assign) -> None:
-        if (
-                len(node.targets) == 1 and
-                isinstance(node.targets[0], ast.Name) and
-                node.targets[0].col_offset == 0 and
-                node.targets[0].id == '__metaclass__' and
-                isinstance(node.value, ast.Name) and
-                node.value.id == 'type'
-        ):
-            self.metaclass_type_assignments.add(ast_to_offset(node))
-
-        self.generic_visit(node)
-
     @staticmethod
     def _eq(test: ast.Compare, n: int) -> bool:
         return (
@@ -1334,23 +1321,8 @@ class Block(NamedTuple):
                 return ret
         else:  # single line block
             block = j
-            j = _find_end(tokens, j)
+            j = find_end(tokens, j)
             return cls(start, colon, block, j, line=True)
-
-
-def _find_end(tokens: List[Token], i: int) -> int:
-    while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
-        i += 1
-
-    # depending on the version of python, some will not emit
-    # NEWLINE('') at the end of a file which does not end with a
-    # newline (for example 3.6.5)
-    if tokens[i].name == 'ENDMARKER':  # pragma: no cover
-        i -= 1
-    else:
-        i += 1
-
-    return i
 
 
 def _find_if_else_block(tokens: List[Token], i: int) -> Tuple[Block, Block]:
@@ -1406,7 +1378,6 @@ def _fix_py3_plus(
             visitor.if_py2_blocks_else,
             visitor.if_py3_blocks,
             visitor.if_py3_blocks_else,
-            visitor.metaclass_type_assignments,
             visitor.native_literals,
             visitor.io_open_calls,
             visitor.open_mode_calls,
@@ -1482,9 +1453,6 @@ def _fix_py3_plus(
                 if_block, else_block = _find_if_else_block(tokens, j)
                 del tokens[if_block.end:else_block.end]
                 if_block.replace_condition(tokens, [Token('NAME', 'else')])
-        elif token.offset in visitor.metaclass_type_assignments:
-            j = _find_end(tokens, i)
-            del tokens[i:j + 1]
         elif token.offset in visitor.native_literals:
             j = find_open_paren(tokens, i)
             func_args, end = parse_call_args(tokens, j)

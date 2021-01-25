@@ -50,6 +50,21 @@ def find_open_paren(tokens: List[Token], i: int) -> int:
     return find_token(tokens, i, '(')
 
 
+def find_end(tokens: List[Token], i: int) -> int:
+    while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
+        i += 1
+
+    # depending on the version of python, some will not emit
+    # NEWLINE('') at the end of a file which does not end with a
+    # newline (for example 3.6.5)
+    if tokens[i].name == 'ENDMARKER':  # pragma: no cover
+        i -= 1
+    else:
+        i += 1
+
+    return i
+
+
 if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
     # python 3.8 fixed the offsets of generators / tuples
     def _arg_token_index(tokens: List[Token], i: int, arg: ast.expr) -> int:
