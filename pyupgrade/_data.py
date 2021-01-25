@@ -31,13 +31,14 @@ class State(NamedTuple):
     keep_percent_format: bool
     from_imports: Dict[str, Set[str]]
     parent_node: Optional[ast.AST] = None
+    in_annotation: bool = False
 
 
 AST_T = TypeVar('AST_T', bound=ast.AST)
 TokenFunc = Callable[[int, List[Token]], None]
 ASTFunc = Callable[[State, AST_T], Iterable[Tuple[Offset, TokenFunc]]]
 
-RECORD_FROM_IMPORTS = frozenset(('functools', 'six'))
+RECORD_FROM_IMPORTS = frozenset(('__future__', 'functools', 'six', 'typing'))
 
 FUNCS = collections.defaultdict(list)
 
@@ -88,12 +89,17 @@ def visit(
 
         for name in reversed(node._fields):
             value = getattr(node, name)
+            if name in {'annotation', 'returns'}:
+                next_state = state._replace(in_annotation=True)
+            else:
+                next_state = state
+
             if isinstance(value, ast.AST):
-                nodes.append((value, state))
+                nodes.append((value, next_state))
             elif isinstance(value, list):
                 for value in reversed(value):
                     if isinstance(value, ast.AST):
-                        nodes.append((value, state))
+                        nodes.append((value, next_state))
     return ret
 
 

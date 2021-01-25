@@ -561,11 +561,6 @@ U_MODE_REPLACE_R = frozenset(('Ub', 'bU'))
 U_MODE_REMOVE_U = frozenset(('rUb', 'Urb', 'rbU', 'Ubr', 'bUr', 'brU'))
 U_MODE_REPLACE = U_MODE_REPLACE_R | U_MODE_REMOVE_U
 
-PEP585_BUILTINS = {
-    k: k.lower()
-    for k in ('Dict', 'FrozenSet', 'List', 'Set', 'Tuple', 'Type')
-}
-
 
 def _all_isinstance(
         vals: Iterable[Any],
@@ -679,9 +674,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self.six_raise_from: Set[Offset] = set()
         self.six_reraise: Set[Offset] = set()
         self.six_with_metaclass: Set[Offset] = set()
-
-        self._in_type_annotation = False
-        self.typing_builtin_renames: Dict[Offset, NameOrAttr] = {}
 
         self._class_info_stack: List[FindPy3Plus.ClassInfo] = []
         self._in_comp = 0
@@ -842,18 +834,10 @@ class FindPy3Plus(ast.NodeVisitor):
                 cell_reads = info.reads - info.writes
                 self._scope_stack[-1].reads.update(cell_reads)
 
-    def _visit_annotation(self, node: ast.AST) -> None:
-        orig, self._in_type_annotation = self._in_type_annotation, True
-        self.generic_visit(node)
-        self._in_type_annotation = orig
-
     def _visit_func(self, node: AnyFunctionDef) -> None:
         with contextlib.ExitStack() as ctx, self._scope():
             if self._class_info_stack:
                 ctx.enter_context(self._track_def_depth(node))
-
-            if not isinstance(node, ast.Lambda) and node.returns is not None:
-                self._visit_annotation(node.returns)
 
             self.generic_visit(node)
 
@@ -869,15 +853,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self._visit_func(node)
         self._in_async_def = orig
 
-    def visit_arg(self, node: ast.arg) -> None:
-        if node.annotation is not None:
-            self._visit_annotation(node.annotation)
-        self.generic_visit(node)
-
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
-        self._visit_annotation(node.annotation)
-        self.generic_visit(node)
-
     def _visit_comp(self, node: ast.expr) -> None:
         self._in_comp += 1
         with self._scope():
@@ -890,29 +865,9 @@ class FindPy3Plus(ast.NodeVisitor):
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if self._find_mock and self._is_mock_mock(node):
             self.mock_mock.add(ast_to_offset(node))
-        elif (
-                (
-                    self._version >= (3, 9) or
-                    self._in_type_annotation
-                ) and
-                isinstance(node.value, ast.Name) and
-                node.value.id == 'typing' and
-                node.attr in PEP585_BUILTINS
-        ):
-            self.typing_builtin_renames[ast_to_offset(node)] = node
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
-        if (
-                (
-                    self._version >= (3, 9) or
-                    self._in_type_annotation
-                ) and
-                node.id in PEP585_BUILTINS and
-                node.id in self._from_imports['typing']
-        ):
-            self.typing_builtin_renames[ast_to_offset(node)] = node
-
         if self._scope_stack:
             if isinstance(node.ctx, ast.Load):
                 self._scope_stack[-1].reads.add(node.id)
@@ -1319,11 +1274,6 @@ def _fix_py3_plus(
     except SyntaxError:
         return contents_text
 
-    pep585_rewrite = (
-        min_version >= (3, 9) or
-        _imports_future(contents_text, 'annotations')
-    )
-
     visitor = FindPy3Plus(min_version, keep_mock)
     visitor.visit(ast_obj)
 
@@ -1348,7 +1298,6 @@ def _fix_py3_plus(
             visitor.six_reraise,
             visitor.six_with_metaclass,
             visitor.super_calls,
-            visitor.typing_builtin_renames,
             visitor.yield_from_fors,
     )):
         return contents_text
@@ -1493,9 +1442,6 @@ def _fix_py3_plus(
             else:
                 tmpl = WITH_METACLASS_BASES_TMPL
             replace_call(tokens, i, end, func_args, tmpl)
-        elif pep585_rewrite and token.offset in visitor.typing_builtin_renames:
-            node = visitor.typing_builtin_renames[token.offset]
-            _replace(i, PEP585_BUILTINS, node)
         elif token.offset in visitor.super_calls:
             i = find_open_paren(tokens, i)
             call = visitor.super_calls[token.offset]
