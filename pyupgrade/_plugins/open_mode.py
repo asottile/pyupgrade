@@ -42,6 +42,7 @@ def _fix_open_mode(i: int, tokens: List[Token]) -> None:
 def visit_Call(
         state: State,
         node: ast.Call,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             state.min_version >= (3,) and

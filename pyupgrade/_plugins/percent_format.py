@@ -241,6 +241,7 @@ def _fix_percent_format_dict(
 def visit_BinOp(
         state: State,
         node: ast.BinOp,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             not state.keep_percent_format and

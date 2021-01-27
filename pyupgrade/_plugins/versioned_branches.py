@@ -96,6 +96,7 @@ def _compare_to_3(
 def visit_If(
         state: State,
         node: ast.If,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             state.min_version >= (3,) and (

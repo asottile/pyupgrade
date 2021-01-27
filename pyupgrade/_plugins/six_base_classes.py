@@ -16,6 +16,7 @@ from pyupgrade._token_helpers import remove_base_class
 def visit_ClassDef(
         state: State,
         node: ast.ClassDef,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if state.min_version >= (3,):
         for base in node.bases:

@@ -20,6 +20,7 @@ PEP585_BUILTINS = frozenset((
 def visit_Attribute(
         state: State,
         node: ast.Attribute,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             (
@@ -44,6 +45,7 @@ def visit_Attribute(
 def visit_Name(
         state: State,
         node: ast.Name,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             (

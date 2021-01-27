@@ -51,6 +51,7 @@ def _fix_dict_comp(
 def visit_Call(
         state: State,
         node: ast.Call,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             isinstance(node.func, ast.Name) and

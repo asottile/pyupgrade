@@ -46,6 +46,7 @@ def _is_type_check(node: Optional[ast.AST]) -> bool:
 def visit_Attribute(
         state: State,
         node: ast.Attribute,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             state.min_version >= (3,) and
@@ -55,12 +56,12 @@ def visit_Attribute(
     ):
         # these will be handled by the native literals plugin
         if (
-                isinstance(state.parent_node, ast.Call) and
-                is_a_native_literal_call(state.parent_node, state.from_imports)
+                isinstance(parent, ast.Call) and
+                is_a_native_literal_call(parent, state.from_imports)
         ):
             return
 
-        if node.attr in NAMES_TYPE_CTX and _is_type_check(state.parent_node):
+        if node.attr in NAMES_TYPE_CTX and _is_type_check(parent):
             new = NAMES_TYPE_CTX[node.attr]
         else:
             new = NAMES[node.attr]
@@ -73,6 +74,7 @@ def visit_Attribute(
 def visit_Name(
         state: State,
         node: ast.Name,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             state.min_version >= (3,) and
@@ -81,12 +83,12 @@ def visit_Name(
     ):
         # these will be handled by the native literals plugin
         if (
-                isinstance(state.parent_node, ast.Call) and
-                is_a_native_literal_call(state.parent_node, state.from_imports)
+                isinstance(parent, ast.Call) and
+                is_a_native_literal_call(parent, state.from_imports)
         ):
             return
 
-        if node.id in NAMES_TYPE_CTX and _is_type_check(state.parent_node):
+        if node.id in NAMES_TYPE_CTX and _is_type_check(parent):
             new = NAMES_TYPE_CTX[node.id]
         else:
             new = NAMES[node.id]

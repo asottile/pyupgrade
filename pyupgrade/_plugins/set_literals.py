@@ -62,6 +62,7 @@ def _fix_set_literal(i: int, tokens: List[Token], *, arg: ast.expr) -> None:
 def visit_Call(
         state: State,
         node: ast.Call,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             isinstance(node.func, ast.Name) and

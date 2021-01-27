@@ -6,7 +6,6 @@ from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import NamedTuple
-from typing import Optional
 from typing import Set
 from typing import Tuple
 from typing import Type
@@ -30,13 +29,12 @@ class State(NamedTuple):
     min_version: Version
     keep_percent_format: bool
     from_imports: Dict[str, Set[str]]
-    parent_node: Optional[ast.AST] = None
     in_annotation: bool = False
 
 
 AST_T = TypeVar('AST_T', bound=ast.AST)
 TokenFunc = Callable[[int, List[Token]], None]
-ASTFunc = Callable[[State, AST_T], Iterable[Tuple[Offset, TokenFunc]]]
+ASTFunc = Callable[[State, AST_T, ast.AST], Iterable[Tuple[Offset, TokenFunc]]]
 
 RECORD_FROM_IMPORTS = frozenset((
     '__future__', 'functools', 'six', 'sys', 'typing',
@@ -58,7 +56,7 @@ class ASTCallbackMapping(Protocol):
 
 def visit(
         funcs: ASTCallbackMapping,
-        tree: ast.AST,
+        tree: ast.Module,
         *,
         min_version: Version,
         keep_percent_format: bool,
@@ -68,18 +66,19 @@ def visit(
         keep_percent_format=keep_percent_format,
         from_imports=collections.defaultdict(set),
     )
-    nodes = [(tree, initial_state)]
+    nodes: List[Tuple[State, ast.AST, ast.AST]]
+
+    nodes = [(initial_state, child, tree) for child in reversed(tree.body)]
 
     ret = collections.defaultdict(list)
     while nodes:
-        node, state = nodes.pop()
+        state, node, parent = nodes.pop()
 
         tp = type(node)
         for ast_func in funcs[tp]:
-            for offset, token_func in ast_func(state, node):
+            for offset, token_func in ast_func(state, node, parent):
                 ret[offset].append(token_func)
 
-        state = state._replace(parent_node=node)
         if (
                 isinstance(node, ast.ImportFrom) and
                 not node.level and
@@ -97,11 +96,11 @@ def visit(
                 next_state = state
 
             if isinstance(value, ast.AST):
-                nodes.append((value, next_state))
+                nodes.append((next_state, value, node))
             elif isinstance(value, list):
                 for value in reversed(value):
                     if isinstance(value, ast.AST):
-                        nodes.append((value, next_state))
+                        nodes.append((next_state, value, node))
     return ret
 
 

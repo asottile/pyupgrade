@@ -40,6 +40,7 @@ def _fix_is_literal(
 def visit_Compare(
         state: State,
         node: ast.Compare,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     left = node.left
     for op, right in zip(node.ops, node.comparators):

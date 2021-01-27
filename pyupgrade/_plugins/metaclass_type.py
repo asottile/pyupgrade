@@ -22,6 +22,7 @@ def _remove_metaclass_type(i: int, tokens: List[Token]) -> None:
 def visit_Assign(
         state: State,
         node: ast.Assign,
+        parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             state.min_version >= (3,) and
