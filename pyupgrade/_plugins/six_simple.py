@@ -49,7 +49,7 @@ def visit_Attribute(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
-            state.min_version >= (3,) and
+            state.settings.min_version >= (3,) and
             isinstance(node.value, ast.Name) and
             node.value.id == 'six' and
             node.attr in NAMES
@@ -77,7 +77,7 @@ def visit_Name(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
-            state.min_version >= (3,) and
+            state.settings.min_version >= (3,) and
             node.id in state.from_imports['six'] and
             node.id in NAMES
     ):

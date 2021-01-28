@@ -2,6 +2,7 @@ import ast
 
 import pytest
 
+from pyupgrade._data import Settings
 from pyupgrade._main import _fix_plugins
 from pyupgrade._plugins.percent_format import _parse_percent_format
 from pyupgrade._plugins.percent_format import _percent_to_format
@@ -182,7 +183,7 @@ def test_simplify_conversion_flag(s, expected):
     ),
 )
 def test_percent_format_noop(s):
-    assert _fix_plugins(s, min_version=(2, 7), keep_percent_format=False) == s
+    assert _fix_plugins(s, settings=Settings()) == s
 
 
 def _has_16806_bug():
@@ -195,7 +196,7 @@ def _has_16806_bug():
 @pytest.mark.xfail(not _has_16806_bug(), reason='multiline string parse bug')
 def test_percent_format_noop_if_bug_16806():
     s = '"""%s\n""" % ("issue16806",)'
-    assert _fix_plugins(s, min_version=(2, 7), keep_percent_format=False) == s
+    assert _fix_plugins(s, settings=Settings()) == s
 
 
 @pytest.mark.parametrize(
@@ -224,7 +225,7 @@ def test_percent_format_noop_if_bug_16806():
     ),
 )
 def test_percent_format(s, expected):
-    ret = _fix_plugins(s, min_version=(2, 7), keep_percent_format=False)
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
 
 
@@ -276,5 +277,5 @@ def test_percent_format(s, expected):
     ),
 )
 def test_percent_format_todo(s, expected):
-    ret = _fix_plugins(s, min_version=(2, 7), keep_percent_format=False)
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected

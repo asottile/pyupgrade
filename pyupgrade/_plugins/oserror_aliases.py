@@ -110,7 +110,7 @@ def visit_Raise(
         node: ast.Raise,
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
-    if state.min_version >= (3,) and node.exc is not None:
+    if state.settings.min_version >= (3,) and node.exc is not None:
         yield from _oserror_alias_cbs(node.exc, state.from_imports)
         if isinstance(node.exc, ast.Call):
             yield from _oserror_alias_cbs(node.exc.func, state.from_imports)
@@ -122,7 +122,7 @@ def visit_Try(
         node: ast.Try,
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
-    if state.min_version >= (3,):
+    if state.settings.min_version >= (3,):
         for handler in node.handlers:
             if (
                     isinstance(handler.type, ast.Tuple) and

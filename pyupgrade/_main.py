@@ -33,6 +33,7 @@ from pyupgrade._ast_helpers import ast_parse
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._ast_helpers import has_starargs
 from pyupgrade._data import FUNCS
+from pyupgrade._data import Settings
 from pyupgrade._data import Version
 from pyupgrade._data import visit
 from pyupgrade._string_helpers import is_ascii
@@ -106,23 +107,13 @@ def _fixup_dedent_tokens(tokens: List[Token]) -> None:
             tokens[i], tokens[i + 1] = tokens[i + 1], tokens[i]
 
 
-def _fix_plugins(
-        contents_text: str,
-        *,
-        min_version: Version,
-        keep_percent_format: bool,
-) -> str:
+def _fix_plugins(contents_text: str, settings: Settings) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    callbacks = visit(
-        FUNCS,
-        ast_obj,
-        min_version=min_version,
-        keep_percent_format=keep_percent_format,
-    )
+    callbacks = visit(FUNCS, ast_obj, settings)
 
     if not callbacks:
         return contents_text
@@ -1143,8 +1134,10 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
 
     contents_text = _fix_plugins(
         contents_text,
-        min_version=args.min_version,
-        keep_percent_format=args.keep_percent_format,
+        settings=Settings(
+            min_version=args.min_version,
+            keep_percent_format=args.keep_percent_format,
+        ),
     )
     contents_text = _fix_tokens(contents_text, min_version=args.min_version)
     if args.min_version >= (3,):

@@ -1,5 +1,6 @@
 import pytest
 
+from pyupgrade._data import Settings
 from pyupgrade._main import _fix_plugins
 from pyupgrade._plugins.oserror_aliases import ERROR_MODULES
 from pyupgrade._plugins.oserror_aliases import ERROR_NAMES
@@ -17,7 +18,7 @@ from pyupgrade._plugins.oserror_aliases import ERROR_NAMES
     ),
 )
 def test_noop_in_python_2(s):
-    assert _fix_plugins(s, min_version=(2, 7), keep_percent_format=False) == s
+    assert _fix_plugins(s, settings=Settings()) == s
 
 
 @pytest.mark.parametrize('alias', ERROR_NAMES)
@@ -98,7 +99,7 @@ def test_noop_in_python_2(s):
 )
 def test_fix_oserror_aliases_try(alias, tpl, expected):
     s = tpl.format(alias=alias)
-    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
     assert ret == expected
 
 
@@ -148,7 +149,7 @@ def test_fix_oserror_aliases_try(alias, tpl, expected):
     ),
 )
 def test_fix_oserror_aliases_noop(s):
-    assert _fix_plugins(s, min_version=(3,), keep_percent_format=False) == s
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
 
 
 @pytest.mark.parametrize('imp', ERROR_MODULES)
@@ -168,7 +169,7 @@ def test_fix_oserror_aliases_noop(s):
 )
 def test_fix_oserror_aliases_noop_tpl(imp, tpl):
     s = tpl.format(imp=imp)
-    assert _fix_plugins(s, min_version=(3,), keep_percent_format=False) == s
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
 
 
 @pytest.mark.parametrize('imp', ERROR_MODULES)
@@ -403,7 +404,7 @@ def test_fix_oserror_aliases_noop_tpl(imp, tpl):
 )
 def test_fix_oserror_complex_aliases_try(imp, tpl, expected_tpl):
     s, expected = tpl.format(imp=imp), expected_tpl.format(imp=imp)
-    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
     assert ret == expected
 
 
@@ -429,7 +430,7 @@ def test_fix_oserror_complex_aliases_try(imp, tpl, expected_tpl):
 )
 def test_fix_oserror_aliases_raise(alias, tpl, expected):
     s = tpl.format(alias=alias)
-    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
     assert ret == expected
 
 
@@ -523,5 +524,5 @@ def test_fix_oserror_aliases_raise(alias, tpl, expected):
 )
 def test_fix_oserror_complex_aliases_raise(imp, tpl, expected_tpl):
     s, expected = tpl.format(imp=imp), expected_tpl.format(imp=imp)
-    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
     assert ret == expected

@@ -99,7 +99,7 @@ def visit_If(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
-            state.min_version >= (3,) and (
+            state.settings.min_version >= (3,) and (
                 # if six.PY2:
                 is_name_attr(node.test, state.from_imports, 'six', ('PY2',)) or
                 # if not six.PY3:
@@ -132,7 +132,7 @@ def visit_If(
         if node.orelse and not isinstance(node.orelse[0], ast.If):
             yield ast_to_offset(node), _fix_py2_block
     elif (
-            state.min_version >= (3,) and (
+            state.settings.min_version >= (3,) and (
                 # if six.PY3:
                 is_name_attr(node.test, state.from_imports, 'six', ('PY3',)) or
                 # if not six.PY2:

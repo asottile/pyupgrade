@@ -1,5 +1,6 @@
 import pytest
 
+from pyupgrade._data import Settings
 from pyupgrade._main import _fix_plugins
 
 
@@ -18,7 +19,7 @@ from pyupgrade._main import _fix_plugins
     ),
 )
 def test_fix_open_mode_noop(s):
-    assert _fix_plugins(s, min_version=(3,), keep_percent_format=False) == s
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
 
 
 @pytest.mark.parametrize(
@@ -34,5 +35,5 @@ def test_fix_open_mode_noop(s):
     ),
 )
 def test_fix_open_mode(s, expected):
-    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
     assert ret == expected

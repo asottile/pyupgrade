@@ -17,7 +17,7 @@ def visit_ClassDef(
         node: ast.ClassDef,
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
-    if state.min_version >= (3,):
+    if state.settings.min_version >= (3,):
         for base in node.bases:
             if isinstance(base, ast.Name) and base.id == 'object':
                 yield ast_to_offset(base), remove_base_class

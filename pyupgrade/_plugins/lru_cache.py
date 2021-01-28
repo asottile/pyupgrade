@@ -28,7 +28,7 @@ def visit_Call(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
-            state.min_version >= (3, 8) and
+            state.settings.min_version >= (3, 8) and
             not node.args and
             not node.keywords and
             is_name_attr(

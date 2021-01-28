@@ -57,7 +57,7 @@ def visit_Call(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
-            state.min_version >= (3,) and
+            state.settings.min_version >= (3,) and
             is_a_native_literal_call(node, state.from_imports)
     ):
         yield ast_to_offset(node), _fix_native_str

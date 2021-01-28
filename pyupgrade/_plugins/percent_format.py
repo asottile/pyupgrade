@@ -244,7 +244,7 @@ def visit_BinOp(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
-            not state.keep_percent_format and
+            not state.settings.keep_percent_format and
             isinstance(node.op, ast.Mod) and
             isinstance(node.left, ast.Str)
     ):

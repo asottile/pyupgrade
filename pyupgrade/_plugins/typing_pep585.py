@@ -24,7 +24,7 @@ def visit_Attribute(
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             (
-                state.min_version >= (3, 9) or (
+                state.settings.min_version >= (3, 9) or (
                     state.in_annotation and
                     'annotations' in state.from_imports['__future__']
                 )
@@ -49,7 +49,7 @@ def visit_Name(
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
             (
-                state.min_version >= (3, 9) or (
+                state.settings.min_version >= (3, 9) or (
                     state.in_annotation and
                     'annotations' in state.from_imports['__future__']
                 )

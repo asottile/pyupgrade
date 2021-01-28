@@ -25,9 +25,13 @@ else:
 Version = Tuple[int, ...]
 
 
+class Settings(NamedTuple):
+    min_version: Version = (2, 7)
+    keep_percent_format: bool = False
+
+
 class State(NamedTuple):
-    min_version: Version
-    keep_percent_format: bool
+    settings: Settings
     from_imports: Dict[str, Set[str]]
     in_annotation: bool = False
 
@@ -64,13 +68,10 @@ class ASTCallbackMapping(Protocol):
 def visit(
         funcs: ASTCallbackMapping,
         tree: ast.Module,
-        *,
-        min_version: Version,
-        keep_percent_format: bool,
+        settings: Settings,
 ) -> Dict[Offset, List[TokenFunc]]:
     initial_state = State(
-        min_version=min_version,
-        keep_percent_format=keep_percent_format,
+        settings=settings,
         from_imports=collections.defaultdict(set),
     )
     nodes: List[Tuple[State, ast.AST, ast.AST]]
