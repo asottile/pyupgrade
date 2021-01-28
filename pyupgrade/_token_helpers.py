@@ -412,6 +412,18 @@ def replace_call(
     tokens[start:end] = [Token('CODE', src)]
 
 
+def find_and_replace_call(
+        i: int,
+        tokens: List[Token],
+        *,
+        template: str,
+        parens: Tuple[int, ...] = (),
+) -> None:
+    j = find_open_paren(tokens, i)
+    func_args, end = parse_call_args(tokens, j)
+    replace_call(tokens, i, end, func_args, template, parens=parens)
+
+
 def replace_name(i: int, tokens: List[Token], *, name: str, new: str) -> None:
     new_token = Token('CODE', new)
     j = i

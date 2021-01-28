@@ -3,7 +3,6 @@ import sys
 import pytest
 
 from pyupgrade._main import _fix_plugins
-from pyupgrade._main import _fix_py3_plus
 
 
 @pytest.mark.parametrize(
@@ -14,6 +13,7 @@ from pyupgrade._main import _fix_py3_plus
         # unrelated
         'from os import path',
         'from six import moves',
+        'a[0]()',
         # unrelated decorator
         '@mydec\n'
         'class C: pass',
@@ -38,7 +38,7 @@ from pyupgrade._main import _fix_py3_plus
     ),
 )
 def test_fix_six_noop(s):
-    assert _fix_py3_plus(s, (3,)) == s
+    assert _fix_plugins(s, min_version=(3,), keep_percent_format=False) == s
 
 
 @pytest.mark.parametrize(
@@ -342,7 +342,8 @@ def test_fix_six_noop(s):
     ),
 )
 def test_fix_six(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    assert ret == expected
 
 
 @pytest.mark.xfail(sys.version_info < (3, 8), reason='walrus')
@@ -357,7 +358,8 @@ def test_fix_six(s, expected):
     ),
 )
 def test_fix_six_py38_plus(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, min_version=(3,), keep_percent_format=False)
+    assert ret == expected
 
 
 @pytest.mark.parametrize(

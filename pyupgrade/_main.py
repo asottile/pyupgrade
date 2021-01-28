@@ -7,7 +7,6 @@ import string
 import sys
 import tokenize
 from typing import Any
-from typing import Container
 from typing import Dict
 from typing import Generator
 from typing import Iterable
@@ -38,7 +37,6 @@ from pyupgrade._data import Version
 from pyupgrade._data import visit
 from pyupgrade._string_helpers import is_ascii
 from pyupgrade._string_helpers import is_codec
-from pyupgrade._token_helpers import arg_str
 from pyupgrade._token_helpers import Block
 from pyupgrade._token_helpers import CLOSING
 from pyupgrade._token_helpers import find_block_start
@@ -46,26 +44,15 @@ from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import find_token
 from pyupgrade._token_helpers import KEYWORDS
 from pyupgrade._token_helpers import OPENING
-from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import remove_brace
-from pyupgrade._token_helpers import remove_decorator
-from pyupgrade._token_helpers import replace_call
 from pyupgrade._token_helpers import victims
 
 DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
 
-NameOrAttr = Union[ast.Name, ast.Attribute]
 AnyFunctionDef = Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda]
 SyncFunctionDef = Union[ast.FunctionDef, ast.Lambda]
 
 _stdlib_parse_format = string.Formatter().parse
-
-_EXPR_NEEDS_PARENS: Tuple[Type[ast.expr], ...] = (
-    ast.Await, ast.BinOp, ast.BoolOp, ast.Compare, ast.GeneratorExp, ast.IfExp,
-    ast.Lambda, ast.UnaryOp,
-)
-if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
-    _EXPR_NEEDS_PARENS += (ast.NamedExpr,)
 
 
 def parse_format(s: str) -> Tuple[DotFormatPart, ...]:
@@ -542,37 +529,6 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
     return tokens_to_src(tokens).lstrip()
 
 
-SIX_CALLS = {
-    'u': '{args[0]}',
-    'byte2int': '{args[0]}[0]',
-    'indexbytes': '{args[0]}[{rest}]',
-    'iteritems': '{args[0]}.items()',
-    'iterkeys': '{args[0]}.keys()',
-    'itervalues': '{args[0]}.values()',
-    'viewitems': '{args[0]}.items()',
-    'viewkeys': '{args[0]}.keys()',
-    'viewvalues': '{args[0]}.values()',
-    'create_unbound_method': '{args[0]}',
-    'get_unbound_function': '{args[0]}',
-    'get_method_function': '{args[0]}.__func__',
-    'get_method_self': '{args[0]}.__self__',
-    'get_function_closure': '{args[0]}.__closure__',
-    'get_function_code': '{args[0]}.__code__',
-    'get_function_defaults': '{args[0]}.__defaults__',
-    'get_function_globals': '{args[0]}.__globals__',
-    'assertCountEqual': '{args[0]}.assertCountEqual({rest})',
-    'assertRaisesRegex': '{args[0]}.assertRaisesRegex({rest})',
-    'assertRegex': '{args[0]}.assertRegex({rest})',
-}
-SIX_INT2BYTE_TMPL = 'bytes(({args[0]},))'
-WITH_METACLASS_NO_BASES_TMPL = 'metaclass={args[0]}'
-WITH_METACLASS_BASES_TMPL = '{rest}, metaclass={args[0]}'
-RAISE_FROM_TMPL = 'raise {args[0]} from {rest}'
-RERAISE_TMPL = 'raise'
-RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
-RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
-
-
 def _all_isinstance(
         vals: Iterable[Any],
         tp: Union[Type[Any], Tuple[Type[Any], ...]],
@@ -614,8 +570,6 @@ def targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
 
 
 class FindPy3Plus(ast.NodeVisitor):
-    FROM_IMPORTED_MODULES = frozenset(('functools', 'six', 'typing'))
-
     MOCK_MODULES = frozenset(('mock', 'mock.mock'))
 
     class ClassInfo:
@@ -637,21 +591,9 @@ class FindPy3Plus(ast.NodeVisitor):
         self._version = version
         self._find_mock = not keep_mock
 
-        self._exc_info_imported = False
-
-        self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
         self.mock_mock: Set[Offset] = set()
         self.mock_absolute_imports: Set[Offset] = set()
         self.mock_relative_imports: Set[Offset] = set()
-
-        self.six_add_metaclass: Set[Offset] = set()
-        self.six_calls: Dict[Offset, ast.Call] = {}
-        self.six_calls_int2byte: Set[Offset] = set()
-        self.six_iter: Dict[Offset, ast.Call] = {}
-        self._previous_node: Optional[ast.AST] = None
-        self.six_raise_from: Set[Offset] = set()
-        self.six_reraise: Set[Offset] = set()
-        self.six_with_metaclass: Set[Offset] = set()
 
         self._class_info_stack: List[FindPy3Plus.ClassInfo] = []
         self._in_comp = 0
@@ -659,26 +601,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self._in_async_def = False
         self._scope_stack: List[FindPy3Plus.Scope] = []
         self.yield_from_fors: Set[Offset] = set()
-
-    def _is_six(self, node: ast.expr, names: Container[str]) -> bool:
-        return (
-            isinstance(node, ast.Name) and
-            node.id in names and
-            node.id in self._from_imports['six']
-        ) or (
-            isinstance(node, ast.Attribute) and
-            isinstance(node.value, ast.Name) and
-            node.value.id == 'six' and
-            node.attr in names
-        )
-
-    def _is_star_sys_exc_info(self, node: ast.Call) -> bool:
-        return (
-            len(node.args) == 1 and
-            isinstance(node.args[0], ast.Starred) and
-            isinstance(node.args[0].value, ast.Call) and
-            self._is_exc_info(node.args[0].value.func)
-        )
 
     def _is_mock_mock(self, node: ast.expr) -> bool:
         return (
@@ -688,31 +610,10 @@ class FindPy3Plus(ast.NodeVisitor):
             node.attr == 'mock'
         )
 
-    def _is_exc_info(self, node: ast.expr) -> bool:
-        return (
-            isinstance(node, ast.Name) and
-            node.id == 'exc_info' and
-            self._exc_info_imported
-        ) or (
-            isinstance(node, ast.Attribute) and
-            isinstance(node.value, ast.Name) and
-            node.value.id == 'sys' and
-            node.attr == 'exc_info'
-        )
-
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if not node.level:
-            if node.module in self.FROM_IMPORTED_MODULES:
-                for name in node.names:
-                    if not name.asname:
-                        self._from_imports[node.module].add(name.name)
-            elif self._find_mock and node.module in self.MOCK_MODULES:
+            if self._find_mock and node.module in self.MOCK_MODULES:
                 self.mock_relative_imports.add(ast_to_offset(node))
-            elif node.module == 'sys' and any(
-                name.name == 'exc_info' and not name.asname
-                for name in node.names
-            ):
-                self._exc_info_imported = True
         self.generic_visit(node)
 
     def visit_Import(self, node: ast.Import) -> None:
@@ -726,22 +627,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        for decorator in node.decorator_list:
-            if (
-                    isinstance(decorator, ast.Call) and
-                    self._is_six(decorator.func, ('add_metaclass',)) and
-                    not has_starargs(decorator)
-            ):
-                self.six_add_metaclass.add(ast_to_offset(decorator))
-
-        if (
-                len(node.bases) == 1 and
-                isinstance(node.bases[0], ast.Call) and
-                self._is_six(node.bases[0].func, ('with_metaclass',)) and
-                not has_starargs(node.bases[0])
-        ):
-            self.six_with_metaclass.add(ast_to_offset(node.bases[0]))
-
         self._class_info_stack.append(FindPy3Plus.ClassInfo(node.name))
         self.generic_visit(node)
         self._class_info_stack.pop()
@@ -822,43 +707,6 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         if (
-                self._is_six(node.func, SIX_CALLS) and
-                node.args and
-                not has_starargs(node)
-        ):
-            self.six_calls[ast_to_offset(node)] = node
-        elif (
-                self._is_six(node.func, ('int2byte',)) and
-                node.args and
-                not has_starargs(node)
-        ):
-            self.six_calls_int2byte.add(ast_to_offset(node))
-        elif (
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'next' and
-                not has_starargs(node) and
-                len(node.args) == 1 and
-                isinstance(node.args[0], ast.Call) and
-                self._is_six(
-                    node.args[0].func,
-                    ('iteritems', 'iterkeys', 'itervalues'),
-                ) and
-                not has_starargs(node.args[0])
-        ):
-            self.six_iter[ast_to_offset(node.args[0])] = node.args[0]
-        elif (
-                isinstance(self._previous_node, ast.Expr) and
-                self._is_six(node.func, ('raise_from',)) and
-                not has_starargs(node)
-        ):
-            self.six_raise_from.add(ast_to_offset(node))
-        elif (
-                isinstance(self._previous_node, ast.Expr) and
-                self._is_six(node.func, ('reraise',)) and
-                (not has_starargs(node) or self._is_star_sys_exc_info(node))
-        ):
-            self.six_reraise.add(ast_to_offset(node))
-        elif (
                 not self._in_comp and
                 self._class_info_stack and
                 self._class_info_stack[-1].def_depth == 1 and
@@ -903,17 +751,6 @@ class FindPy3Plus(ast.NodeVisitor):
         else:
             self.generic_visit(node)
 
-    def generic_visit(self, node: ast.AST) -> None:
-        self._previous_node = node
-        super().generic_visit(node)
-
-
-def _get_tmpl(mapping: Dict[str, str], node: NameOrAttr) -> str:
-    if isinstance(node, ast.Name):
-        return mapping[node.id]
-    else:
-        return mapping[node.attr]
-
 
 def _replace_yield(tokens: List[Token], i: int) -> None:
     in_token = find_token(tokens, i, 'in')
@@ -940,13 +777,6 @@ def _fix_py3_plus(
             visitor.mock_mock,
             visitor.mock_absolute_imports,
             visitor.mock_relative_imports,
-            visitor.six_add_metaclass,
-            visitor.six_calls,
-            visitor.six_calls_int2byte,
-            visitor.six_iter,
-            visitor.six_raise_from,
-            visitor.six_reraise,
-            visitor.six_with_metaclass,
             visitor.super_calls,
             visitor.yield_from_fors,
     )):
@@ -960,86 +790,6 @@ def _fix_py3_plus(
     for i, token in reversed_enumerate(tokens):
         if not token.src:
             continue
-        elif token.offset in visitor.six_iter:
-            j = find_open_paren(tokens, i)
-            func_args, end = parse_call_args(tokens, j)
-            call = visitor.six_iter[token.offset]
-            assert isinstance(call.func, (ast.Name, ast.Attribute))
-            template = f'iter({_get_tmpl(SIX_CALLS, call.func)})'
-            replace_call(tokens, i, end, func_args, template)
-        elif token.offset in visitor.six_calls:
-            j = find_open_paren(tokens, i)
-            func_args, end = parse_call_args(tokens, j)
-            call = visitor.six_calls[token.offset]
-            assert isinstance(call.func, (ast.Name, ast.Attribute))
-            template = _get_tmpl(SIX_CALLS, call.func)
-            if isinstance(call.args[0], _EXPR_NEEDS_PARENS):
-                replace_call(tokens, i, end, func_args, template, parens=(0,))
-            else:
-                replace_call(tokens, i, end, func_args, template)
-        elif token.offset in visitor.six_calls_int2byte:
-            j = find_open_paren(tokens, i)
-            func_args, end = parse_call_args(tokens, j)
-            replace_call(tokens, i, end, func_args, SIX_INT2BYTE_TMPL)
-        elif token.offset in visitor.six_raise_from:
-            j = find_open_paren(tokens, i)
-            func_args, end = parse_call_args(tokens, j)
-            replace_call(tokens, i, end, func_args, RAISE_FROM_TMPL)
-        elif token.offset in visitor.six_reraise:
-            j = find_open_paren(tokens, i)
-            func_args, end = parse_call_args(tokens, j)
-            if len(func_args) == 1:
-                tmpl = RERAISE_TMPL
-            elif len(func_args) == 2:
-                tmpl = RERAISE_2_TMPL
-            else:
-                tmpl = RERAISE_3_TMPL
-            replace_call(tokens, i, end, func_args, tmpl)
-        elif token.offset in visitor.six_add_metaclass:
-            j = find_open_paren(tokens, i)
-            func_args, end = parse_call_args(tokens, j)
-            metaclass = f'metaclass={arg_str(tokens, *func_args[0])}'
-            # insert `metaclass={args[0]}` into `class:`
-            # search forward for the `class` token
-            j = i + 1
-            while tokens[j].src != 'class':
-                j += 1
-            class_token = j
-            # then search forward for a `:` token, not inside a brace
-            j = find_block_start(tokens, j)
-            last_paren = -1
-            for k in range(class_token, j):
-                if tokens[k].src == ')':
-                    last_paren = k
-
-            if last_paren == -1:
-                tokens.insert(j, Token('CODE', f'({metaclass})'))
-            else:
-                insert = last_paren - 1
-                while tokens[insert].name in NON_CODING_TOKENS:
-                    insert -= 1
-                if tokens[insert].src == '(':  # no bases
-                    src = metaclass
-                elif tokens[insert].src != ',':
-                    src = f', {metaclass}'
-                else:
-                    src = f' {metaclass},'
-                tokens.insert(insert + 1, Token('CODE', src))
-            remove_decorator(i, tokens)
-        elif token.offset in visitor.six_with_metaclass:
-            j = find_open_paren(tokens, i)
-            func_args, end = parse_call_args(tokens, j)
-            if len(func_args) == 1:
-                tmpl = WITH_METACLASS_NO_BASES_TMPL
-            elif len(func_args) == 2:
-                base = arg_str(tokens, *func_args[1])
-                if base == 'object':
-                    tmpl = WITH_METACLASS_NO_BASES_TMPL
-                else:
-                    tmpl = WITH_METACLASS_BASES_TMPL
-            else:
-                tmpl = WITH_METACLASS_BASES_TMPL
-            replace_call(tokens, i, end, func_args, tmpl)
         elif token.offset in visitor.super_calls:
             i = find_open_paren(tokens, i)
             call = visitor.super_calls[token.offset]
