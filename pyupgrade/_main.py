@@ -561,8 +561,6 @@ def targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
 
 
 class FindPy3Plus(ast.NodeVisitor):
-    MOCK_MODULES = frozenset(('mock', 'mock.mock'))
-
     class ClassInfo:
         def __init__(self, name: str) -> None:
             self.name = name
@@ -578,44 +576,13 @@ class FindPy3Plus(ast.NodeVisitor):
             self.yield_from_names: Dict[str, Set[Offset]]
             self.yield_from_names = collections.defaultdict(set)
 
-    def __init__(self, version: Tuple[int, ...], keep_mock: bool) -> None:
-        self._version = version
-        self._find_mock = not keep_mock
-
-        self.mock_mock: Set[Offset] = set()
-        self.mock_absolute_imports: Set[Offset] = set()
-        self.mock_relative_imports: Set[Offset] = set()
-
+    def __init__(self) -> None:
         self._class_info_stack: List[FindPy3Plus.ClassInfo] = []
         self._in_comp = 0
         self.super_calls: Dict[Offset, ast.Call] = {}
         self._in_async_def = False
         self._scope_stack: List[FindPy3Plus.Scope] = []
         self.yield_from_fors: Set[Offset] = set()
-
-    def _is_mock_mock(self, node: ast.expr) -> bool:
-        return (
-            isinstance(node, ast.Attribute) and
-            isinstance(node.value, ast.Name) and
-            node.value.id == 'mock' and
-            node.attr == 'mock'
-        )
-
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if not node.level:
-            if self._find_mock and node.module in self.MOCK_MODULES:
-                self.mock_relative_imports.add(ast_to_offset(node))
-        self.generic_visit(node)
-
-    def visit_Import(self, node: ast.Import) -> None:
-        if (
-                self._find_mock and
-                len(node.names) == 1 and
-                node.names[0].name in self.MOCK_MODULES
-        ):
-            self.mock_absolute_imports.add(ast_to_offset(node))
-
-        self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._class_info_stack.append(FindPy3Plus.ClassInfo(node.name))
@@ -679,11 +646,6 @@ class FindPy3Plus(ast.NodeVisitor):
 
     visit_ListComp = visit_SetComp = _visit_comp
     visit_DictComp = visit_GeneratorExp = _visit_comp
-
-    def visit_Attribute(self, node: ast.Attribute) -> None:
-        if self._find_mock and self._is_mock_mock(node):
-            self.mock_mock.add(ast_to_offset(node))
-        self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
         if self._scope_stack:
@@ -751,26 +713,16 @@ def _replace_yield(tokens: List[Token], i: int) -> None:
     tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
 
 
-def _fix_py3_plus(
-        contents_text: str,
-        min_version: Version,
-        keep_mock: bool = False,
-) -> str:
+def _fix_py3_plus(contents_text: str) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    visitor = FindPy3Plus(min_version, keep_mock)
+    visitor = FindPy3Plus()
     visitor.visit(ast_obj)
 
-    if not any((
-            visitor.mock_mock,
-            visitor.mock_absolute_imports,
-            visitor.mock_relative_imports,
-            visitor.super_calls,
-            visitor.yield_from_fors,
-    )):
+    if not any((visitor.super_calls, visitor.yield_from_fors)):
         return contents_text
 
     try:
@@ -786,31 +738,6 @@ def _fix_py3_plus(
             call = visitor.super_calls[token.offset]
             super_victims = victims(tokens, i, call, gen=False)
             del tokens[super_victims.starts[0] + 1:super_victims.ends[-1]]
-        elif token.offset in visitor.mock_mock:
-            j = find_token(tokens, i + 1, 'mock')
-            del tokens[i + 1:j + 1]
-        elif token.offset in visitor.mock_absolute_imports:
-            j = find_token(tokens, i, 'mock')
-            if (
-                    j + 2 < len(tokens) and
-                    tokens[j + 1].src == '.' and
-                    tokens[j + 2].src == 'mock'
-            ):
-                j += 2
-            src = 'from unittest import mock'
-            tokens[i:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
-        elif token.offset in visitor.mock_relative_imports:
-            j = find_token(tokens, i, 'mock')
-            if (
-                    j + 2 < len(tokens) and
-                    tokens[j + 1].src == '.' and
-                    tokens[j + 2].src == 'mock'
-            ):
-                k = j + 2
-            else:
-                k = j
-            src = 'unittest.mock'
-            tokens[j:k + 1] = [tokens[j]._replace(name='NAME', src=src)]
         elif token.offset in visitor.yield_from_fors:
             _replace_yield(tokens, i)
 
@@ -1141,9 +1068,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     )
     contents_text = _fix_tokens(contents_text, min_version=args.min_version)
     if args.min_version >= (3,):
-        contents_text = _fix_py3_plus(
-            contents_text, args.min_version, args.keep_mock,
-        )
+        contents_text = _fix_py3_plus(contents_text)
     if args.min_version >= (3, 6):
         contents_text = _fix_py36_plus(contents_text)
 

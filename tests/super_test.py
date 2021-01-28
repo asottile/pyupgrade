@@ -58,7 +58,7 @@ from pyupgrade._main import _fix_py3_plus
     ),
 )
 def test_fix_super_noop(s):
-    assert _fix_py3_plus(s, (3,)) == s
+    assert _fix_py3_plus(s) == s
 
 
 @pytest.mark.parametrize(
@@ -120,4 +120,4 @@ def test_fix_super_noop(s):
     ),
 )
 def test_fix_super(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    assert _fix_py3_plus(s) == expected

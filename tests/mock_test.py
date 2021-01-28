@@ -1,6 +1,7 @@
 import pytest
 
-from pyupgrade._main import _fix_py3_plus
+from pyupgrade._data import Settings
+from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
@@ -17,7 +18,7 @@ from pyupgrade._main import _fix_py3_plus
     ),
 )
 def test_mock_noop(s):
-    assert _fix_py3_plus(s, (3,)) == s
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
 
 
 def test_mock_noop_keep_mock():
@@ -27,7 +28,8 @@ def test_mock_noop_keep_mock():
         '\n'
         'patch("func")'
     )
-    assert _fix_py3_plus(s, (3,), keep_mock=True) == s
+    settings = Settings(min_version=(3,), keep_mock=True)
+    assert _fix_plugins(s, settings=settings) == s
 
 
 @pytest.mark.parametrize(
@@ -145,4 +147,4 @@ def test_mock_noop_keep_mock():
     ),
 )
 def test_fix_mock(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == expected
