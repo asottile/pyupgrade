@@ -614,21 +614,7 @@ def targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
 
 
 class FindPy3Plus(ast.NodeVisitor):
-    OS_ERROR_ALIASES = frozenset((
-        'EnvironmentError',
-        'IOError',
-        'WindowsError',
-    ))
-
-    OS_ERROR_ALIAS_MODULES = frozenset((
-        'mmap',
-        'select',
-        'socket',
-    ))
-
-    FROM_IMPORTED_MODULES = OS_ERROR_ALIAS_MODULES.union((
-        'functools', 'six', 'typing',
-    ))
+    FROM_IMPORTED_MODULES = frozenset(('functools', 'six', 'typing'))
 
     MOCK_MODULES = frozenset(('mock', 'mock.mock'))
 
@@ -657,9 +643,6 @@ class FindPy3Plus(ast.NodeVisitor):
         self.mock_mock: Set[Offset] = set()
         self.mock_absolute_imports: Set[Offset] = set()
         self.mock_relative_imports: Set[Offset] = set()
-        self.os_error_alias_calls: Set[Offset] = set()
-        self.os_error_alias_simple: Dict[Offset, NameOrAttr] = {}
-        self.os_error_alias_excepts: Set[Offset] = set()
 
         self.six_add_metaclass: Set[Offset] = set()
         self.six_calls: Dict[Offset, ast.Call] = {}
@@ -703,25 +686,6 @@ class FindPy3Plus(ast.NodeVisitor):
             isinstance(node.value, ast.Name) and
             node.value.id == 'mock' and
             node.attr == 'mock'
-        )
-
-    def _is_os_error_alias(self, node: Optional[ast.expr]) -> bool:
-        return (
-            isinstance(node, ast.Name) and
-            node.id in self.OS_ERROR_ALIASES
-        ) or (
-            isinstance(node, ast.Name) and
-            node.id == 'error' and
-            (
-                node.id in self._from_imports['mmap'] or
-                node.id in self._from_imports['select'] or
-                node.id in self._from_imports['socket']
-            )
-        ) or (
-            isinstance(node, ast.Attribute) and
-            isinstance(node.value, ast.Name) and
-            node.value.id in self.OS_ERROR_ALIAS_MODULES and
-            node.attr == 'error'
         )
 
     def _is_exc_info(self, node: ast.expr) -> bool:
@@ -856,37 +820,6 @@ class FindPy3Plus(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_Try(self, node: ast.Try) -> None:
-        for handler in node.handlers:
-            htype = handler.type
-            if self._is_os_error_alias(htype):
-                assert isinstance(htype, (ast.Name, ast.Attribute))
-                self.os_error_alias_simple[ast_to_offset(htype)] = htype
-            elif (
-                    isinstance(htype, ast.Tuple) and
-                    any(
-                        self._is_os_error_alias(elt)
-                        for elt in htype.elts
-                    )
-            ):
-                self.os_error_alias_excepts.add(ast_to_offset(htype))
-
-        self.generic_visit(node)
-
-    def visit_Raise(self, node: ast.Raise) -> None:
-        exc = node.exc
-
-        if exc is not None and self._is_os_error_alias(exc):
-            assert isinstance(exc, (ast.Name, ast.Attribute))
-            self.os_error_alias_simple[ast_to_offset(exc)] = exc
-        elif (
-                isinstance(exc, ast.Call) and
-                self._is_os_error_alias(exc.func)
-        ):
-            self.os_error_alias_calls.add(ast_to_offset(exc))
-
-        self.generic_visit(node)
-
     def visit_Call(self, node: ast.Call) -> None:
         if (
                 self._is_six(node.func, SIX_CALLS) and
@@ -1007,9 +940,6 @@ def _fix_py3_plus(
             visitor.mock_mock,
             visitor.mock_absolute_imports,
             visitor.mock_relative_imports,
-            visitor.os_error_alias_calls,
-            visitor.os_error_alias_simple,
-            visitor.os_error_alias_excepts,
             visitor.six_add_metaclass,
             visitor.six_calls,
             visitor.six_calls_int2byte,
@@ -1026,19 +956,6 @@ def _fix_py3_plus(
         tokens = src_to_tokens(contents_text)
     except tokenize.TokenError:  # pragma: no cover (bpo-2180)
         return contents_text
-
-    def _replace(i: int, mapping: Dict[str, str], node: NameOrAttr) -> None:
-        new_token = Token('CODE', _get_tmpl(mapping, node))
-        if isinstance(node, ast.Name):
-            tokens[i] = new_token
-        else:
-            j = i
-            while tokens[j].src != node.attr:
-                # timid: if we see a parenthesis here, skip it
-                if tokens[j].src == ')':
-                    return
-                j += 1
-            tokens[i:j + 1] = [new_token]
 
     for i, token in reversed_enumerate(tokens):
         if not token.src:
@@ -1153,67 +1070,6 @@ def _fix_py3_plus(
                 k = j
             src = 'unittest.mock'
             tokens[j:k + 1] = [tokens[j]._replace(name='NAME', src=src)]
-        elif token.offset in visitor.os_error_alias_calls:
-            j = find_open_paren(tokens, i)
-            tokens[i:j] = [token._replace(name='NAME', src='OSError')]
-        elif token.offset in visitor.os_error_alias_simple:
-            node = visitor.os_error_alias_simple[token.offset]
-            _replace(i, collections.defaultdict(lambda: 'OSError'), node)
-        elif token.offset in visitor.os_error_alias_excepts:
-            line, utf8_byte_offset = token.line, token.utf8_byte_offset
-
-            # find all the arg strs in the tuple
-            except_index = i
-            while tokens[except_index].src != 'except':
-                except_index -= 1
-            start = find_open_paren(tokens, except_index)
-            func_args, end = parse_call_args(tokens, start)
-
-            # save the exceptions and remove the block
-            arg_strs = [arg_str(tokens, *arg) for arg in func_args]
-            del tokens[start:end]
-
-            # rewrite the block without dupes
-            args = []
-            for arg in arg_strs:
-                left, part, right = arg.partition('.')
-                if (
-                        left in visitor.OS_ERROR_ALIAS_MODULES and
-                        part == '.' and
-                        right == 'error'
-                ):
-                    args.append('OSError')
-                elif (
-                        left in visitor.OS_ERROR_ALIASES and
-                        part == right == ''
-                ):
-                    args.append('OSError')
-                elif (
-                        left == 'error' and
-                        part == right == '' and
-                        (
-                            'error' in visitor._from_imports['mmap'] or
-                            'error' in visitor._from_imports['select'] or
-                            'error' in visitor._from_imports['socket']
-                        )
-                ):
-                    args.append('OSError')
-                else:
-                    args.append(arg)
-
-            unique_args = tuple(collections.OrderedDict.fromkeys(args))
-
-            if len(unique_args) > 1:
-                joined = '({})'.format(', '.join(unique_args))
-            elif tokens[start - 1].name != 'UNIMPORTANT_WS':
-                joined = ' {}'.format(unique_args[0])
-            else:
-                joined = unique_args[0]
-
-            new = Token('CODE', joined, line, utf8_byte_offset)
-            tokens.insert(start, new)
-
-            visitor.os_error_alias_excepts.discard(token.offset)
         elif token.offset in visitor.yield_from_fors:
             _replace_yield(tokens, i)
 

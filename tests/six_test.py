@@ -30,6 +30,11 @@ from pyupgrade._main import _fix_py3_plus
         'next()',
         ('traceback.format_exc(*sys.exc_info())'),
         pytest.param('six.iteritems()', id='wrong argument count'),
+        pytest.param(
+            'from six import iteritems as items\n'
+            'items(foo)\n',
+            id='ignore as renaming',
+        ),
     ),
 )
 def test_fix_six_noop(s):
