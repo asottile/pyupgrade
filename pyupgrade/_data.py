@@ -75,9 +75,8 @@ def visit(
         settings=settings,
         from_imports=collections.defaultdict(set),
     )
-    nodes: List[Tuple[State, ast.AST, ast.AST]]
 
-    nodes = [(initial_state, child, tree) for child in reversed(tree.body)]
+    nodes: List[Tuple[State, ast.AST, ast.AST]] = [(initial_state, tree, tree)]
 
     ret = collections.defaultdict(list)
     while nodes:

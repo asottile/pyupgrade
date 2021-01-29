@@ -2,9 +2,10 @@ import ast
 
 import pytest
 
-from pyupgrade._main import _fix_py3_plus
-from pyupgrade._main import fields_same
-from pyupgrade._main import targets_same
+from pyupgrade._data import Settings
+from pyupgrade._main import _fix_plugins
+from pyupgrade._plugins.legacy import _fields_same
+from pyupgrade._plugins.legacy import _targets_same
 
 
 @pytest.mark.parametrize(
@@ -142,7 +143,7 @@ from pyupgrade._main import targets_same
     ),
 )
 def test_fix_yield_from(s, expected):
-    assert _fix_py3_plus(s) == expected
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == expected
 
 
 @pytest.mark.parametrize(
@@ -213,12 +214,12 @@ def test_fix_yield_from(s, expected):
     ),
 )
 def test_fix_yield_from_noop(s):
-    assert _fix_py3_plus(s) == s
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
 
 
 def test_targets_same():
-    assert targets_same(ast.parse('global a, b'), ast.parse('global a, b'))
-    assert not targets_same(ast.parse('global a'), ast.parse('global b'))
+    assert _targets_same(ast.parse('global a, b'), ast.parse('global a, b'))
+    assert not _targets_same(ast.parse('global a'), ast.parse('global b'))
 
 
 def _get_body(expr):
@@ -228,4 +229,4 @@ def _get_body(expr):
 
 
 def test_fields_same():
-    assert not fields_same(_get_body('x'), _get_body('1'))
+    assert not _fields_same(_get_body('x'), _get_body('1'))

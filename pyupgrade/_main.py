@@ -1,23 +1,17 @@
 import argparse
 import ast
 import collections
-import contextlib
 import re
 import string
 import sys
 import tokenize
-from typing import Any
 from typing import Dict
-from typing import Generator
-from typing import Iterable
 from typing import List
 from typing import Match
 from typing import Optional
 from typing import Sequence
 from typing import Set
 from typing import Tuple
-from typing import Type
-from typing import Union
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
@@ -38,11 +32,7 @@ from pyupgrade._data import Version
 from pyupgrade._data import visit
 from pyupgrade._string_helpers import is_ascii
 from pyupgrade._string_helpers import is_codec
-from pyupgrade._token_helpers import Block
 from pyupgrade._token_helpers import CLOSING
-from pyupgrade._token_helpers import find_block_start
-from pyupgrade._token_helpers import find_open_paren
-from pyupgrade._token_helpers import find_token
 from pyupgrade._token_helpers import KEYWORDS
 from pyupgrade._token_helpers import OPENING
 from pyupgrade._token_helpers import remove_brace
@@ -519,190 +509,6 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
     return tokens_to_src(tokens).lstrip()
 
 
-def _all_isinstance(
-        vals: Iterable[Any],
-        tp: Union[Type[Any], Tuple[Type[Any], ...]],
-) -> bool:
-    return all(isinstance(v, tp) for v in vals)
-
-
-def fields_same(n1: ast.AST, n2: ast.AST) -> bool:
-    for (a1, v1), (a2, v2) in zip(ast.iter_fields(n1), ast.iter_fields(n2)):
-        # ignore ast attributes, they'll be covered by walk
-        if a1 != a2:
-            return False
-        elif _all_isinstance((v1, v2), ast.AST):
-            continue
-        elif _all_isinstance((v1, v2), (list, tuple)):
-            if len(v1) != len(v2):
-                return False
-            # ignore sequences which are all-ast, they'll be covered by walk
-            elif _all_isinstance(v1, ast.AST) and _all_isinstance(v2, ast.AST):
-                continue
-            elif v1 != v2:
-                return False
-        elif v1 != v2:
-            return False
-    return True
-
-
-def targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
-    for t1, t2 in zip(ast.walk(target), ast.walk(yield_value)):
-        # ignore `ast.Load` / `ast.Store`
-        if _all_isinstance((t1, t2), ast.expr_context):
-            continue
-        elif type(t1) != type(t2):
-            return False
-        elif not fields_same(t1, t2):
-            return False
-    else:
-        return True
-
-
-class FindPy3Plus(ast.NodeVisitor):
-    class Scope:
-        def __init__(self, node: ast.AST) -> None:
-            self.node = node
-
-            self.reads: Set[str] = set()
-            self.writes: Set[str] = set()
-
-            self.yield_from_fors: Set[Offset] = set()
-            self.yield_from_names: Dict[str, Set[Offset]]
-            self.yield_from_names = collections.defaultdict(set)
-
-    def __init__(self) -> None:
-        self.super_calls: Dict[Offset, ast.Call] = {}
-        self._scopes: List[FindPy3Plus.Scope] = []
-        self.yield_from_fors: Set[Offset] = set()
-
-    @contextlib.contextmanager
-    def _scope(self, node: ast.AST) -> Generator[None, None, None]:
-        self._scopes.append(FindPy3Plus.Scope(node))
-        try:
-            yield
-        finally:
-            info = self._scopes.pop()
-            # discard any that were referenced outside of the loop
-            for name in info.reads:
-                offsets = info.yield_from_names[name]
-                info.yield_from_fors.difference_update(offsets)
-            self.yield_from_fors.update(info.yield_from_fors)
-            if self._scopes:
-                cell_reads = info.reads - info.writes
-                self._scopes[-1].reads.update(cell_reads)
-
-    def _visit_scope(self, node: ast.AST) -> None:
-        with self._scope(node):
-            self.generic_visit(node)
-
-    visit_ClassDef = _visit_scope
-    visit_Lambda = visit_FunctionDef = visit_AsyncFunctionDef = _visit_scope
-    visit_ListComp = visit_SetComp = _visit_scope
-    visit_DictComp = visit_GeneratorExp = _visit_scope
-
-    def visit_Name(self, node: ast.Name) -> None:
-        if self._scopes:
-            if isinstance(node.ctx, ast.Load):
-                self._scopes[-1].reads.add(node.id)
-            elif isinstance(node.ctx, (ast.Store, ast.Del)):
-                self._scopes[-1].writes.add(node.id)
-            else:
-                raise AssertionError(node)
-
-        self.generic_visit(node)
-
-    def visit_Call(self, node: ast.Call) -> None:
-        if (
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'super' and
-                len(node.args) == 2 and
-                isinstance(node.args[0], ast.Name) and
-                isinstance(node.args[1], ast.Name) and
-                # there are at least two scopes
-                len(self._scopes) >= 2 and
-                # the second to last scope is the class in arg1
-                isinstance(self._scopes[-2].node, ast.ClassDef) and
-                node.args[0].id == self._scopes[-2].node.name and
-                # the last scope is a function where the first arg is arg2
-                isinstance(self._scopes[-1].node, FUNC_TYPES) and
-                self._scopes[-1].node.args.args and
-                node.args[1].id == self._scopes[-1].node.args.args[0].arg
-        ):
-            self.super_calls[ast_to_offset(node)] = node
-
-        self.generic_visit(node)
-
-    def visit_For(self, node: ast.For) -> None:
-        if (
-            len(self._scopes) >= 1 and
-            not isinstance(self._scopes[-1].node, ast.AsyncFunctionDef) and
-            len(node.body) == 1 and
-            isinstance(node.body[0], ast.Expr) and
-            isinstance(node.body[0].value, ast.Yield) and
-            node.body[0].value.value is not None and
-            targets_same(node.target, node.body[0].value.value) and
-            not node.orelse
-        ):
-            offset = ast_to_offset(node)
-            func_info = self._scopes[-1]
-            func_info.yield_from_fors.add(offset)
-            for target_node in ast.walk(node.target):
-                if (
-                        isinstance(target_node, ast.Name) and
-                        isinstance(target_node.ctx, ast.Store)
-                ):
-                    func_info.yield_from_names[target_node.id].add(offset)
-            # manually visit, but with target+body as a separate scope
-            self.visit(node.iter)
-            with self._scope(node):
-                self.visit(node.target)
-                for stmt in node.body:
-                    self.visit(stmt)
-                assert not node.orelse
-        else:
-            self.generic_visit(node)
-
-
-def _replace_yield(tokens: List[Token], i: int) -> None:
-    in_token = find_token(tokens, i, 'in')
-    colon = find_block_start(tokens, i)
-    block = Block.find(tokens, i, trim_end=True)
-    container = tokens_to_src(tokens[in_token + 1:colon]).strip()
-    tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
-
-
-def _fix_py3_plus(contents_text: str) -> str:
-    try:
-        ast_obj = ast_parse(contents_text)
-    except SyntaxError:
-        return contents_text
-
-    visitor = FindPy3Plus()
-    visitor.visit(ast_obj)
-
-    if not any((visitor.super_calls, visitor.yield_from_fors)):
-        return contents_text
-
-    try:
-        tokens = src_to_tokens(contents_text)
-    except tokenize.TokenError:  # pragma: no cover (bpo-2180)
-        return contents_text
-
-    for i, token in reversed_enumerate(tokens):
-        if not token.src:
-            continue
-        elif token.offset in visitor.super_calls:
-            i = find_open_paren(tokens, i)
-            call = visitor.super_calls[token.offset]
-            super_victims = victims(tokens, i, call, gen=False)
-            del tokens[super_victims.starts[0] + 1:super_victims.ends[-1]]
-        elif token.offset in visitor.yield_from_fors:
-            _replace_yield(tokens, i)
-
-    return tokens_to_src(tokens)
-
-
 def _simple_arg(arg: ast.expr) -> bool:
     return (
         isinstance(arg, ast.Name) or
@@ -1026,8 +832,6 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         ),
     )
     contents_text = _fix_tokens(contents_text, min_version=args.min_version)
-    if args.min_version >= (3,):
-        contents_text = _fix_py3_plus(contents_text)
     if args.min_version >= (3, 6):
         contents_text = _fix_py36_plus(contents_text)
 

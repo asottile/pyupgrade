@@ -1,6 +1,7 @@
 import pytest
 
-from pyupgrade._main import _fix_py3_plus
+from pyupgrade._main import _fix_plugins
+from pyupgrade._main import Settings
 
 
 @pytest.mark.parametrize(
@@ -58,7 +59,7 @@ from pyupgrade._main import _fix_py3_plus
     ),
 )
 def test_fix_super_noop(s):
-    assert _fix_py3_plus(s) == s
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
 
 
 @pytest.mark.parametrize(
@@ -78,7 +79,7 @@ def test_fix_super_noop(s):
             '        super (C, self).f()\n',
             'class C(Base):\n'
             '    def f(self):\n'
-            '        super ().f()\n',
+            '        super().f()\n',
         ),
         (
             'class Outer:\n'
@@ -88,7 +89,7 @@ def test_fix_super_noop(s):
             'class Outer:\n'
             '    class C(Base):\n'
             '        def f(self):\n'
-            '            super ().f()\n',
+            '            super().f()\n',
         ),
         (
             'class C(Base):\n'
@@ -120,4 +121,4 @@ def test_fix_super_noop(s):
     ),
 )
 def test_fix_super(s, expected):
-    assert _fix_py3_plus(s) == expected
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == expected
