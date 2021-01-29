@@ -1,6 +1,6 @@
 import pytest
 
-from pyupgrade import _fix_py36_plus
+from pyupgrade._main import _fix_py36_plus
 
 
 @pytest.mark.parametrize(

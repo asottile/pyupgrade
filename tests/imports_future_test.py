@@ -1,6 +1,6 @@
 import pytest
 
-from pyupgrade import _imports_future
+from pyupgrade._main import _imports_future
 
 
 @pytest.mark.parametrize(

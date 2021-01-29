@@ -1,6 +1,7 @@
 import pytest
 
-from pyupgrade import _fix_py3_plus
+from pyupgrade._data import Settings
+from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
@@ -33,7 +34,7 @@ from pyupgrade import _fix_py3_plus
     ),
 )
 def test_fix_generic_types_noop(s, version):
-    assert _fix_py3_plus(s, version) == s
+    assert _fix_plugins(s, settings=Settings(min_version=version)) == s
 
 
 @pytest.mark.parametrize(
@@ -67,7 +68,8 @@ def test_fix_generic_types_noop(s, version):
     ),
 )
 def test_fix_generic_types(s, expected):
-    assert _fix_py3_plus(s, (3, 9)) == expected
+    ret = _fix_plugins(s, settings=Settings(min_version=(3, 9)))
+    assert ret == expected
 
 
 @pytest.mark.parametrize(
@@ -109,4 +111,5 @@ def test_fix_generic_types(s, expected):
     ),
 )
 def test_fix_generic_types_future_annotations(s, expected):
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    assert ret == expected

@@ -1,10 +1,27 @@
 import pytest
 
-from pyupgrade import _fix_py3_plus
-from pyupgrade import FindPy3Plus
+from pyupgrade._data import Settings
+from pyupgrade._main import _fix_plugins
+from pyupgrade._plugins.oserror_aliases import ERROR_MODULES
+from pyupgrade._plugins.oserror_aliases import ERROR_NAMES
 
 
-@pytest.mark.parametrize('alias', FindPy3Plus.OS_ERROR_ALIASES)
+@pytest.mark.parametrize(
+    's',
+    (
+        'raise WindowsError("test")',
+
+        'try:\n'
+        '    pass\n'
+        'except WindowsError:\n'
+        '    pass\n',
+    ),
+)
+def test_noop_in_python_2(s):
+    assert _fix_plugins(s, settings=Settings()) == s
+
+
+@pytest.mark.parametrize('alias', ERROR_NAMES)
 @pytest.mark.parametrize(
     ('tpl', 'expected'),
     (
@@ -63,11 +80,27 @@ from pyupgrade import FindPy3Plus
             'except OSError:\n'
             '    pass\n',
         ),
+        pytest.param(
+            'from wat import error\n'
+            'try:\n'
+            '    pass\n'
+            'except ({alias}, error):\n'
+            '    pass\n',
+
+            'from wat import error\n'
+            'try:\n'
+            '    pass\n'
+            'except (OSError, error):\n'
+            '    pass\n',
+
+            id='preserve unrelated .error class',
+        ),
     ),
 )
 def test_fix_oserror_aliases_try(alias, tpl, expected):
     s = tpl.format(alias=alias)
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    assert ret == expected
 
 
 @pytest.mark.parametrize(
@@ -101,6 +134,14 @@ def test_fix_oserror_aliases_try(alias, tpl, expected):
         'except (OSError, KeyError):\n'
         '    pass\n',
         pytest.param(
+            'import mmap\n'
+            'try:\n'
+            '    pass\n'
+            'except (mmap).error:\n'
+            '    pass\n',
+            id='weird parens',
+        ),
+        pytest.param(
             'from .mmap import error\n'
             'raise error("hi")\n',
             id='relative imports',
@@ -108,10 +149,10 @@ def test_fix_oserror_aliases_try(alias, tpl, expected):
     ),
 )
 def test_fix_oserror_aliases_noop(s):
-    assert _fix_py3_plus(s, (3,)) == s
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
 
 
-@pytest.mark.parametrize('imp', FindPy3Plus.OS_ERROR_ALIAS_MODULES)
+@pytest.mark.parametrize('imp', ERROR_MODULES)
 @pytest.mark.parametrize(
     'tpl',
     (
@@ -128,10 +169,10 @@ def test_fix_oserror_aliases_noop(s):
 )
 def test_fix_oserror_aliases_noop_tpl(imp, tpl):
     s = tpl.format(imp=imp)
-    assert _fix_py3_plus(s, (3,)) == s
+    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
 
 
-@pytest.mark.parametrize('imp', FindPy3Plus.OS_ERROR_ALIAS_MODULES)
+@pytest.mark.parametrize('imp', ERROR_MODULES)
 @pytest.mark.parametrize(
     ('tpl', 'expected_tpl'),
     (
@@ -363,10 +404,11 @@ def test_fix_oserror_aliases_noop_tpl(imp, tpl):
 )
 def test_fix_oserror_complex_aliases_try(imp, tpl, expected_tpl):
     s, expected = tpl.format(imp=imp), expected_tpl.format(imp=imp)
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    assert ret == expected
 
 
-@pytest.mark.parametrize('alias', FindPy3Plus.OS_ERROR_ALIASES)
+@pytest.mark.parametrize('alias', ERROR_NAMES)
 @pytest.mark.parametrize(
     ('tpl', 'expected'),
     (
@@ -388,10 +430,11 @@ def test_fix_oserror_complex_aliases_try(imp, tpl, expected_tpl):
 )
 def test_fix_oserror_aliases_raise(alias, tpl, expected):
     s = tpl.format(alias=alias)
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    assert ret == expected
 
 
-@pytest.mark.parametrize('imp', FindPy3Plus.OS_ERROR_ALIAS_MODULES)
+@pytest.mark.parametrize('imp', ERROR_MODULES)
 @pytest.mark.parametrize(
     ('tpl', 'expected_tpl'),
     (
@@ -481,4 +524,5 @@ def test_fix_oserror_aliases_raise(alias, tpl, expected):
 )
 def test_fix_oserror_complex_aliases_raise(imp, tpl, expected_tpl):
     s, expected = tpl.format(imp=imp), expected_tpl.format(imp=imp)
-    assert _fix_py3_plus(s, (3,)) == expected
+    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    assert ret == expected

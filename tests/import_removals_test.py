@@ -1,6 +1,6 @@
 import pytest
 
-from pyupgrade import _fix_tokens
+from pyupgrade._main import _fix_tokens
 
 
 @pytest.mark.parametrize(

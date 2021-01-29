@@ -1,6 +1,7 @@
 import pytest
 
-from pyupgrade import _fix_py3_plus
+from pyupgrade._data import Settings
+from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
@@ -48,7 +49,7 @@ from pyupgrade import _fix_py3_plus
     ),
 )
 def test_fix_no_arg_decorators_noop(s, min_version):
-    assert _fix_py3_plus(s, min_version) == s
+    assert _fix_plugins(s, settings=Settings(min_version=min_version)) == s
 
 
 @pytest.mark.parametrize(
@@ -79,4 +80,5 @@ def test_fix_no_arg_decorators_noop(s, min_version):
     ),
 )
 def test_fix_no_arg_decorators(s, expected):
-    assert _fix_py3_plus(s, (3, 8)) == expected
+    ret = _fix_plugins(s, settings=Settings(min_version=(3, 8)))
+    assert ret == expected

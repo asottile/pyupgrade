@@ -1,0 +1,97 @@
+import ast
+import functools
+from typing import Iterable
+from typing import Optional
+from typing import Tuple
+
+from tokenize_rt import Offset
+
+from pyupgrade._ast_helpers import ast_to_offset
+from pyupgrade._data import register
+from pyupgrade._data import State
+from pyupgrade._data import TokenFunc
+from pyupgrade._plugins.native_literals import is_a_native_literal_call
+from pyupgrade._token_helpers import replace_name
+
+NAMES = {
+    'text_type': 'str',
+    'binary_type': 'bytes',
+    'class_types': '(type,)',
+    'string_types': '(str,)',
+    'integer_types': '(int,)',
+    'unichr': 'chr',
+    'iterbytes': 'iter',
+    'print_': 'print',
+    'exec_': 'exec',
+    'advance_iterator': 'next',
+    'next': 'next',
+    'callable': 'callable',
+}
+NAMES_TYPE_CTX = {
+    'class_types': 'type',
+    'string_types': 'str',
+    'integer_types': 'int',
+}
+
+
+def _is_type_check(node: Optional[ast.AST]) -> bool:
+    return (
+        isinstance(node, ast.Call) and
+        isinstance(node.func, ast.Name) and
+        node.func.id in {'isinstance', 'issubclass'}
+    )
+
+
+@register(ast.Attribute)
+def visit_Attribute(
+        state: State,
+        node: ast.Attribute,
+        parent: ast.AST,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    if (
+            state.settings.min_version >= (3,) and
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'six' and
+            node.attr in NAMES
+    ):
+        # these will be handled by the native literals plugin
+        if (
+                isinstance(parent, ast.Call) and
+                is_a_native_literal_call(parent, state.from_imports)
+        ):
+            return
+
+        if node.attr in NAMES_TYPE_CTX and _is_type_check(parent):
+            new = NAMES_TYPE_CTX[node.attr]
+        else:
+            new = NAMES[node.attr]
+
+        func = functools.partial(replace_name, name=node.attr, new=new)
+        yield ast_to_offset(node), func
+
+
+@register(ast.Name)
+def visit_Name(
+        state: State,
+        node: ast.Name,
+        parent: ast.AST,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    if (
+            state.settings.min_version >= (3,) and
+            node.id in state.from_imports['six'] and
+            node.id in NAMES
+    ):
+        # these will be handled by the native literals plugin
+        if (
+                isinstance(parent, ast.Call) and
+                is_a_native_literal_call(parent, state.from_imports)
+        ):
+            return
+
+        if node.id in NAMES_TYPE_CTX and _is_type_check(parent):
+            new = NAMES_TYPE_CTX[node.id]
+        else:
+            new = NAMES[node.id]
+
+        func = functools.partial(replace_name, name=node.id, new=new)
+        yield ast_to_offset(node), func
