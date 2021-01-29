@@ -50,8 +50,7 @@ from pyupgrade._token_helpers import victims
 
 DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
 
-AnyFunctionDef = Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda]
-SyncFunctionDef = Union[ast.FunctionDef, ast.Lambda]
+FUNC_TYPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)
 
 _stdlib_parse_format = string.Formatter().parse
 
@@ -561,14 +560,10 @@ def targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
 
 
 class FindPy3Plus(ast.NodeVisitor):
-    class ClassInfo:
-        def __init__(self, name: str) -> None:
-            self.name = name
-            self.def_depth = 0
-            self.first_arg_name = ''
-
     class Scope:
-        def __init__(self) -> None:
+        def __init__(self, node: ast.AST) -> None:
+            self.node = node
+
             self.reads: Set[str] = set()
             self.writes: Set[str] = set()
 
@@ -577,82 +572,41 @@ class FindPy3Plus(ast.NodeVisitor):
             self.yield_from_names = collections.defaultdict(set)
 
     def __init__(self) -> None:
-        self._class_info_stack: List[FindPy3Plus.ClassInfo] = []
-        self._in_comp = 0
         self.super_calls: Dict[Offset, ast.Call] = {}
-        self._in_async_def = False
-        self._scope_stack: List[FindPy3Plus.Scope] = []
+        self._scopes: List[FindPy3Plus.Scope] = []
         self.yield_from_fors: Set[Offset] = set()
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        self._class_info_stack.append(FindPy3Plus.ClassInfo(node.name))
-        self.generic_visit(node)
-        self._class_info_stack.pop()
-
     @contextlib.contextmanager
-    def _track_def_depth(
-            self,
-            node: AnyFunctionDef,
-    ) -> Generator[None, None, None]:
-        class_info = self._class_info_stack[-1]
-        class_info.def_depth += 1
-        if class_info.def_depth == 1 and node.args.args:
-            class_info.first_arg_name = node.args.args[0].arg
+    def _scope(self, node: ast.AST) -> Generator[None, None, None]:
+        self._scopes.append(FindPy3Plus.Scope(node))
         try:
             yield
         finally:
-            class_info.def_depth -= 1
-
-    @contextlib.contextmanager
-    def _scope(self) -> Generator[None, None, None]:
-        self._scope_stack.append(FindPy3Plus.Scope())
-        try:
-            yield
-        finally:
-            info = self._scope_stack.pop()
+            info = self._scopes.pop()
             # discard any that were referenced outside of the loop
             for name in info.reads:
                 offsets = info.yield_from_names[name]
                 info.yield_from_fors.difference_update(offsets)
             self.yield_from_fors.update(info.yield_from_fors)
-            if self._scope_stack:
+            if self._scopes:
                 cell_reads = info.reads - info.writes
-                self._scope_stack[-1].reads.update(cell_reads)
+                self._scopes[-1].reads.update(cell_reads)
 
-    def _visit_func(self, node: AnyFunctionDef) -> None:
-        with contextlib.ExitStack() as ctx, self._scope():
-            if self._class_info_stack:
-                ctx.enter_context(self._track_def_depth(node))
-
+    def _visit_scope(self, node: ast.AST) -> None:
+        with self._scope(node):
             self.generic_visit(node)
 
-    def _visit_sync_func(self, node: SyncFunctionDef) -> None:
-        self._in_async_def, orig = False, self._in_async_def
-        self._visit_func(node)
-        self._in_async_def = orig
-
-    visit_FunctionDef = visit_Lambda = _visit_sync_func
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        self._in_async_def, orig = True, self._in_async_def
-        self._visit_func(node)
-        self._in_async_def = orig
-
-    def _visit_comp(self, node: ast.expr) -> None:
-        self._in_comp += 1
-        with self._scope():
-            self.generic_visit(node)
-        self._in_comp -= 1
-
-    visit_ListComp = visit_SetComp = _visit_comp
-    visit_DictComp = visit_GeneratorExp = _visit_comp
+    visit_ClassDef = _visit_scope
+    visit_Lambda = visit_FunctionDef = visit_AsyncFunctionDef = _visit_scope
+    visit_ListComp = visit_SetComp = _visit_scope
+    visit_DictComp = visit_GeneratorExp = _visit_scope
 
     def visit_Name(self, node: ast.Name) -> None:
-        if self._scope_stack:
+        if self._scopes:
             if isinstance(node.ctx, ast.Load):
-                self._scope_stack[-1].reads.add(node.id)
+                self._scopes[-1].reads.add(node.id)
             elif isinstance(node.ctx, (ast.Store, ast.Del)):
-                self._scope_stack[-1].writes.add(node.id)
+                self._scopes[-1].writes.add(node.id)
             else:
                 raise AssertionError(node)
 
@@ -660,16 +614,20 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         if (
-                not self._in_comp and
-                self._class_info_stack and
-                self._class_info_stack[-1].def_depth == 1 and
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'super' and
                 len(node.args) == 2 and
                 isinstance(node.args[0], ast.Name) and
                 isinstance(node.args[1], ast.Name) and
-                node.args[0].id == self._class_info_stack[-1].name and
-                node.args[1].id == self._class_info_stack[-1].first_arg_name
+                # there are at least two scopes
+                len(self._scopes) >= 2 and
+                # the second to last scope is the class in arg1
+                isinstance(self._scopes[-2].node, ast.ClassDef) and
+                node.args[0].id == self._scopes[-2].node.name and
+                # the last scope is a function where the first arg is arg2
+                isinstance(self._scopes[-1].node, FUNC_TYPES) and
+                self._scopes[-1].node.args.args and
+                node.args[1].id == self._scopes[-1].node.args.args[0].arg
         ):
             self.super_calls[ast_to_offset(node)] = node
 
@@ -677,7 +635,8 @@ class FindPy3Plus(ast.NodeVisitor):
 
     def visit_For(self, node: ast.For) -> None:
         if (
-            not self._in_async_def and
+            len(self._scopes) >= 1 and
+            not isinstance(self._scopes[-1].node, ast.AsyncFunctionDef) and
             len(node.body) == 1 and
             isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Yield) and
@@ -686,7 +645,7 @@ class FindPy3Plus(ast.NodeVisitor):
             not node.orelse
         ):
             offset = ast_to_offset(node)
-            func_info = self._scope_stack[-1]
+            func_info = self._scopes[-1]
             func_info.yield_from_fors.add(offset)
             for target_node in ast.walk(node.target):
                 if (
@@ -696,7 +655,7 @@ class FindPy3Plus(ast.NodeVisitor):
                     func_info.yield_from_names[target_node.id].add(offset)
             # manually visit, but with target+body as a separate scope
             self.visit(node.iter)
-            with self._scope():
+            with self._scope(node):
                 self.visit(node.target)
                 for stmt in node.body:
                     self.visit(stmt)
