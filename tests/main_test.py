@@ -20,6 +20,7 @@ def test_main_trivial():
         ('--py37-plus',),
         ('--py38-plus',),
         ('--py39-plus',),
+        ('--py310-plus',),
     ),
 )
 def test_main_noop(tmpdir, args):

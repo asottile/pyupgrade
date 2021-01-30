@@ -425,7 +425,8 @@ def find_and_replace_call(
 
 
 def replace_name(i: int, tokens: List[Token], *, name: str, new: str) -> None:
-    new_token = Token('CODE', new)
+    # preserve token offset in case we need to match it later
+    new_token = tokens[i]._replace(name='CODE', src=new)
     j = i
     while tokens[j].src != name:
         # timid: if we see a parenthesis here, skip it
