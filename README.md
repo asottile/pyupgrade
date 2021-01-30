@@ -410,6 +410,17 @@ except OSError:
     raise
 ```
 
+### `typing.Text` str alias
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```diff
+-def f(x: Text) -> None:
++def f(x: str) -> None:
+     ...
+```
+
 ### `typing.NamedTuple` / `typing.TypedDict` py36+ syntax
 
 Availability:
