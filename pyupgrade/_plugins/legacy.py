@@ -26,6 +26,7 @@ from pyupgrade._token_helpers import find_token
 from pyupgrade._token_helpers import parse_call_args
 
 FUNC_TYPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)
+NON_LAMBDA_FUNC_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
 def _fix_yield(i: int, tokens: List[Token]) -> None:
@@ -132,16 +133,18 @@ class Visitor(ast.NodeVisitor):
         ):
             self.super_offsets.add(ast_to_offset(node))
         elif (
+                # base.funcname(funcarg1, ...)
+                isinstance(node.func, ast.Attribute) and
+                len(node.args) >= 1 and
+                isinstance(node.args[0], ast.Name) and
                 len(self._scopes) >= 2 and
                 # last stack is a function whose first argument is the first
                 # argument of this function
-                len(node.args) >= 1 and
-                isinstance(node.args[0], ast.Name) and
-                isinstance(self._scopes[-1].node, FUNC_TYPES) and
+                isinstance(self._scopes[-1].node, NON_LAMBDA_FUNC_TYPES) and
+                node.func.attr == self._scopes[-1].node.name and
                 len(self._scopes[-1].node.args.args) >= 1 and
                 node.args[0].id == self._scopes[-1].node.args.args[0].arg and
                 # the function is an attribute of the contained class name
-                isinstance(node.func, ast.Attribute) and
                 isinstance(self._scopes[-2].node, ast.ClassDef) and
                 len(self._scopes[-2].node.bases) == 1 and
                 _is_simple_base(self._scopes[-2].node.bases[0]) and

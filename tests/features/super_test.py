@@ -173,6 +173,15 @@ def test_fix_super(s, expected):
             '        a().b.f(self)\n',
             id='non simple attribute base',
         ),
+        pytest.param(
+            'class C:\n'
+            '    @classmethod\n'
+            '    def make(cls, instance):\n'
+            '        ...\n'
+            'class D(C):\n'
+            '   def find(self):\n'
+            '        return C.make(self)\n',
+        ),
     ),
 )
 def test_old_style_class_super_noop(s):
