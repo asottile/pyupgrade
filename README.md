@@ -490,3 +490,21 @@ Availability:
 +def f(x: list[str]) -> None:
      ...
 ```
+
+### pep 604 typing rewrites
+
+Availability:
+- File imports `from __future__ import annotations`
+- `--py39-plus` is passed on the commandline.
+
+```diff
+-def f() -> Optional[str]:
++def f() -> str | None:
+     ...
+```
+
+```diff
+-def f() -> Union[int, str]:
++def f() -> int | str:
+     ...
+```
