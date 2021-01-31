@@ -390,6 +390,7 @@ def _build_import_removals() -> Dict[Version, Dict[str, Tuple[str, ...]]]:
         ((3, 7), ('generator_stop',)),
         ((3, 8), ()),
         ((3, 9), ()),
+        ((3, 10), ()),
     )
 
     prev: Tuple[str, ...] = ()
@@ -873,6 +874,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         '--py39-plus',
         action='store_const', dest='min_version', const=(3, 9),
+    )
+    parser.add_argument(
+        '--py310-plus',
+        action='store_const', dest='min_version', const=(3, 10),
     )
     args = parser.parse_args(argv)
 
