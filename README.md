@@ -495,7 +495,7 @@ Availability:
 
 Availability:
 - File imports `from __future__ import annotations`
-- `--py39-plus` is passed on the commandline.
+- `--py310-plus` is passed on the commandline.
 
 ```diff
 -def f() -> Optional[str]:
