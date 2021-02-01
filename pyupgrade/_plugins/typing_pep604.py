@@ -87,8 +87,10 @@ def _fix_union(
 def _supported_version(state: State) -> bool:
     return (
         state.in_annotation and (
-            state.settings.min_version >= (3, 10) or
-            'annotations' in state.from_imports['__future__']
+            state.settings.min_version >= (3, 10) or (
+                not state.settings.keep_runtime_typing and
+                'annotations' in state.from_imports['__future__']
+            )
         )
     )
 

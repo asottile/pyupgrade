@@ -47,6 +47,31 @@ def test_fix_pep604_types_noop(s, version):
     assert _fix_plugins(s, settings=Settings(min_version=version)) == s
 
 
+def test_noop_keep_runtime_typing():
+    s = '''\
+from __future__ import annotations
+from typing import Union
+def f(x: Union[int, str]) -> None: ...
+'''
+    settings = Settings(min_version=(3,), keep_runtime_typing=True)
+    assert _fix_plugins(s, settings=settings) == s
+
+
+def test_keep_runtime_typing_ignored_in_py310():
+    s = '''\
+from __future__ import annotations
+from typing import Union
+def f(x: Union[int, str]) -> None: ...
+'''
+    expected = '''\
+from __future__ import annotations
+from typing import Union
+def f(x: int | str) -> None: ...
+'''
+    settings = Settings(min_version=(3, 10), keep_runtime_typing=True)
+    assert _fix_plugins(s, settings=settings) == expected
+
+
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
