@@ -16,6 +16,16 @@ PEP585_BUILTINS = frozenset((
 ))
 
 
+def _should_rewrite(state: State) -> bool:
+    return (
+        state.settings.min_version >= (3, 9) or (
+            not state.settings.keep_runtime_typing and
+            state.in_annotation and
+            'annotations' in state.from_imports['__future__']
+        )
+    )
+
+
 @register(ast.Attribute)
 def visit_Attribute(
         state: State,
@@ -23,12 +33,7 @@ def visit_Attribute(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
-            (
-                state.settings.min_version >= (3, 9) or (
-                    state.in_annotation and
-                    'annotations' in state.from_imports['__future__']
-                )
-            ) and
+            _should_rewrite(state) and
             isinstance(node.value, ast.Name) and
             node.value.id == 'typing' and
             node.attr in PEP585_BUILTINS
@@ -48,12 +53,7 @@ def visit_Name(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
-            (
-                state.settings.min_version >= (3, 9) or (
-                    state.in_annotation and
-                    'annotations' in state.from_imports['__future__']
-                )
-            ) and
+            _should_rewrite(state) and
             node.id in state.from_imports['typing'] and
             node.id in PEP585_BUILTINS
     ):

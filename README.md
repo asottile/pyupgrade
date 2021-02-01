@@ -483,6 +483,7 @@ Availability:
 
 Availability:
 - File imports `from __future__ import annotations`
+    - Unless `--keep-runtime-typing` is passed on the commandline.
 - `--py39-plus` is passed on the commandline.
 
 ```diff
@@ -495,6 +496,7 @@ Availability:
 
 Availability:
 - File imports `from __future__ import annotations`
+    - Unless `--keep-runtime-typing` is passed on the commandline.
 - `--py310-plus` is passed on the commandline.
 
 ```diff

@@ -29,6 +29,7 @@ class Settings(NamedTuple):
     min_version: Version = (2, 7)
     keep_percent_format: bool = False
     keep_mock: bool = False
+    keep_runtime_typing: bool = False
 
 
 class State(NamedTuple):
