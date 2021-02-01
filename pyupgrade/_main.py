@@ -830,6 +830,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         settings=Settings(
             min_version=args.min_version,
             keep_percent_format=args.keep_percent_format,
+            keep_mock=args.keep_mock,
         ),
     )
     contents_text = _fix_tokens(contents_text, min_version=args.min_version)

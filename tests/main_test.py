@@ -82,6 +82,15 @@ def test_keep_percent_format(tmpdir):
     assert f.read() == '"{}".format(1)'
 
 
+def test_keep_mock(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('from mock import patch\n')
+    assert main((f.strpath, '--py3-plus', '--keep-mock')) == 0
+    assert f.read() == 'from mock import patch\n'
+    assert main((f.strpath, '--py3-plus')) == 1
+    assert f.read() == 'from unittest.mock import patch\n'
+
+
 def test_py3_plus_argument_unicode_literals(tmpdir):
     f = tmpdir.join('f.py')
     f.write('u""')
