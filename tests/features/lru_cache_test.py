@@ -82,3 +82,47 @@ def test_fix_no_arg_decorators_noop(s, min_version):
 def test_fix_no_arg_decorators(s, expected):
     ret = _fix_plugins(s, settings=Settings(min_version=(3, 8)))
     assert ret == expected
+
+
+@pytest.mark.parametrize(
+    ('s', 'min_version'),
+    (
+        pytest.param(
+            'from functools import lru_cache\n'
+            '@lru_cache(maxsize=None)\n'
+            'def foo(): pass\n',
+            (3, 9),
+            id='from imported',
+        ),
+        pytest.param(
+            'from functools import lru_cache\n'
+            '@lru_cache(maxsize=1024)\n'
+            'def foo(): pass\n',
+            (3, 9),
+            id='unrelated parameter',
+        ),
+    ),
+)
+def test_fix_maxsize_none_decorators_noop(s, min_version):
+    assert _fix_plugins(s, settings=Settings(min_version=min_version)) == s
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        pytest.param(
+            'import functools\n\n'
+            '@functools.lru_cache(maxsize=None)\n'
+            'def foo():\n'
+            '    pass\n',
+            'import functools\n\n'
+            '@functools.cache\n'
+            'def foo():\n'
+            '    pass\n',
+            id='call with attr',
+        ),
+    ),
+)
+def test_fix_maxsize_none_decorators(s, expected):
+    ret = _fix_plugins(s, settings=Settings(min_version=(3, 9)))
+    assert ret == expected

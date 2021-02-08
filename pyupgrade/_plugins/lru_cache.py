@@ -1,4 +1,5 @@
 import ast
+import functools
 from typing import Iterable
 from typing import List
 from typing import Tuple
@@ -11,6 +12,7 @@ from pyupgrade._ast_helpers import is_name_attr
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
+from pyupgrade._token_helpers import find_and_replace_call
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import find_token
 
@@ -39,3 +41,19 @@ def visit_Call(
             )
     ):
         yield ast_to_offset(node), _remove_call
+    elif (
+            state.settings.min_version >= (3, 9) and
+            isinstance(node.func, ast.Attribute) and
+            node.func.attr == 'lru_cache' and
+            isinstance(node.func.value, ast.Name) and
+            node.func.value.id == 'functools' and
+            not node.args and
+            len(node.keywords) == 1 and
+            node.keywords[0].arg == 'maxsize' and
+            isinstance(node.keywords[0].value, ast.NameConstant) and
+            node.keywords[0].value.value is None
+    ):
+        func = functools.partial(
+            find_and_replace_call, template='functools.cache',
+        )
+        yield ast_to_offset(node), func

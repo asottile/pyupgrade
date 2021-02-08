@@ -358,13 +358,10 @@ six.ensure_text('...')                  # '...'
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-```python
-# input
-with io.open('f.txt') as f:
-    pass
-# output
-with open('f.txt') as f:
-    pass
+```diff
+-with io.open('f.txt') as f:
++with open('f.txt') as f:
+     ...
 ```
 
 
@@ -478,6 +475,22 @@ Availability:
  def expensive():
      ...
 ```
+
+
+### replace `@functools.lru_cache(maxsize=None)` with shorthand
+
+Availability:
+- `--py39-plus` is passed on the commandline.
+
+```diff
+ import functools
+
+-@functools.lru_cache(maxsize=None)
++@functools.cache
+ def expensive():
+     ...
+```
+
 
 ### pep 585 typing rewrites
 
