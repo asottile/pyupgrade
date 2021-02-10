@@ -1,8 +1,8 @@
 import argparse
 import ast
 import collections
-import re
 import os
+import re
 import string
 import sys
 import tokenize
