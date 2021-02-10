@@ -2,6 +2,7 @@ import argparse
 import ast
 import collections
 import re
+import os
 import string
 import sys
 import tokenize
@@ -815,10 +816,36 @@ def _fix_py36_plus(contents_text: str) -> str:
 def _fix_file(filename: str, args: argparse.Namespace) -> int:
     if filename == '-':
         contents_bytes = sys.stdin.buffer.read()
-    else:
+    elif os.path.isdir(filename):
+        # only parse directories if asked to
+        if not args.recursive:
+            raise ValueError(f'`{filename}` is a path, but no `--recursive`')
+
+        # collect return codes
+        retcode = 0
+        # walk through the directory structure
+        for path, _, names in os.walk(filename):
+            for name in names:
+                # skip any non-Python files
+                if not name.lower().endswith('.py'):
+                    continue
+                file_path = os.path.join(path, name)
+                # fix the file and then or-equal return code
+                retcode |= _fix_file(filename=file_path, args=args)
+                if args.verbose:
+                    print(f'fixing {file_path}')
+
+        # done parsing so exit
+        if args.exit_zero_even_if_changed:
+            return 0
+        return retcode
+
+    elif os.path.isfile(filename):
+        # just read the file if it exists
         with open(filename, 'rb') as fb:
             contents_bytes = fb.read()
-
+    else:
+        raise ValueError(f"`{filename} isn't a directory or file!")
     try:
         contents_text_orig = contents_text = contents_bytes.decode()
     except UnicodeDecodeError:
@@ -882,6 +909,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         '--py310-plus',
         action='store_const', dest='min_version', const=(3, 10),
     )
+    parser.add_argument('--recursive', action='store_true')
+    parser.add_argument('--verbose', action='store_true')
+
     args = parser.parse_args(argv)
 
     ret = 0
