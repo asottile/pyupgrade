@@ -179,6 +179,16 @@ def test_py38_plus_removes_no_arg_decorators(tmpdir):
     )
 
 
+def test_py310_plus_removes_future_annotations(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('from __future__ import annotations\nx = 1\n')
+    assert main((f.strpath,)) == 0
+    assert main((f.strpath, '--py3-plus')) == 0
+    assert main((f.strpath, '--py39-plus')) == 0
+    assert main((f.strpath, '--py310-plus')) == 1
+    assert f.read() == 'x = 1\n'
+
+
 def test_noop_token_error(tmpdir):
     f = tmpdir.join('f.py')
     f.write(

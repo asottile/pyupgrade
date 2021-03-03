@@ -390,7 +390,7 @@ def _build_import_removals() -> Dict[Version, Dict[str, Tuple[str, ...]]]:
         ((3, 7), ('generator_stop',)),
         ((3, 8), ()),
         ((3, 9), ()),
-        ((3, 10), ()),
+        ((3, 10), ('annotations',)),
     )
 
     prev: Tuple[str, ...] = ()

@@ -224,6 +224,7 @@ Availability:
 - `--py3-plus` will also remove `absolute_import` / `division` /
   `print_function` / `unicode_literals`
 - `--py37-plus` will also remove `generator_stop`
+- `--py310-plus` will also remove `annotations`
 
 ```diff
 -from __future__ import with_statement
