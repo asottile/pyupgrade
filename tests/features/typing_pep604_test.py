@@ -140,6 +140,15 @@ def test_fix_pep604_types_noop(s, version):
 
             id='Optional rewrite multi-line',
         ),
+        pytest.param(
+            'from typing import Union, Sequence\n'
+            'def f(x: Union[Union[A, B], Sequence[Union[C, D]]]): pass\n',
+
+            'from typing import Union, Sequence\n'
+            'def f(x: A | B | Sequence[C | D]): pass\n',
+
+            id='nested unions',
+        ),
     ),
 )
 def test_fix_pep604_types(s, expected):
