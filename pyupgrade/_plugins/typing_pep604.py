@@ -5,6 +5,7 @@ from typing import Iterable
 from typing import List
 from typing import Tuple
 
+from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
 from tokenize_rt import Token
 
@@ -35,40 +36,70 @@ def _fix_union(
         i: int,
         tokens: List[Token],
         *,
-        arg: ast.expr,
         arg_count: int,
 ) -> None:
-    arg_offset = ast_to_offset(arg)
-    j = find_token(tokens, i, '[')
-    to_delete = []
-    commas: List[int] = []
-
-    arg_depth = -1
     depth = 1
+    parens_done = []
+    open_parens = []
+    commas = []
+    coding_depth = None
+
+    j = find_token(tokens, i, '[')
     k = j + 1
     while depth:
+        # it's possible our first coding token is a close paren
+        # so make sure this is separate from the if chain below
+        if (
+                tokens[k].name not in NON_CODING_TOKENS and
+                tokens[k].src != '(' and
+                coding_depth is None
+        ):
+            if tokens[k].src == ')':  # the coding token was an empty tuple
+                coding_depth = depth - 1
+            else:
+                coding_depth = depth
+
         if tokens[k].src in OPENING:
-            if arg_depth == -1:
-                to_delete.append(k)
+            if tokens[k].src == '(':
+                open_parens.append((depth, k))
+
             depth += 1
         elif tokens[k].src in CLOSING:
+            if tokens[k].src == ')':
+                paren_depth, open_paren = open_parens.pop()
+                parens_done.append((paren_depth, (open_paren, k)))
+
             depth -= 1
-            if 0 < depth < arg_depth:
-                to_delete.append(k)
-        elif tokens[k].offset == arg_offset:
-            arg_depth = depth
-        elif depth == arg_depth and tokens[k].src == ',':
-            if len(commas) >= arg_count - 1:
-                to_delete.append(k)
-            else:
-                commas.append(k)
+        elif tokens[k].src == ',':
+            commas.append((depth, k))
 
         k += 1
     k -= 1
 
+    assert coding_depth is not None
+    assert not open_parens, open_parens
+    comma_depth = min((depth for depth, _ in commas), default=sys.maxsize)
+    min_depth = min(comma_depth, coding_depth)
+
+    to_delete = [
+        paren
+        for depth, positions in parens_done
+        if depth < min_depth
+        for paren in positions
+    ]
+
+    if comma_depth <= coding_depth:
+        comma_positions = [k for depth, k in commas if depth == comma_depth]
+        if len(comma_positions) == arg_count:
+            to_delete.append(comma_positions.pop())
+    else:
+        comma_positions = []
+
+    to_delete.sort()
+
     if tokens[j].line == tokens[k].line:
         del tokens[k]
-        for comma in commas:
+        for comma in comma_positions:
             tokens[comma] = Token('CODE', ' |')
         for paren in reversed(to_delete):
             del tokens[paren]
@@ -77,7 +108,7 @@ def _fix_union(
         tokens[j] = tokens[j]._replace(src='(')
         tokens[k] = tokens[k]._replace(src=')')
 
-        for comma in commas:
+        for comma in comma_positions:
             tokens[comma] = Token('CODE', ' |')
         for paren in reversed(to_delete):
             del tokens[paren]
@@ -116,13 +147,11 @@ def visit_Subscript(
 
         if isinstance(node_slice, ast.Tuple):
             if node_slice.elts:
-                arg = node_slice.elts[0]
                 arg_count = len(node_slice.elts)
             else:
                 return  # empty Union
         else:
-            arg = node_slice
             arg_count = 1
 
-        func = functools.partial(_fix_union, arg=arg, arg_count=arg_count)
+        func = functools.partial(_fix_union, arg_count=arg_count)
         yield ast_to_offset(node), func
