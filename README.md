@@ -201,6 +201,7 @@ str("foo")  # "foo"
 
 Availability:
 - `--py3-plus` is passed on the commandline.
+- Unless `--keep-encoding` is passed.
 
 ```python
 "foo".encode("utf-8")  # "foo".encode()
