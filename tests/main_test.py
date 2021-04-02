@@ -91,6 +91,16 @@ def test_keep_mock(tmpdir):
     assert f.read() == 'from unittest.mock import patch\n'
 
 
+def test_keep_encoding(tmpdir):
+    f = tmpdir.join('f.py')
+    code = '"Björk Guðmundsdóttir".encode("utf-8")'
+    f.write(code)
+    assert main((f.strpath, '--py3-plus', '--keep-encoding')) == 0
+    assert f.read() == code
+    assert main((f.strpath, '--py3-plus')) == 1
+    assert f.read() == '"Björk Guðmundsdóttir".encode()'
+
+
 def test_py3_plus_argument_unicode_literals(tmpdir):
     f = tmpdir.join('f.py')
     f.write('u""')

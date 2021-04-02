@@ -119,6 +119,9 @@ ur'\U0001f643'  # u'\U0001f643'
 
 ### `.encode()` to bytes literals
 
+Availability:
+- Unless `--keep-encoding` is passed.
+
 ```python
 'foo'.encode()           # b'foo'
 'foo'.encode('ascii')    # b'foo'
