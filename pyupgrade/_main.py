@@ -523,9 +523,7 @@ def _simple_arg(arg: ast.expr) -> bool:
 
 
 def _format_params(call: ast.Call) -> Dict[str, str]:
-    params = {}
-    for i, arg in enumerate(call.args):
-        params[str(i)] = _unparse(arg)
+    params = {str(i): _unparse(arg) for i, arg in enumerate(call.args)}
     for kwd in call.keywords:
         # kwd.arg can't be None here because we exclude starargs
         assert kwd.arg is not None
