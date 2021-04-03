@@ -39,6 +39,10 @@ from pyupgrade._main import _fix_py36_plus
             'D = typing.TypedDict("D", **types)',
             id='starstarkwargs',
         ),
+        pytest.param(
+            'D = typing.TypedDict("D", x=int, total=False)',
+            id='kw_typed_dict with total',
+        ),
     ),
 )
 def test_typing_typed_dict_noop(s):
@@ -79,6 +83,16 @@ def test_typing_typed_dict_noop(s):
             id='TypedDict from dict literal',
         ),
         pytest.param(
+            'import typing\n'
+            'D = typing.TypedDict("D", {"a": int}, total=False)\n',
+
+            'import typing\n'
+            'class D(typing.TypedDict, total=False):\n'
+            '    a: int\n',
+
+            id='TypedDict from dict literal with total',
+        ),
+        pytest.param(
             'from typing_extensions import TypedDict\n'
             'D = TypedDict("D", a=int)\n',
 
@@ -97,6 +111,16 @@ def test_typing_typed_dict_noop(s):
             '    a: int\n',
 
             id='keyword TypedDict from typing_extensions',
+        ),
+        pytest.param(
+            'import typing_extensions\n'
+            'D = typing_extensions.TypedDict("D", {"a": int}, total=True)\n',
+
+            'import typing_extensions\n'
+            'class D(typing_extensions.TypedDict, total=True):\n'
+            '    a: int\n',
+
+            id='keyword TypedDict from typing_extensions, with total',
         ),
         pytest.param(
             'from typing import List\n'
