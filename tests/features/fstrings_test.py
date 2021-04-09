@@ -30,6 +30,10 @@ from pyupgrade._main import _fix_py36_plus
         r'"\N{snowman} {}".format(a)',
         # not enough placeholders / placeholders missing
         '"{}{}".format(a)', '"{a}{b}".format(a=a)',
+        # backslashes and quotes cannot nest
+        r'''"{}".format(a['\\'])''',
+        '"{}".format(a["b"])',
+        "'{}'.format(a['b'])",
     ),
 )
 def test_fix_fstrings_noop(s):
@@ -50,6 +54,7 @@ def test_fix_fstrings_noop(s):
         ('"hello {}!".format(name)', 'f"hello {name}!"'),
         ('"{}{{}}{}".format(escaped, y)', 'f"{escaped}{{}}{y}"'),
         ('"{}{b}{}".format(a, c, b=b)', 'f"{a}{b}{c}"'),
+        ('"{}".format(0x0)', 'f"{0x0}"'),
         # TODO: poor man's f-strings?
         # '"{foo}".format(**locals())'
     ),
