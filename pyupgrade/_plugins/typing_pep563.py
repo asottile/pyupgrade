@@ -18,7 +18,7 @@ from pyupgrade._data import TokenFunc
 
 def _supported_version(state: State) -> bool:
     return (
-        state.settings.min_version >= (3, 10) or
+        state.settings.min_version >= (3, 11) or
         'annotations' in state.from_imports['__future__']
     )
 

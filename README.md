@@ -506,18 +506,6 @@ Availability:
 ```
 
 
-### remove quoted annotations
-
-Availability:
-- File imports `from __future__ import annotations`
-- `--py310-plus` is passed on the commandline.
-
-```diff
--def f(x: 'queue.Queue[int]') -> C:
-+def f(x: queue.Queue[int]) -> C:
-```
-
-
 ### pep 604 typing rewrites
 
 Availability:
@@ -535,4 +523,16 @@ Availability:
 -def f() -> Union[int, str]:
 +def f() -> int | str:
      ...
+```
+
+
+### remove quoted annotations
+
+Availability:
+- File imports `from __future__ import annotations`
+- `--py311-plus` is passed on the commandline.
+
+```diff
+-def f(x: 'queue.Queue[int]') -> C:
++def f(x: queue.Queue[int]) -> C:
 ```
