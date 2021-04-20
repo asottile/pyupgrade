@@ -13,7 +13,7 @@ from pyupgrade._main import _fix_plugins
             'from typing import Literal\n'
             'x: "str"\n',
             (2, 7),
-            id='not python 3.10+',
+            id='not python 3.11+',
         ),
         pytest.param(
             'from __future__ import annotations\n'
@@ -344,6 +344,11 @@ def test_fix_typing_pep563_noop(s, version):
 def test_fix_typing_pep563(s, expected):
     ret = _fix_plugins(s, settings=Settings(min_version=(3, 7)))
     assert ret == expected
+
+
+def test_replaced_for_minimum_version():
+    ret = _fix_plugins('x: "int"', settings=Settings(min_version=(3, 11)))
+    assert ret == 'x: int'
 
 
 @pytest.mark.xfail(
