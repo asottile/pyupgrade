@@ -49,6 +49,7 @@ RECORD_FROM_IMPORTS = frozenset((
     'select',
     'six',
     'socket',
+    'subprocess',
     'sys',
     'typing',
 ))
