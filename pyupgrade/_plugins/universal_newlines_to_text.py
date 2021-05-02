@@ -6,7 +6,6 @@ from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
-from tokenize_rt import tokens_to_src
 
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._ast_helpers import is_name_attr
@@ -25,9 +24,12 @@ def _replace_universal_newlines_with_text(
 ) -> None:
     j = find_open_paren(tokens, i)
     func_args, _ = parse_call_args(tokens, j)
-    src = tokens_to_src(tokens[slice(*func_args[arg_idx])])
-    new_src = src.replace('universal_newlines', 'text', 1)
-    tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_src)]
+    for i in range(*func_args[arg_idx]):
+        if tokens[i].src == 'universal_newlines':
+            tokens[i] = tokens[i]._replace(src='text')
+            break
+    else:
+        raise AssertionError('`universal_newlines` argument not found')
 
 
 @register(ast.Call)
