@@ -60,7 +60,7 @@ def test_fix_open_mode_noop(s):
         ),
         (
             'open(mode="r", encoding="UTF-8", file="t.py")',
-            'open( encoding="UTF-8", file="t.py")',
+            'open(encoding="UTF-8", file="t.py")',
         ),
     ),
 )

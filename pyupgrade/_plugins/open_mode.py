@@ -14,6 +14,7 @@ from pyupgrade._ast_helpers import has_starargs
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
+from pyupgrade._token_helpers import delete_argument
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import parse_call_args
 
@@ -35,10 +36,7 @@ def _fix_open_mode(i: int, tokens: List[Token], *, arg_idx: int) -> None:
     mode_stripped = mode.split('=')[-1]
     mode_stripped = mode_stripped.strip().strip('"\'')
     if mode_stripped in U_MODE_REMOVE:
-        if arg_idx == 0:
-            del tokens[func_args[arg_idx][0]: func_args[arg_idx + 1][0]]
-        else:
-            del tokens[func_args[arg_idx - 1][1]:func_args[arg_idx][1]]
+        delete_argument(arg_idx, tokens, func_args)
     elif mode_stripped in U_MODE_REPLACE_R:
         new_mode = mode.replace('U', 'r')
         tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]

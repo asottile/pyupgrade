@@ -474,6 +474,17 @@ Availability:
 ```
 
 
+### `subprocess.run`: replace `stdout=subprocess.PIPE, stderr=subprocess.PIPE` with `capture_output=True`
+
+Availability:
+- `--py37-plus` is passed on the commandline.
+
+```diff
+-output = subprocess.run(['foo'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
++output = subprocess.run(['foo'], capture_output=True)
+```
+
+
 ### remove parentheses from `@functools.lru_cache()`
 
 Availability:
