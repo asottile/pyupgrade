@@ -434,3 +434,32 @@ def replace_name(i: int, tokens: List[Token], *, name: str, new: str) -> None:
             return
         j += 1
     tokens[i:j + 1] = [new_token]
+
+
+def delete_argument(
+        i: int, tokens: List[Token],
+        func_args: Sequence[Tuple[int, int]],
+) -> None:
+    if i == 0:
+        # delete leading whitespace before next token
+        end_idx, _ = func_args[i + 1]
+        while tokens[end_idx].name == 'UNIMPORTANT_WS':
+            end_idx += 1
+
+        del tokens[func_args[i][0]:end_idx]
+    else:
+        del tokens[func_args[i - 1][1]:func_args[i][1]]
+
+
+def replace_argument(
+        i: int,
+        tokens: List[Token],
+        func_args: Sequence[Tuple[int, int]],
+        *,
+        new: str,
+) -> None:
+    start_idx, end_idx = func_args[i]
+    # don't replace leading whitespace / newlines
+    while tokens[start_idx].name in {'UNIMPORTANT_WS', 'NL'}:
+        start_idx += 1
+    tokens[start_idx:end_idx] = [Token('SRC', new)]
