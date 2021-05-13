@@ -1,4 +1,5 @@
 import io
+import re
 import sys
 from unittest import mock
 
@@ -11,19 +12,12 @@ def test_main_trivial():
     assert main(()) == 0
 
 
-@pytest.mark.parametrize(
-    'args',
-    (
-        (),
-        ('--py3-plus',),
-        ('--py36-plus',),
-        ('--py37-plus',),
-        ('--py38-plus',),
-        ('--py39-plus',),
-        ('--py310-plus',),
-    ),
-)
-def test_main_noop(tmpdir, args):
+def test_main_noop(tmpdir, capsys):
+    with pytest.raises(SystemExit):
+        main(('--help',))
+    out, err = capsys.readouterr()
+    version_options = sorted(set(re.findall(r'--py\d+-plus', out)))
+
     s = '''\
 from sys import version_info
 x=version_info
@@ -32,8 +26,13 @@ def f():
 '''
     f = tmpdir.join('f.py')
     f.write(s)
-    assert main((f.strpath, *args)) == 0
+
+    assert main((f.strpath,)) == 0
     assert f.read() == s
+
+    for version_option in version_options:
+        assert main((f.strpath, version_option)) == 0
+        assert f.read() == s
 
 
 def test_main_changes_a_file(tmpdir, capsys):

@@ -391,6 +391,7 @@ def _build_import_removals() -> Dict[Version, Dict[str, Tuple[str, ...]]]:
         ((3, 8), ()),
         ((3, 9), ()),
         ((3, 10), ()),
+        ((3, 11), ()),
     )
 
     prev: Tuple[str, ...] = ()
