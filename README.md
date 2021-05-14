@@ -25,6 +25,15 @@ Sample `.pre-commit-config.yaml`:
     -   id: pyupgrade
 ```
 
+## As a command-line tool
+
+Call `pyupgrade` with the files you want to upgrade as arguments. If you pass a
+directory, it will be walked through and all Python files will be upgraded.
+
+```
+pyupgrade file1.py file2.py directory
+```
+
 ## Implemented features
 
 ### Set literals

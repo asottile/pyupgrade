@@ -215,3 +215,19 @@ def test_main_stdin_with_changes(capsys):
         assert main(('-',)) == 1
     out, err = capsys.readouterr()
     assert out == '{1, 2}\n'
+
+
+def test_main_recurse(tmpdir):
+    d = tmpdir.mkdir('dir')
+    f = d.join('t.py')
+    f.write('set((1, 2))\n')
+    assert main((str(d),)) == 1
+    assert f.read() == '{1, 2}\n'
+
+
+def test_main_recurse_only_py(tmpdir):
+    d = tmpdir.mkdir('dir')
+    f = d.join('t.notpy')
+    f.write('set((1, 2))\n')
+    assert not main((str(d),)) == 1
+    assert f.read() == 'set((1, 2))\n'

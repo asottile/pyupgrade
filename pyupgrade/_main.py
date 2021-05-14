@@ -1,6 +1,7 @@
 import argparse
 import ast
 import collections
+import os
 import re
 import string
 import sys
@@ -925,7 +926,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     ret = 0
     for filename in args.filenames:
-        ret |= _fix_file(filename, args)
+        if os.path.isdir(filename):
+            for root, dirs, files in os.walk(filename):
+                for child_filename in files:
+                    if not child_filename.endswith('.py'):
+                        continue
+                    ret |= _fix_file(os.path.join(root, child_filename), args)
+        else:
+            ret |= _fix_file(filename, args)
     return ret
 
 
