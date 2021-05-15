@@ -28,12 +28,12 @@ def _fix_is_literal(
         tokens[i] = tokens[i]._replace(src='==')
     else:
         tokens[i] = tokens[i]._replace(src='!=')
-        # since we iterate backward, the dummy tokens keep the same length
+        # since we iterate backward, the empty tokens keep the same length
         i += 1
         while tokens[i].src != 'not':
-            tokens[i] = Token('DUMMY', '')
+            tokens[i] = Token('EMPTY', '')
             i += 1
-        tokens[i] = Token('DUMMY', '')
+        tokens[i] = Token('EMPTY', '')
 
 
 @register(ast.Compare)
