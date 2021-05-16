@@ -418,6 +418,18 @@ Availability:
      ...
 ```
 
+
+### Unpacking list comprehensions
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```diff
+-foo, bar, baz = [fn(x) for x in items]
++foo, bar, baz = (fn(x) for x in items)
+```
+
+
 ### `typing.NamedTuple` / `typing.TypedDict` py36+ syntax
 
 Availability:
