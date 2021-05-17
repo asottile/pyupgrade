@@ -102,7 +102,7 @@ of those comparisons is implementation specific (due to common object caching).
 ```python
 x is 5      # x == 5
 x is not 5  # x != 5
-x is 'foo'  # x == foo
+x is 'foo'  # x == 'foo'
 ```
 
 ### `ur` string literals
