@@ -15,6 +15,7 @@ from pyupgrade._main import _fix_plugins
             'len([i for i in range(2)])',
             id='Non-supported function',
         ),
+        pytest.param('frozenset()', id='no arguments'),
     ),
 )
 def test_fix_typing_text_noop(s):

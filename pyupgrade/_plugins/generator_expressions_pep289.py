@@ -63,7 +63,11 @@ def visit_Call(
         node: ast.Call,
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
-    if _func_condition(node.func) and isinstance(node.args[0], ast.ListComp):
+    if (
+            _func_condition(node.func) and
+            node.args and
+            isinstance(node.args[0], ast.ListComp)
+    ):
         if len(node.args) == 1 and not node.keywords:
             yield ast_to_offset(node.args[0]), _delete_list_comp_brackets
         else:
