@@ -463,3 +463,14 @@ def replace_argument(
     while tokens[start_idx].name in {'UNIMPORTANT_WS', 'NL'}:
         start_idx += 1
     tokens[start_idx:end_idx] = [Token('SRC', new)]
+
+
+def find_comprehension_opening_bracket(i: int, tokens: List[Token]) -> int:
+    """Find opening bracket of comprehension given first argument."""
+    if sys.version_info < (3, 8):  # pragma: no cover (py38+)
+        i -= 1
+        while not (tokens[i].name == 'OP' and tokens[i].src == '[') and i:
+            i -= 1
+        return i
+    else:  # pragma: no cover (<py38)
+        return i

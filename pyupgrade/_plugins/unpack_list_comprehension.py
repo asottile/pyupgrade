@@ -1,5 +1,4 @@
 import ast
-import sys
 from typing import Iterable
 from typing import List
 from typing import Tuple
@@ -12,18 +11,14 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket
+from pyupgrade._token_helpers import find_comprehension_opening_bracket
 
 
 def _replace_list_comprehension(i: int, tokens: List[Token]) -> None:
-    if sys.version_info < (3, 8):  # pragma: no cover (py38+)
-        start = i - 1
-        while not (tokens[start].name == 'OP' and tokens[start].src == '['):
-            start -= 1
-    else:  # pragma: no cover (<py38)
-        start = i
-    j = find_closing_bracket(tokens, start)
+    start = find_comprehension_opening_bracket(i, tokens)
+    end = find_closing_bracket(tokens, start)
     tokens[start] = tokens[start]._replace(src='(')
-    tokens[j] = tokens[j]._replace(src=')')
+    tokens[end] = tokens[end]._replace(src=')')
 
 
 @register(ast.Assign)
