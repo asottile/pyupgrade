@@ -15,8 +15,6 @@ from pyupgrade._token_helpers import find_comprehension_opening_bracket
 
 
 ALLOWED_FUNCS = frozenset((
-    'all',
-    'any',
     'bytearray',
     'bytes',
     'frozenset',
