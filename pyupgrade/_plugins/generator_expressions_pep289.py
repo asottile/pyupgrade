@@ -3,6 +3,7 @@ from typing import Iterable
 from typing import List
 from typing import Tuple
 
+from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
 from tokenize_rt import Token
 
@@ -32,6 +33,11 @@ def _delete_list_comp_brackets(i: int, tokens: List[Token]) -> None:
     end = find_closing_bracket(tokens, start)
     tokens[end] = Token('PLACEHOLDER', '')
     tokens[start] = Token('PLACEHOLDER', '')
+    j = end + 1
+    while j < len(tokens) and tokens[j].name in NON_CODING_TOKENS:
+        j += 1
+    if tokens[j].name == 'OP' and tokens[j].src == ',':
+        tokens[j] = Token('PLACEHOLDER', '')
 
 
 def _replace_list_comp_brackets(i: int, tokens: List[Token]) -> None:
