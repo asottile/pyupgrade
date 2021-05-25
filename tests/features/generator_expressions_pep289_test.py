@@ -78,6 +78,28 @@ def test_fix_typing_text_noop(s):
 
             id='Join function',
         ),
+        pytest.param(
+            '"".join([[i for _ in range(2)] for i in range(3)],)\n',
+
+            '"".join([i for _ in range(2)] for i in range(3))\n',
+
+            id='Trailing comma after list comprehension',
+        ),
+        pytest.param(
+            'sum(\n'
+            '    [\n'
+            '        i for i in range(3)\n'
+            '    ],\n'
+            ')\n',
+
+            'sum(\n'
+            '    \n'
+            '        i for i in range(3)\n'
+            '    \n'
+            ')\n',
+
+            id='Multiline list comprehension with trailing comma\n',
+        ),
     ),
 )
 def test_fix_typing_text(s, expected):
