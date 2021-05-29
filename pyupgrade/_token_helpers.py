@@ -474,3 +474,10 @@ def find_comprehension_opening_bracket(i: int, tokens: List[Token]) -> int:
         return i
     else:  # pragma: no cover (<py38)
         return i
+
+
+def replace_list_comp_brackets(i: int, tokens: List[Token]) -> None:
+    start = find_comprehension_opening_bracket(i, tokens)
+    end = find_closing_bracket(tokens, start)
+    tokens[end] = Token('OP', ')')
+    tokens[start] = Token('OP', '(')

@@ -13,6 +13,7 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket
 from pyupgrade._token_helpers import find_comprehension_opening_bracket
+from pyupgrade._token_helpers import replace_list_comp_brackets
 
 
 ALLOWED_FUNCS = frozenset((
@@ -38,13 +39,6 @@ def _delete_list_comp_brackets(i: int, tokens: List[Token]) -> None:
         j += 1
     if tokens[j].name == 'OP' and tokens[j].src == ',':
         tokens[j] = Token('PLACEHOLDER', '')
-
-
-def _replace_list_comp_brackets(i: int, tokens: List[Token]) -> None:
-    start = find_comprehension_opening_bracket(i, tokens)
-    end = find_closing_bracket(tokens, start)
-    tokens[end] = Token('OP', ')')
-    tokens[start] = Token('OP', '(')
 
 
 def _func_condition(func: ast.expr) -> bool:
@@ -75,4 +69,4 @@ def visit_Call(
         if len(node.args) == 1 and not node.keywords:
             yield ast_to_offset(node.args[0]), _delete_list_comp_brackets
         else:
-            yield ast_to_offset(node.args[0]), _replace_list_comp_brackets
+            yield ast_to_offset(node.args[0]), replace_list_comp_brackets

@@ -440,6 +440,17 @@ Availability:
 ```
 
 
+### Unpacking argument list comprehensions
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```diff
+-foo(*[i for i in bar])
++foo(*(i for i in bar))
+```
+
+
 ### `typing.NamedTuple` / `typing.TypedDict` py36+ syntax
 
 Availability:
