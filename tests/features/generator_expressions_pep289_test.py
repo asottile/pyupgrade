@@ -16,9 +16,13 @@ from pyupgrade._main import _fix_plugins
             id='Non-supported function',
         ),
         pytest.param('frozenset()', id='no arguments'),
+        pytest.param(
+            '"".join([[i for _ in range(2)] for i in range(3)])\n',
+            id='string join (left alone for perf reasons)',
+        ),
     ),
 )
-def test_fix_typing_text_noop(s):
+def test_fix_generator_expressions_noop(s):
     assert _fix_plugins(s, settings=Settings()) == s
 
 
@@ -72,16 +76,9 @@ def test_fix_typing_text_noop(s):
             id='Nested list comprehension\n',
         ),
         pytest.param(
-            '"".join([[i for _ in range(2)] for i in range(3)])\n',
+            'sum([[i for _ in range(2)] for i in range(3)],)\n',
 
-            '"".join([i for _ in range(2)] for i in range(3))\n',
-
-            id='Join function',
-        ),
-        pytest.param(
-            '"".join([[i for _ in range(2)] for i in range(3)],)\n',
-
-            '"".join([i for _ in range(2)] for i in range(3))\n',
+            'sum([i for _ in range(2)] for i in range(3))\n',
 
             id='Trailing comma after list comprehension',
         ),
@@ -102,6 +99,6 @@ def test_fix_typing_text_noop(s):
         ),
     ),
 )
-def test_fix_typing_text(s, expected):
+def test_fix_generator_expressions(s, expected):
     ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
