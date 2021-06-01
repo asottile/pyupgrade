@@ -41,20 +41,6 @@ def _delete_list_comp_brackets(i: int, tokens: List[Token]) -> None:
         tokens[j] = Token('PLACEHOLDER', '')
 
 
-def _func_condition(func: ast.expr) -> bool:
-    return (
-        (
-            isinstance(func, ast.Name) and
-            func.id in ALLOWED_FUNCS
-        ) or
-        (
-            isinstance(func, ast.Attribute) and
-            isinstance(func.value, ast.Str) and
-            func.attr == 'join'
-        )
-    )
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -62,7 +48,8 @@ def visit_Call(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if (
-            _func_condition(node.func) and
+            isinstance(node.func, ast.Name) and
+            node.func.id in ALLOWED_FUNCS and
             node.args and
             isinstance(node.args[0], ast.ListComp)
     ):
