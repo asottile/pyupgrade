@@ -323,6 +323,10 @@ def _fix_format_literal(tokens: List[Token], end: int) -> None:
 
 
 def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
+    parts = rfind_string_parts(tokens, i - 2)
+    if not parts:
+        return
+
     # .encode()
     if (
             i + 2 < len(tokens) and
@@ -350,10 +354,6 @@ def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
         else:
             return
     else:
-        return
-
-    parts = rfind_string_parts(tokens, i - 2)
-    if not parts:
         return
 
     for part in parts:

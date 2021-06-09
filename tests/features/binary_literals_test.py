@@ -21,6 +21,7 @@ from pyupgrade._main import _fix_tokens
         'x.encode()',
         # the codec / string is an f-string
         'str.encode(f"{c}")', '"foo".encode(f"{c}")',
+        pytest.param('wat.encode(b"unrelated")', id='unrelated .encode(...)'),
     ),
 )
 def test_binary_literals_noop(s):
