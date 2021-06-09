@@ -34,7 +34,7 @@ def _fix_open_mode(i: int, tokens: List[Token], *, arg_idx: int) -> None:
     func_args, end = parse_call_args(tokens, j)
     mode = tokens_to_src(tokens[slice(*func_args[arg_idx])])
     mode_stripped = mode.split('=')[-1]
-    mode_stripped = mode_stripped.strip().strip('"\'')
+    mode_stripped = ast.literal_eval(mode_stripped.strip())
     if mode_stripped in U_MODE_REMOVE:
         delete_argument(arg_idx, tokens, func_args)
     elif mode_stripped in U_MODE_REPLACE_R:
