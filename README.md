@@ -26,7 +26,6 @@ Sample `.pre-commit-config.yaml`:
 ```
 
 ## Exclude Specific Fixes
-
 ```
 pyupgrade ... --fixes-to-exclude <FIX NAME ...>
 ```
@@ -70,7 +69,8 @@ py3_compat_import_removals
 
 ## Implemented features
 
-### Set literals (`set_literals`)
+### Set literals
+Fix Name: `set_literals`
 
 ```python
 set(())              # set()
@@ -82,7 +82,8 @@ set(x for x in y)    # {x for x in y}
 set([x for x in y])  # {x for x in y}
 ```
 
-### Dictionary comprehensions (`dict_literals`)
+### Dictionary comprehensions
+Fix Name: `dict_literals`
 
 ```python
 dict((a, b) for a, b in y)    # {a: b for a, b in y}
@@ -90,7 +91,8 @@ dict([(a, b) for a, b in y])  # {a: b for a, b in y}
 ```
 
 
-### Generator expressions for some built-in functions (pep 289) (`generator_expressions_pep289`)
+### Generator expressions for some built-in functions (pep 289)
+Fix Name: `generator_expressions_pep289`
 
 ```python
 min([i for i in range(3)])  # min(i for i in range(3))
@@ -106,7 +108,8 @@ sum([i for i in range(3)])  # sum(i for i in range(3))
 '{0}' '{1}'.format(1, 2)  # '{}' '{}'.format(1, 2)
 ```
 
-### printf-style string formatting (`percent_format`)
+### printf-style string formatting
+Fix Name: `percent_format`
 
 Availability:
 - Unless `--keep-percent-format` is passed.
@@ -129,7 +132,8 @@ u"foo"      # 'foo'
 u'''foo'''  # '''foo'''
 ```
 
-### Invalid escape sequences (`escape_sequences`)
+### Invalid escape sequences
+Fix Name: `escape_sequences`
 
 ```python
 # strings with only invalid sequences become raw strings
@@ -147,7 +151,8 @@ u'\d'   # u'\\d'
 # but in python3.x, that's our friend ☃
 ```
 
-### `is` / `is not` comparison to constant literals (`identity_equality`)
+### `is` / `is not` comparison to constant literals
+Fix Name: `identity_equality`
 
 In python3.8+, comparison to literals becomes a `SyntaxWarning` as the success
 of those comparisons is implementation specific (due to common object caching).
@@ -208,7 +213,8 @@ print(("foo"))                  # print("foo")
 
 [python-modernize/python-modernize#178]: https://github.com/python-modernize/python-modernize/issues/178
 
-### `super()` calls (`legacy`)
+### `super()` calls
+Fix Name: `legacy`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -224,14 +230,16 @@ class C(Base):
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-#### rewrites class declaration (`new_style_classes`)
+#### rewrites class declaration 
+Fix Name: `new_style_classes`
 
 ```python
 class C(object): pass     # class C: pass
 class C(B, object): pass  # class C(B): pass
 ```
 
-#### removes `__metaclass__ = type` declaration (`metaclass_type`)
+#### removes `__metaclass__ = type` declaration
+Fix Name: `metaclass_type`
 
 ```diff
 -__metaclass__ = type
@@ -247,7 +255,8 @@ str()       # "''"
 str("foo")  # "foo"
 ```
 
-### `.encode("utf-8")` (`default_encoding)
+### `.encode("utf-8")`
+Fix Name: `default_encoding`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -270,7 +279,8 @@ as of [PEP 3120], the default encoding for python source is UTF-8
 
 [PEP 3120]: https://www.python.org/dev/peps/pep-3120/
 
-### `__future__` import removal (`py3_compat_import_removals`)
+### `__future__` import removal
+Fix Name: `py3_compat_import_removals`
 
 Availability:
 - by default removes `nested_scopes`, `generators`, `with_statement`
@@ -282,7 +292,8 @@ Availability:
 -from __future__ import with_statement
 ```
 
-### Remove unnecessary py3-compat imports (`py3_compat_import_removals`)
+### Remove unnecessary py3-compat imports
+Fix Name: `py3_compat_import_removals`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -293,7 +304,8 @@ Availability:
 -from builtins import object  # python-future
 ```
 
-### rewrite `mock` imports (`mock`)
+### rewrite `mock` imports
+Fix Name: `mock`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -304,7 +316,8 @@ Availability:
 +from unittest.mock import patch
 ```
 
-### `if PY2` blocks (`versioned_branches`)
+### `if PY2` blocks
+Fix Name: `versioned_branches`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -319,7 +332,8 @@ else:
 print('py3')
 ```
 
-### remove `six` compatibility code (`six_base_classes`, `six_calls`, `six_metaclasses`, `six_remove_decorators`, `six_simple`)
+### remove `six` compatibility code
+Fix Names: `six_base_classes`, `six_calls`, `six_metaclasses`, `six_remove_decorators`, `six_simple`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -392,7 +406,8 @@ six.ensure_str('...')                   # '...'
 six.ensure_text('...')                  # '...'
 ```
 
-### `open` alias (`io_open`)
+### `open` alias
+Fix Name: `io_open`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -404,7 +419,8 @@ Availability:
 ```
 
 
-### redundant `open` modes (`open_mode`)
+### redundant `open` modes
+Fix Name: `open_mode`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -420,7 +436,8 @@ open("f", "r", encoding="UTF-8")      # open("f", encoding="UTF-8")
 ```
 
 
-### `OSError` aliases (`oserror_aliases`)
+### `OSError` aliases
+Fix Name: `oserror_aliases`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -446,7 +463,8 @@ except OSError:
     raise
 ```
 
-### `typing.Text` str alias (`typing_text`)
+### `typing.Text` str alias 
+Fix Name: `typing_text`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -458,7 +476,8 @@ Availability:
 ```
 
 
-### Unpacking list comprehensions (`unpack_list_comprehension`)
+### Unpacking list comprehensions
+Fix Name: `unpack_list_comprehension`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
@@ -508,7 +527,8 @@ class D2(typing.TypedDict):
     b: str
 ```
 
-### f-strings (`fstring`)
+### f-strings
+Fix Name: `fstring`
 
 Availability:
 - `--py36-plus` is passed on the commandline.
@@ -525,7 +545,8 @@ if it would make the expression longer or if the substitution parameters are
 anything but simple names or dotted names (as this can decrease readability).
 
 
-### `subprocess.run`: replace `universal_newlines` with `text` (`subprocess_run`)
+### `subprocess.run`: replace `universal_newlines` with `text`
+Fix Name: `subprocess_run`
 
 Availability:
 - `--py37-plus` is passed on the commandline.
@@ -536,7 +557,8 @@ Availability:
 ```
 
 
-### `subprocess.run`: replace `stdout=subprocess.PIPE, stderr=subprocess.PIPE` with `capture_output=True` (`subprocess_run`)
+### `subprocess.run`: replace `stdout=subprocess.PIPE, stderr=subprocess.PIPE` with `capture_output=True`
+Fix Name: `subprocess_run`
 
 Availability:
 - `--py37-plus` is passed on the commandline.
@@ -547,7 +569,8 @@ Availability:
 ```
 
 
-### remove parentheses from `@functools.lru_cache()` (`lru_cache`)
+### remove parentheses from `@functools.lru_cache()`
+Fix Name: `lru_cache`
 
 Availability:
 - `--py38-plus` is passed on the commandline.
@@ -562,7 +585,8 @@ Availability:
 ```
 
 
-### replace `@functools.lru_cache(maxsize=None)` with shorthand (`lru_cache`)
+### replace `@functools.lru_cache(maxsize=None)` with shorthand 
+Fix Name: `lru_cache`
 
 Availability:
 - `--py39-plus` is passed on the commandline.
@@ -577,7 +601,8 @@ Availability:
 ```
 
 
-### merge dicts using union operator (pep 584) (`pep584`)
+### merge dicts using union operator (pep 584) 
+Fix Name: `pep584`
 
 Availability:
 - `--py39-plus` is passed on the commandline.
@@ -590,7 +615,8 @@ Availability:
 ```
 
 
-### pep 585 typing rewrites (`typing_pep585`)
+### pep 585 typing rewrites 
+Fix Name: `typing_pep585`
 
 Availability:
 - File imports `from __future__ import annotations`
@@ -604,7 +630,8 @@ Availability:
 ```
 
 
-### pep 604 typing rewrites (`typing_pep604`)
+### pep 604 typing rewrites 
+Fix Name: `typing_pep604`
 
 Availability:
 - File imports `from __future__ import annotations`
