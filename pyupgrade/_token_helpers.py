@@ -218,7 +218,10 @@ class Block(NamedTuple):
                 tokens[i] = tokens[i]._replace(src=tokens[i].src[diff:])
 
     def replace_condition(self, tokens: List[Token], new: List[Token]) -> None:
-        tokens[self.start:self.colon] = new
+        start = self.start
+        while tokens[start].name == 'UNIMPORTANT_WS':
+            start += 1
+        tokens[start:self.colon] = new
 
     def _trim_end(self, tokens: List[Token]) -> 'Block':
         """the tokenizer reports the end of the block at the beginning of
