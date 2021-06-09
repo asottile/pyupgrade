@@ -5,3 +5,7 @@
 /.pytest_cache
 /.tox
 /venv*
+.idea
+.python-version
+build/
+dist/

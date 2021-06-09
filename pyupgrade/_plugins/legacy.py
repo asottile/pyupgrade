@@ -28,14 +28,6 @@ from pyupgrade._token_helpers import find_token
 FUNC_TYPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)
 
 
-def _fix_yield(i: int, tokens: List[Token]) -> None:
-    in_token = find_token(tokens, i, 'in')
-    colon = find_block_start(tokens, i)
-    block = Block.find(tokens, i, trim_end=True)
-    container = tokens_to_src(tokens[in_token + 1:colon]).strip()
-    tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
-
-
 def _all_isinstance(
         vals: Iterable[Any],
         tp: Union[Type[Any], Tuple[Type[Any], ...]],
@@ -197,6 +189,3 @@ def visit_Module(
     super_func = functools.partial(find_and_replace_call, template='super()')
     for offset in visitor.super_offsets:
         yield offset, super_func
-
-    for offset in visitor.yield_offsets:
-        yield offset, _fix_yield

@@ -7,9 +7,9 @@ from typing import Iterable
 from typing import List
 from typing import NamedTuple
 from typing import Set
+from typing import TYPE_CHECKING
 from typing import Tuple
 from typing import Type
-from typing import TYPE_CHECKING
 from typing import TypeVar
 
 from tokenize_rt import Offset
@@ -25,11 +25,23 @@ else:
 Version = Tuple[int, ...]
 
 
+FIX_FSTRING = 'fstring'
+FIX_ESCAPE_SEQUENCES = 'escape_sequences'
+FIX_PY3_COMPAT_IMPORT_REMOVALS = 'py3_compat_import_removals'
+
+TOKEN_FIXES = [
+    FIX_FSTRING,
+    FIX_ESCAPE_SEQUENCES,
+    FIX_PY3_COMPAT_IMPORT_REMOVALS,
+]
+
+
 class Settings(NamedTuple):
     min_version: Version = (2, 7)
     keep_percent_format: bool = False
     keep_mock: bool = False
     keep_runtime_typing: bool = False
+    fixes_to_exclude: list = []
 
 
 class State(NamedTuple):
@@ -61,6 +73,7 @@ def register(tp: Type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
     def register_decorator(func: ASTFunc[AST_T]) -> ASTFunc[AST_T]:
         FUNCS[tp].append(func)
         return func
+
     return register_decorator
 
 
@@ -73,6 +86,8 @@ def visit(
         tree: ast.Module,
         settings: Settings,
 ) -> Dict[Offset, List[TokenFunc]]:
+    import_plugins(settings)
+
     initial_state = State(
         settings=settings,
         from_imports=collections.defaultdict(set),
@@ -114,12 +129,30 @@ def visit(
     return ret
 
 
-def _import_plugins() -> None:
-    # https://github.com/python/mypy/issues/1422
+def _get_fix_name_from_path(path: str) -> str:
+    return path.split('.')[-1]
+
+
+def _should_import_plugin(settings: Settings, plugin_file_path: str) -> bool:
+    return _get_fix_name_from_path(plugin_file_path) not in settings.fixes_to_exclude
+
+
+def _get_all_plugins():
     plugins_path: str = _plugins.__path__  # type: ignore
-    mod_infos = pkgutil.walk_packages(plugins_path, f'{_plugins.__name__}.')
+    return pkgutil.walk_packages(plugins_path, f'{_plugins.__name__}.')
+
+
+def get_fix_names() -> list:
+    plugin_fixes = [
+        _get_fix_name_from_path(name) for _, name, _ in _get_all_plugins()
+    ]
+
+    return plugin_fixes + TOKEN_FIXES
+
+
+def import_plugins(settings: Settings) -> None:
+    # https://github.com/python/mypy/issues/1422
+    mod_infos = _get_all_plugins()
     for _, name, _ in mod_infos:
-        __import__(name, fromlist=['_trash'])
-
-
-_import_plugins()
+        if _should_import_plugin(settings, name):
+            __import__(name, fromlist=['_trash'])

@@ -15,18 +15,18 @@ from typing import Tuple
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
+from tokenize_rt import Token
+from tokenize_rt import UNIMPORTANT_WS
 from tokenize_rt import parse_string_literal
 from tokenize_rt import reversed_enumerate
 from tokenize_rt import rfind_string_parts
 from tokenize_rt import src_to_tokens
-from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
-from tokenize_rt import UNIMPORTANT_WS
 
 from pyupgrade._ast_helpers import ast_parse
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._ast_helpers import has_starargs
-from pyupgrade._data import FUNCS
+from pyupgrade._data import FIX_ESCAPE_SEQUENCES, FIX_FSTRING, FIX_PY3_COMPAT_IMPORT_REMOVALS, FUNCS, get_fix_names
 from pyupgrade._data import Settings
 from pyupgrade._data import Version
 from pyupgrade._data import visit
@@ -472,9 +472,9 @@ def _fix_import_removals(
                 del tokens[j:idx + 1]
 
 
-def _fix_tokens(contents_text: str, min_version: Version) -> str:
+def _fix_tokens(contents_text: str, settings: Settings) -> str:
     remove_u = (
-        min_version >= (3,) or
+        settings.min_version >= (3,) or
         _imports_future(contents_text, 'unicode_literals')
     )
 
@@ -489,7 +489,8 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
             tokens[i] = _fix_ur_literals(tokens[i])
             if remove_u:
                 tokens[i] = _remove_u_prefix(tokens[i])
-            tokens[i] = _fix_escape_sequences(tokens[i])
+            if FIX_ESCAPE_SEQUENCES not in settings.fixes_to_exclude:
+                tokens[i] = _fix_escape_sequences(tokens[i])
         elif token.src == '(':
             _fix_extraneous_parens(tokens, i)
         elif token.src == 'format' and i > 0 and tokens[i - 1].src == '.':
@@ -497,7 +498,7 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
         elif token.src == 'encode' and i > 0 and tokens[i - 1].src == '.':
             _fix_encode_to_binary(tokens, i)
         elif (
-                min_version >= (3,) and
+                settings.min_version >= (3,) and
                 token.utf8_byte_offset == 0 and
                 token.line < 3 and
                 token.name == 'COMMENT' and
@@ -507,7 +508,8 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
             assert tokens[i].name == 'NL', tokens[i].name
             del tokens[i]
         elif token.src == 'from' and token.utf8_byte_offset == 0:
-            _fix_import_removals(tokens, i, min_version)
+            if FIX_PY3_COMPAT_IMPORT_REMOVALS not in settings.fixes_to_exclude:
+                _fix_import_removals(tokens, i, settings.min_version)
     return tokens_to_src(tokens).lstrip()
 
 
@@ -758,7 +760,7 @@ def _typed_class_replacement(
     return end, attrs
 
 
-def _fix_py36_plus(contents_text: str) -> str:
+def _fix_py36_plus(contents_text: str, settings: Settings) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -798,10 +800,11 @@ def _fix_py36_plus(contents_text: str) -> str:
             if '\\' in args_src or '"' in args_src or "'" in args_src:
                 continue
 
-            tokens[i] = token._replace(
-                src=_to_fstring(token.src, tokens, args),
-            )
-            del tokens[i + 1:end]
+            if FIX_FSTRING not in settings.fixes_to_exclude:
+                tokens[i] = token._replace(
+                    src=_to_fstring(token.src, tokens, args),
+                )
+                del tokens[i + 1:end]
         elif token.offset in visitor.named_tuples and token.name == 'NAME':
             call = visitor.named_tuples[token.offset]
             types: Dict[str, ast.expr] = {
@@ -860,18 +863,21 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         print(f'{filename} is non-utf-8 (not supported)')
         return 1
 
+    settings = Settings(
+        min_version=args.min_version,
+        keep_percent_format=args.keep_percent_format,
+        keep_mock=args.keep_mock,
+        keep_runtime_typing=args.keep_runtime_typing,
+        fixes_to_exclude=args.fixes_to_exclude,
+    )
+
     contents_text = _fix_plugins(
         contents_text,
-        settings=Settings(
-            min_version=args.min_version,
-            keep_percent_format=args.keep_percent_format,
-            keep_mock=args.keep_mock,
-            keep_runtime_typing=args.keep_runtime_typing,
-        ),
+        settings=settings,
     )
-    contents_text = _fix_tokens(contents_text, min_version=args.min_version)
+    contents_text = _fix_tokens(contents_text, settings)
     if args.min_version >= (3, 6):
-        contents_text = _fix_py36_plus(contents_text)
+        contents_text = _fix_py36_plus(contents_text, settings)
 
     if filename == '-':
         print(contents_text, end='')
@@ -889,6 +895,15 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
+    parser.add_argument(
+        '--fixes-to-exclude',
+        nargs='*',
+        type=str,
+        default=[],
+        help="Fixes that should be excluded.",
+        choices=get_fix_names(),
+        metavar='FIX_NAME'
+    )
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')
@@ -922,7 +937,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action='store_const', dest='min_version', const=(3, 11),
     )
     args = parser.parse_args(argv)
-
     ret = 0
     for filename in args.filenames:
         ret |= _fix_file(filename, args)
