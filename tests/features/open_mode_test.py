@@ -62,6 +62,7 @@ def test_fix_open_mode_noop(s):
             'open(mode="r", encoding="UTF-8", file="t.py")',
             'open(encoding="UTF-8", file="t.py")',
         ),
+        pytest.param('open(f, u"r")', 'open(f)', id='string with u flag'),
     ),
 )
 def test_fix_open_mode(s, expected):
