@@ -52,6 +52,12 @@ def test_metaclass_type_assignment_noop(s):
             '',
             id='module-scope assignment across newline',
         ),
+        pytest.param(
+            '__metaclass__ = type\n'
+            'a = 1\n',
+            'a = 1\n',
+            id='replace with code after it',
+        ),
     ),
 )
 def test_fix_metaclass_type_assignment(s, expected):

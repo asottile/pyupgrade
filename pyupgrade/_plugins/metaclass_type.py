@@ -15,7 +15,7 @@ from pyupgrade._token_helpers import find_end
 
 def _remove_metaclass_type(i: int, tokens: List[Token]) -> None:
     j = find_end(tokens, i)
-    del tokens[i:j + 1]
+    del tokens[i:j]
 
 
 @register(ast.Assign)
