@@ -805,7 +805,7 @@ def _fix_py36_plus(contents_text: str) -> str:
         elif token.offset in visitor.named_tuples and token.name == 'NAME':
             call = visitor.named_tuples[token.offset]
             types: Dict[str, ast.expr] = {
-                tup.elts[0].s: tup.elts[1]  # type: ignore  # (checked above)
+                tup.elts[0].s: tup.elts[1]
                 for tup in call.args[1].elts  # type: ignore  # (checked above)
             }
             end, attrs = _typed_class_replacement(tokens, i, call, types)
@@ -823,7 +823,7 @@ def _fix_py36_plus(contents_text: str) -> str:
         elif token.offset in visitor.dict_typed_dicts and token.name == 'NAME':
             call = visitor.dict_typed_dicts[token.offset]
             types = {
-                k.s: v  # type: ignore  # (checked above)
+                k.s: v
                 for k, v in zip(
                     call.args[1].keys,  # type: ignore  # (checked above)
                     call.args[1].values,  # type: ignore  # (checked above)
