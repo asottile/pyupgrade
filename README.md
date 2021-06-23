@@ -451,6 +451,19 @@ Availability:
 ```
 
 
+### Rewrite `xml.etree.cElementTree` to `xml.etree.ElementTree`
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```diff
+-import xml.etree.cElementTree as ET
++import xml.etree.ElementTree as ET
+-from xml.etree.cElementTree import XML
++from xml.etree.ElementTree import XML
+```
+
+
 ### `typing.NamedTuple` / `typing.TypedDict` py36+ syntax
 
 Availability:
