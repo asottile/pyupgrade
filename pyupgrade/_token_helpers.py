@@ -410,7 +410,15 @@ def replace_call(
     ):
         start_rest += 1
 
-    rest = tokens_to_src(tokens[start_rest:end - 1])
+    # Remove trailing comma
+    end_rest = end - 1
+    while (
+            tokens[end_rest - 1].name == 'OP' and
+            tokens[end_rest - 1].src == ','
+    ):
+        end_rest -= 1
+
+    rest = tokens_to_src(tokens[start_rest:end_rest])
     src = tmpl.format(args=arg_strs, rest=rest)
     tokens[start:end] = [Token('CODE', src)]
 
