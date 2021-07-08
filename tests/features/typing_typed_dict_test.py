@@ -46,7 +46,7 @@ from pyupgrade._main import _fix_py36_plus
     ),
 )
 def test_typing_typed_dict_noop(s):
-    assert _fix_py36_plus(s) == s
+    assert _fix_py36_plus(s, min_version=(3, 6)) == s
 
 
 @pytest.mark.parametrize(
@@ -137,4 +137,4 @@ def test_typing_typed_dict_noop(s):
     ),
 )
 def test_typing_typed_dict(s, expected):
-    assert _fix_py36_plus(s) == expected
+    assert _fix_py36_plus(s, min_version=(3, 6)) == expected
