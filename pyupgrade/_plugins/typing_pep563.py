@@ -129,7 +129,13 @@ def _replace_string_literal(
                 if isinstance(value, ast.AST):
                     nodes.append(value)
                 elif isinstance(value, list):
-                    nodes.extend(value)
+                    for value_ in value:
+                        if isinstance(value_, ast.AST):
+                            nodes.append(value_)
+                        else:
+                            raise AssertionError(
+                                f'expected AST: {ast.dump(value_)}',
+                            )
 
 
 def _process_args(
