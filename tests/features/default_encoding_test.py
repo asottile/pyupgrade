@@ -8,6 +8,10 @@ from pyupgrade._main import _fix_plugins
     ('s', 'expected'),
     (
         ('"asd".encode("utf-8")', '"asd".encode()'),
+        ('f"asd".encode("utf-8")', 'f"asd".encode()'),
+        ('f"{3}asd".encode("utf-8")', 'f"{3}asd".encode()'),
+        ('fr"asd".encode("utf-8")', 'fr"asd".encode()'),
+        ('r"asd".encode("utf-8")', 'r"asd".encode()'),
         ('"asd".encode("utf8")', '"asd".encode()'),
         ('"asd".encode("UTF-8")', '"asd".encode()'),
         pytest.param(
