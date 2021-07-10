@@ -520,13 +520,22 @@ def _format_params(call: ast.Call) -> Set[str]:
     return params
 
 
+def _contains_await(node: ast.AST) -> bool:
+    for node_ in ast.walk(node):
+        if isinstance(node_, ast.Await):
+            return True
+    else:
+        return False
+
+
 class FindPy36Plus(ast.NodeVisitor):
-    def __init__(self) -> None:
+    def __init__(self, *, min_version: Version) -> None:
         self.fstrings: Dict[Offset, ast.Call] = {}
         self.named_tuples: Dict[Offset, ast.Call] = {}
         self.dict_typed_dicts: Dict[Offset, ast.Call] = {}
         self.kw_typed_dicts: Dict[Offset, ast.Call] = {}
         self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
+        self.min_version = min_version
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if node.level == 0 and node.module in {'typing', 'typing_extensions'}:
@@ -591,7 +600,8 @@ class FindPy36Plus(ast.NodeVisitor):
                     if not candidate:
                         i += 1
             else:
-                self.fstrings[ast_to_offset(node)] = node
+                if self.min_version >= (3, 7) or not _contains_await(node):
+                    self.fstrings[ast_to_offset(node)] = node
 
         self.generic_visit(node)
 
@@ -758,13 +768,13 @@ def _typed_class_replacement(
     return end, attrs
 
 
-def _fix_py36_plus(contents_text: str) -> str:
+def _fix_py36_plus(contents_text: str, *, min_version: Version) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    visitor = FindPy36Plus()
+    visitor = FindPy36Plus(min_version=min_version)
     visitor.visit(ast_obj)
 
     if not any((
@@ -871,7 +881,9 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     )
     contents_text = _fix_tokens(contents_text, min_version=args.min_version)
     if args.min_version >= (3, 6):
-        contents_text = _fix_py36_plus(contents_text)
+        contents_text = _fix_py36_plus(
+            contents_text, min_version=args.min_version,
+        )
 
     if filename == '-':
         print(contents_text, end='')

@@ -34,10 +34,13 @@ from pyupgrade._main import _fix_py36_plus
         r'''"{}".format(a['\\'])''',
         '"{}".format(a["b"])',
         "'{}'.format(a['b'])",
+        # await only becomes keyword in Python 3.7+
+        "async def c(): return '{}'.format(await 3)",
+        "async def c(): return '{}'.format(1 + await 3)",
     ),
 )
 def test_fix_fstrings_noop(s):
-    assert _fix_py36_plus(s) == s
+    assert _fix_py36_plus(s, min_version=(3, 6)) == s
 
 
 @pytest.mark.parametrize(
@@ -60,4 +63,10 @@ def test_fix_fstrings_noop(s):
     ),
 )
 def test_fix_fstrings(s, expected):
-    assert _fix_py36_plus(s) == expected
+    assert _fix_py36_plus(s, min_version=(3, 6)) == expected
+
+
+def test_fix_fstrings_await_py37():
+    s = "async def c(): return '{}'.format(await 1+foo())"
+    expected = "async def c(): return f'{await 1+foo()}'"
+    assert _fix_py36_plus(s, min_version=(3, 7)) == expected
