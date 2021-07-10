@@ -31,7 +31,7 @@ def visit_Call(
     if (
             state.settings.min_version >= (3,) and
             isinstance(node.func, ast.Attribute) and
-            isinstance(node.func.value, ast.Str) and
+            isinstance(node.func.value, (ast.Str, ast.JoinedStr)) and
             node.func.attr == 'encode' and
             not has_starargs(node) and
             len(node.args) == 1 and
