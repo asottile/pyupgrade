@@ -20,6 +20,14 @@ from pyupgrade._main import _fix_plugins
             '"".join([[i for _ in range(2)] for i in range(3)])\n',
             id='string join (left alone for perf reasons)',
         ),
+        pytest.param(
+            'async def foo():\n'
+            '    for i in range(3):\n'
+            '        yield i\n'
+            'async def bar():\n'
+            '    sum([i async for i in foo()])\n',
+            id='Contains async',
+        ),
     ),
 )
 def test_fix_generator_expressions_noop(s):

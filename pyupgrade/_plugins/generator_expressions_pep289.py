@@ -51,7 +51,11 @@ def visit_Call(
             isinstance(node.func, ast.Name) and
             node.func.id in ALLOWED_FUNCS and
             node.args and
-            isinstance(node.args[0], ast.ListComp)
+            isinstance(node.args[0], ast.ListComp) and
+            not any(
+                generator.is_async
+                for generator in node.args[0].generators
+            )
     ):
         if len(node.args) == 1 and not node.keywords:
             yield ast_to_offset(node.args[0]), _delete_list_comp_brackets
