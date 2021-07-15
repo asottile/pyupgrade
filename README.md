@@ -451,7 +451,7 @@ Availability:
 ```
 
 
-### Rewrite `xml.etree.cElementTree` to `xml.etree.ElementTree`
+### Rewrite `xml.etree.cElementTree` to `xml.etree.ElementTree`
 
 Availability:
 - `--py3-plus` is passed on the commandline.
