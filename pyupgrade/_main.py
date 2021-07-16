@@ -25,6 +25,7 @@ from tokenize_rt import UNIMPORTANT_WS
 
 from pyupgrade._ast_helpers import ast_parse
 from pyupgrade._ast_helpers import ast_to_offset
+from pyupgrade._ast_helpers import contains_await
 from pyupgrade._ast_helpers import has_starargs
 from pyupgrade._data import FUNCS
 from pyupgrade._data import Settings
@@ -520,14 +521,6 @@ def _format_params(call: ast.Call) -> Set[str]:
     return params
 
 
-def _contains_await(node: ast.AST) -> bool:
-    for node_ in ast.walk(node):
-        if isinstance(node_, ast.Await):
-            return True
-    else:
-        return False
-
-
 class FindPy36Plus(ast.NodeVisitor):
     def __init__(self, *, min_version: Version) -> None:
         self.fstrings: Dict[Offset, ast.Call] = {}
@@ -600,7 +593,7 @@ class FindPy36Plus(ast.NodeVisitor):
                     if not candidate:
                         i += 1
             else:
-                if self.min_version >= (3, 7) or not _contains_await(node):
+                if self.min_version >= (3, 7) or not contains_await(node):
                     self.fstrings[ast_to_offset(node)] = node
 
         self.generic_visit(node)

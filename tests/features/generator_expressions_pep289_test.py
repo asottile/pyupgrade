@@ -28,6 +28,13 @@ from pyupgrade._main import _fix_plugins
             '    sum([i async for i in foo()])\n',
             id='Contains async',
         ),
+        pytest.param(
+            'tuple([\n'
+            '    await self._configure_component(hass, controller_config)\n'
+            '    for controller_config in configs\n'
+            '])\n',
+            id='Contains await',
+        ),
     ),
 )
 def test_fix_generator_expressions_noop(s):
