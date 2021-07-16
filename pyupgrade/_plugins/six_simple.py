@@ -68,6 +68,16 @@ def visit_Attribute(
 
         func = functools.partial(replace_name, name=node.attr, new=new)
         yield ast_to_offset(node), func
+    elif (
+            state.settings.min_version >= (3,) and
+            isinstance(node.value, ast.Attribute) and
+            isinstance(node.value.value, ast.Name) and
+            node.value.value.id == 'six' and
+            node.value.attr == 'moves' and
+            node.attr in {'xrange', 'range'}
+    ):
+        func = functools.partial(replace_name, name=node.attr, new='range')
+        yield ast_to_offset(node), func
 
 
 @register(ast.Name)
@@ -94,4 +104,11 @@ def visit_Name(
             new = NAMES[node.id]
 
         func = functools.partial(replace_name, name=node.id, new=new)
+        yield ast_to_offset(node), func
+    elif (
+            state.settings.min_version >= (3,) and
+            node.id in state.from_imports['six.moves'] and
+            node.id in {'xrange', 'range'}
+    ):
+        func = functools.partial(replace_name, name=node.id, new='range')
         yield ast_to_offset(node), func
