@@ -42,3 +42,11 @@ def has_starargs(call: ast.Call) -> bool:
         any(k.arg is None for k in call.keywords) or
         any(isinstance(a, ast.Starred) for a in call.args)
     )
+
+
+def contains_await(node: ast.AST) -> bool:
+    for node_ in ast.walk(node):
+        if isinstance(node_, ast.Await):
+            return True
+    else:
+        return False
