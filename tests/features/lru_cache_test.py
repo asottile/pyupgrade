@@ -101,6 +101,22 @@ def test_fix_no_arg_decorators(s, expected):
             (3, 9),
             id='unrelated parameter',
         ),
+        pytest.param(
+            'import functools\n\n'
+            '@functools.lru_cache(maxsize=None, typed=True)\n'
+            'def foo():\n'
+            '    pass\n',
+            (3, 9),
+            id='typed=True',
+        ),
+        pytest.param(
+            'import functools\n\n'
+            '@functools.lru_cache(maxsize=None, typed=False, foo=False)\n'
+            'def foo():\n'
+            '    pass\n',
+            (3, 9),
+            id='invalid keyword',
+        ),
     ),
 )
 def test_fix_maxsize_none_decorators_noop(s, min_version):
@@ -120,6 +136,28 @@ def test_fix_maxsize_none_decorators_noop(s, min_version):
             'def foo():\n'
             '    pass\n',
             id='call with attr',
+        ),
+        pytest.param(
+            'import functools\n\n'
+            '@functools.lru_cache(maxsize=None, typed=False)\n'
+            'def foo():\n'
+            '    pass\n',
+            'import functools\n\n'
+            '@functools.cache\n'
+            'def foo():\n'
+            '    pass\n',
+            id='call with attr, maxsize=None then typed=False',
+        ),
+        pytest.param(
+            'import functools\n\n'
+            '@functools.lru_cache(typed=False, maxsize=None)\n'
+            'def foo():\n'
+            '    pass\n',
+            'import functools\n\n'
+            '@functools.cache\n'
+            'def foo():\n'
+            '    pass\n',
+            id='call with attr, typed=False then maxsize=None',
         ),
     ),
 )
