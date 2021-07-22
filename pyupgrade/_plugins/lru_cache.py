@@ -2,6 +2,7 @@ import ast
 import functools
 from typing import Iterable
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 from tokenize_rt import Offset
@@ -21,6 +22,34 @@ def _remove_call(i: int, tokens: List[Token]) -> None:
     i = find_open_paren(tokens, i)
     j = find_token(tokens, i, ')')
     del tokens[i:j + 1]
+
+
+def _is_literal_kwarg(
+        keyword: ast.keyword, name: str, value: Optional[bool],
+) -> bool:
+    return (
+        keyword.arg == name and
+        isinstance(keyword.value, ast.NameConstant) and
+        keyword.value.value is value
+    )
+
+
+def _eligible(keywords: List[ast.keyword]) -> bool:
+    if len(keywords) == 1:
+        return _is_literal_kwarg(keywords[0], 'maxsize', None)
+    elif len(keywords) == 2:
+        return (
+            (
+                _is_literal_kwarg(keywords[0], 'maxsize', None) and
+                _is_literal_kwarg(keywords[1], 'typed', False)
+            ) or
+            (
+                _is_literal_kwarg(keywords[1], 'maxsize', None) and
+                _is_literal_kwarg(keywords[0], 'typed', False)
+            )
+        )
+    else:
+        return False
 
 
 @register(ast.Call)
@@ -48,10 +77,7 @@ def visit_Call(
             isinstance(node.func.value, ast.Name) and
             node.func.value.id == 'functools' and
             not node.args and
-            len(node.keywords) == 1 and
-            node.keywords[0].arg == 'maxsize' and
-            isinstance(node.keywords[0].value, ast.NameConstant) and
-            node.keywords[0].value.value is None
+            _eligible(node.keywords)
     ):
         func = functools.partial(
             find_and_replace_call, template='functools.cache',
