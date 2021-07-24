@@ -48,6 +48,7 @@ RECORD_FROM_IMPORTS = frozenset((
     'mmap',
     'select',
     'six',
+    'six.moves',
     'socket',
     'subprocess',
     'sys',

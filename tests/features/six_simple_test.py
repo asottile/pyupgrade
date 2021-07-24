@@ -19,6 +19,10 @@ from pyupgrade._main import _fix_plugins
             'isinstance("foo", text_type)\n',
             id='relative import might not be six',
         ),
+        pytest.param(
+            'foo.range(3)',
+            id='Range, but not from six.moves',
+        ),
     ),
 )
 def test_six_simple_noop(s):
@@ -62,6 +66,29 @@ def test_six_simple_noop(s):
 
             'from six import string_types\n'
             'STRING_TYPES = (str,)\n',
+        ),
+        pytest.param(
+            'six.moves.range(3)\n',
+
+            'range(3)\n',
+
+            id='six.moves.range',
+        ),
+        pytest.param(
+            'six.moves.xrange(3)\n',
+
+            'range(3)\n',
+
+            id='six.moves.xrange',
+        ),
+        pytest.param(
+            'from six.moves import xrange\n'
+            'xrange(3)\n',
+
+            'from six.moves import xrange\n'
+            'range(3)\n',
+
+            id='six.moves.xrange, from import',
         ),
     ),
 )
