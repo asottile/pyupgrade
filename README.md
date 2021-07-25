@@ -466,6 +466,23 @@ Availability:
 ```
 
 
+### Rewrite `type` of primitive
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```diff
+-type('')
++str
+-type(b'')
++bytes
+-type(0)
++int
+-type(0.)
++float
+```
+
+
 ### `typing.NamedTuple` / `typing.TypedDict` py36+ syntax
 
 Availability:
