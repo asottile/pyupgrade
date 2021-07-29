@@ -12,7 +12,6 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket
-from pyupgrade._token_helpers import find_token
 
 
 def _replace_dict_brackets(i: int, tokens: List[Token]) -> None:
@@ -39,8 +38,10 @@ def _remove_double_star(i: int, tokens: List[Token]) -> None:
 
 
 def _replace_comma_with_pipe(i: int, tokens: List[Token]) -> None:
-    comma = find_token(tokens, i, ',')
-    tokens[comma] = Token('CODE', ' |')
+    j = i - 1
+    while not (tokens[j].name == 'OP' and tokens[j].src == ','):
+        j -= 1
+    tokens[j] = Token('CODE', ' |')
 
 
 @register(ast.Dict)
@@ -54,8 +55,7 @@ def visit_Dict(
 
     if all(key is None for key in node.keys) and len(node.values) > 1:
         yield ast_to_offset(node), _replace_dict_brackets
-        arg_count = len(node.values)
         for idx, arg in enumerate(node.values):
             yield ast_to_offset(arg), _remove_double_star
-            if idx < arg_count - 1:
+            if idx > 0:
                 yield ast_to_offset(arg), _replace_comma_with_pipe

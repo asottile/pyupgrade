@@ -91,6 +91,19 @@ def test_fix_pep584_noop(s, version):
 
             id='Multiple lines, trailing comma',
         ),
+        pytest.param(
+            'x = {\n'
+            '    **{a: a for a  in range(3)},\n'
+            '    **b,\n'
+            '}\n',
+
+            'x = (\n'
+            '    {a: a for a  in range(3)} |\n'
+            '    b\n'
+            ')\n',
+
+            id='Dict comprehension within merge of dicts',
+        ),
     ),
 )
 def test_fix_pep584(s, expected):
