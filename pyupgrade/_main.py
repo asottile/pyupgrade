@@ -746,6 +746,8 @@ def _typed_class_replacement(
         call: ast.Call,
         types: Dict[str, ast.expr],
 ) -> Tuple[int, str]:
+    while i > 0 and tokens[i - 1].name == 'DEDENT':
+        i -= 1
     if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
         indent = f'{tokens[i - 1].src}{" " * 4}'
     else:

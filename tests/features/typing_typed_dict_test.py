@@ -134,6 +134,22 @@ def test_typing_typed_dict_noop(s):
 
             id='index unparse error',
         ),
+        pytest.param(
+            'import typing\n'
+            'if True:\n'
+            '    if False:\n'
+            '        pass\n'
+            '    D = typing.TypedDict("D", a=int)\n',
+
+            'import typing\n'
+            'if True:\n'
+            '    if False:\n'
+            '        pass\n'
+            '    class D(typing.TypedDict):\n'
+            '        a: int\n',
+
+            id='right after a dedent',
+        ),
     ),
 )
 def test_typing_typed_dict(s, expected):
