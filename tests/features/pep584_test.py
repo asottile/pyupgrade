@@ -104,6 +104,19 @@ def test_fix_pep584_noop(s, version):
 
             id='Dict comprehension within merge of dicts',
         ),
+        pytest.param(
+            'x = {\n'
+            '    **{a: b for a, b in zip(range(3), range(3))},\n'
+            '    **b,\n'
+            '}\n',
+
+            'x = (\n'
+            '    {a: b for a, b in zip(range(3), range(3))} |\n'
+            '    b\n'
+            ')\n',
+
+            id='Dict with comma inside it',
+        ),
     ),
 )
 def test_fix_pep584(s, expected):
