@@ -44,6 +44,29 @@ def test_main_changes_a_file(tmpdir, capsys):
     assert f.read() == 'x = {1, 2, 3}\n'
 
 
+def test_main_walks_through_subdirs(tmpdir, capsys):
+    sub = tmpdir.mkdir('sub')
+    sub_sub = sub.mkdir('sub')
+
+    a = sub.join('a.py')
+    a.write('x = set((1, 2, 3))\n')
+    b = sub.join('b.py')
+    b.write('x = set((1, 2, 3))\n')
+    c = sub_sub.join('c.py')
+    c.write('x = set((1, 2, 3))\n')
+
+    assert main((sub.strpath,)) == 1
+    out, err = capsys.readouterr()
+    assert err == (
+        f'Rewriting {a.strpath}\n'
+        f'Rewriting {b.strpath}\n'
+        f'Rewriting {c.strpath}\n'
+    )
+    assert a.read() == 'x = {1, 2, 3}\n'
+    assert b.read() == 'x = {1, 2, 3}\n'
+    assert c.read() == 'x = {1, 2, 3}\n'
+
+
 def test_main_keeps_line_endings(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write_binary(b'x = set((1, 2, 3))\r\n')
