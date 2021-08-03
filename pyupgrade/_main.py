@@ -895,7 +895,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         return contents_text != contents_text_orig
 
 
-def _walkfiles(folder: str, suffix: str = '') -> Iterator:
+def _walkfiles(folder: str, suffix: str = '') -> Iterator[str]:
     """Iterator over files in folder, recursively."""
     return (
         os.path.join(basename, filename)
