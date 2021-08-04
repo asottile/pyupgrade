@@ -50,3 +50,10 @@ def contains_await(node: ast.AST) -> bool:
             return True
     else:
         return False
+
+
+def is_async_listcomp(node: ast.ListComp) -> bool:
+    return (
+        any(gen.is_async for gen in node.generators) or
+        contains_await(node)
+    )
