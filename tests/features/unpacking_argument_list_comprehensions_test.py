@@ -32,6 +32,11 @@ from pyupgrade._main import _fix_plugins
             (3,),
             id='Starred, no list comp',
         ),
+        pytest.param(
+            'foo(*[x async for x in bar])',
+            (3,),
+            id='async listcomp',
+        ),
     ),
 )
 def test_fix_unpack_argument_list_comp_noop(s, version):
