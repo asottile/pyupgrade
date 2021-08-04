@@ -8,7 +8,7 @@ from tokenize_rt import Offset
 from tokenize_rt import Token
 
 from pyupgrade._ast_helpers import ast_to_offset
-from pyupgrade._ast_helpers import contains_await
+from pyupgrade._ast_helpers import is_async_listcomp
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
@@ -53,11 +53,7 @@ def visit_Call(
             node.func.id in ALLOWED_FUNCS and
             node.args and
             isinstance(node.args[0], ast.ListComp) and
-            not any(
-                generator.is_async
-                for generator in node.args[0].generators
-            ) and
-            not contains_await(node.args[0])
+            not is_async_listcomp(node.args[0])
     ):
         if len(node.args) == 1 and not node.keywords:
             yield ast_to_offset(node.args[0]), _delete_list_comp_brackets

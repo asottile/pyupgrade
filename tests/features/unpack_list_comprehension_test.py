@@ -17,6 +17,11 @@ from pyupgrade._main import _fix_plugins
             (3,),
             id='assignment to single variable',
         ),
+        pytest.param(
+            'x, = [await foo for foo in bar]',
+            (3,),
+            id='async comprehension',
+        ),
     ),
 )
 def test_fix_typing_text_noop(s, version):
