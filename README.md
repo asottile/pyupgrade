@@ -165,6 +165,25 @@ print(("foo"))                  # print("foo")
 
 [python-modernize/python-modernize#178]: https://github.com/python-modernize/python-modernize/issues/178
 
+### unittest deprecated aliases
+
+Rewrites [deprecated unittest method aliases](https://docs.python.org/3/library/unittest.html#deprecated-aliases) to their non-deprecated forms.
+
+Availability:
+- More deprecated aliases are rewritten with `--py3-plus`
+
+```diff
+ from unittest import TestCase
+
+
+ class MyTests(TestCase):
+     def test_something(self):
+-        self.failUnlessEqual(1, 1)
++        self.assertEqual(1, 1)
+-        self.assertEquals(1, 1)
++        self.assertEqual(1, 1)
+```
+
 ### `super()` calls
 
 Availability:
@@ -481,7 +500,6 @@ Availability:
 -type(0.)
 +float
 ```
-
 
 ### `typing.NamedTuple` / `typing.TypedDict` py36+ syntax
 
