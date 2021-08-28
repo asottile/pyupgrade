@@ -598,19 +598,6 @@ Availability:
 ```
 
 
-### merge dicts using union operator (pep 584)
-
-Availability:
-- `--py39-plus` is passed on the commandline.
-
-```diff
- x = {"a": 1}
- y = {"b": 2}
--z = {**x, **y}
-+z = x | y
-```
-
-
 ### pep 585 typing rewrites
 
 Availability:
