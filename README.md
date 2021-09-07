@@ -543,7 +543,7 @@ Availability:
 
 _note_: `pyupgrade` is intentionally timid and will not create an f-string
 if it would make the expression longer or if the substitution parameters are
-anything but simple names or dotted names (as this can decrease readability).
+sufficiently complicated (as this can decrease readability).
 
 
 ### `subprocess.run`: replace `universal_newlines` with `text`
