@@ -14,6 +14,7 @@ from pyupgrade._ast_helpers import is_name_attr
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
+from pyupgrade._data import Version
 from pyupgrade._token_helpers import Block
 
 
@@ -77,6 +78,7 @@ def _eq(test: ast.Compare, n: int) -> bool:
 def _compare_to_3(
     test: ast.Compare,
     op: Union[Type[ast.cmpop], Tuple[Type[ast.cmpop], ...]],
+    minor: int = 0,
 ) -> bool:
     if not (
             isinstance(test.ops[0], op) and
@@ -87,9 +89,11 @@ def _compare_to_3(
         return False
 
     # checked above but mypy needs help
-    elts = cast('List[ast.Num]', test.comparators[0].elts)
+    ast_elts = cast('List[ast.Num]', test.comparators[0].elts)
+    # padding a 0 for compatibility with (3,) used as a spec
+    elts = tuple(e.n for e in ast_elts) + (0,)
 
-    return elts[0].n == 3 and all(n.n == 0 for n in elts[1:])
+    return elts[:2] == (3, minor) and all(n == 0 for n in elts[2:])
 
 
 @register(ast.If)
@@ -98,8 +102,16 @@ def visit_If(
         node: ast.If,
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
+
+    min_version: Version
+    if state.settings.min_version == (3,):
+        min_version = (3, 0)
+    else:
+        min_version = state.settings.min_version
+    assert len(min_version) >= 2
+
     if (
-            state.settings.min_version >= (3,) and (
+            min_version >= (3,) and (
                 # if six.PY2:
                 is_name_attr(node.test, state.from_imports, 'six', ('PY2',)) or
                 # if not six.PY3:
@@ -114,6 +126,7 @@ def visit_If(
                     )
                 ) or
                 # sys.version_info == 2 or < (3,)
+                # or < (3, n) or <= (3, n) (with n<m)
                 (
                     isinstance(node.test, ast.Compare) and
                     is_name_attr(
@@ -124,7 +137,11 @@ def visit_If(
                     ) and
                     len(node.test.ops) == 1 and (
                         _eq(node.test, 2) or
-                        _compare_to_3(node.test, ast.Lt)
+                        _compare_to_3(node.test, ast.Lt, min_version[1]) or
+                        any(
+                            _compare_to_3(node.test, (ast.Lt, ast.LtE), minor)
+                            for minor in range(min_version[1])
+                        )
                     )
                 )
             )
@@ -132,7 +149,7 @@ def visit_If(
         if node.orelse and not isinstance(node.orelse[0], ast.If):
             yield ast_to_offset(node), _fix_py2_block
     elif (
-            state.settings.min_version >= (3,) and (
+            min_version >= (3,) and (
                 # if six.PY3:
                 is_name_attr(node.test, state.from_imports, 'six', ('PY3',)) or
                 # if not six.PY2:
@@ -147,6 +164,8 @@ def visit_If(
                     )
                 ) or
                 # sys.version_info == 3 or >= (3,) or > (3,)
+                # sys.version_info >= (3, n) (with n<=m)
+                # or sys.version_info > (3, n) (with n<m)
                 (
                     isinstance(node.test, ast.Compare) and
                     is_name_attr(
@@ -157,7 +176,12 @@ def visit_If(
                     ) and
                     len(node.test.ops) == 1 and (
                         _eq(node.test, 3) or
-                        _compare_to_3(node.test, (ast.Gt, ast.GtE))
+                        _compare_to_3(node.test, (ast.Gt, ast.GtE)) or
+                        _compare_to_3(node.test, ast.GtE, min_version[1]) or
+                        any(
+                            _compare_to_3(node.test, (ast.Gt, ast.GtE), minor)
+                            for minor in range(min_version[1])
+                        )
                     )
                 )
             )
