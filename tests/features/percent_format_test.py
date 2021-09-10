@@ -158,6 +158,7 @@ def test_simplify_conversion_flag(s, expected):
         '"%4%" % ()',
         # no equivalent in format specifier
         '"%.2r" % (1.25)', '"%.2a" % (1.25)',
+        pytest.param('"%8s" % (None,)', id='unsafe width-string conversion'),
         # non-string mod
         'i % 3',
         # dict format but not keyed arguments
@@ -208,8 +209,8 @@ def test_percent_format_noop_if_bug_16806():
         ('"%s" % ("%s" % ("nested",),)', '"{}".format("{}".format("nested"))'),
         ('"%s%% percent" % (15,)', '"{}% percent".format(15)'),
         ('"%3f" % (15,)', '"{:3f}".format(15)'),
-        ('"%-5s" % ("hi",)', '"{:<5}".format("hi")'),
-        ('"%9s" % (5,)', '"{:>9}".format(5)'),
+        ('"%-5f" % (5,)', '"{:<5f}".format(5)'),
+        ('"%9f" % (5,)', '"{:9f}".format(5)'),
         ('"brace {} %s" % (1,)', '"brace {{}} {}".format(1)'),
         (
             '"%s" % (\n'

@@ -128,8 +128,6 @@ def _percent_to_format(s: str) -> str:
             if conversion == '%':
                 return s + '%'
             parts = [s, '{']
-            if width and conversion == 's' and not conversion_flag:
-                conversion_flag = '>'
             if conversion == 's':
                 conversion = ''
             if key:
@@ -275,6 +273,9 @@ def visit_BinOp(
                     break
                 # no equivalent in format
                 if conversion in {'a', 'r'} and nontrivial_fmt:
+                    break
+                # %s with None and width is not supported
+                if width and conversion == 's':
                     break
                 # all dict substitutions must be named
                 if isinstance(node.right, ast.Dict) and not key:
