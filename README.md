@@ -294,20 +294,57 @@ def f():
         yield (a, b)
 ```
 
-### `if PY2` blocks
+### Python2 and old Python3.x blocks
 
 Availability:
 - `--py3-plus` is passed on the commandline.
 
 ```python
 # input
-if six.PY2:      # also understands `six.PY3` and `not` and `sys.version_info`
+import sys
+if sys.version_info < (3,):  # also understands `six.PY2` (and `not`), `six.PY3` (and `not`)
     print('py2')
 else:
     print('py3')
 # output
+import sys
 print('py3')
 ```
+
+Availability:
+- `--py36-plus` will remove Python <= 3.5 only blocks
+- `--py37-plus` will remove Python <= 3.6 only blocks
+- so on and so forth
+
+```python
+# using --py36-plus for this example
+# input
+import sys
+if sys.version_info < (3, 6):
+    print('py3.5')
+else:
+    print('py3.6+')
+
+if sys.version_info <= (3, 5):
+    print('py3.5')
+else:
+    print('py3.6+')
+
+if sys.version_info >= (3, 6):
+    print('py3.6+')
+else:
+    print('py3.5')
+
+# output
+import sys
+print('py3.6+')
+
+print('py3.6+')
+
+print('py3.6+')
+```
+
+Note that `if` blocks without an `else` will not be rewriten as it could introduce a syntax error.
 
 ### remove `six` compatibility code
 

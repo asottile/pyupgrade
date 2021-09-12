@@ -452,3 +452,155 @@ def test_fix_py2_blocks(s, expected):
 def test_fix_py3_only_code(s, expected):
     ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
     assert ret == expected
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        pytest.param(
+            'import sys\n'
+            'if sys.version_info > (3, 5):\n'
+            '    3+6\n'
+            'else:\n'
+            '    3-5\n',
+
+            'import sys\n'
+            '3+6\n',
+            id='sys.version_info > (3, 5)',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info > (3, 5):\n'
+            '    3+6\n'
+            'else:\n'
+            '    3-5\n',
+
+            'from sys import version_info\n'
+            '3+6\n',
+            id='from sys import version_info, > (3, 5)',
+        ),
+        pytest.param(
+            'import sys\n'
+            'if sys.version_info >= (3, 6):\n'
+            '    3+6\n'
+            'else:\n'
+            '    3-5\n',
+
+            'import sys\n'
+            '3+6\n',
+            id='sys.version_info >= (3, 6)',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info >= (3, 6):\n'
+            '    3+6\n'
+            'else:\n'
+            '    3-5\n',
+
+            'from sys import version_info\n'
+            '3+6\n',
+            id='from sys import version_info, >= (3, 6)',
+        ),
+        pytest.param(
+            'import sys\n'
+            'if sys.version_info < (3, 6):\n'
+            '    3-5\n'
+            'else:\n'
+            '    3+6\n',
+
+            'import sys\n'
+            '3+6\n',
+            id='sys.version_info < (3, 6)',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info < (3, 6):\n'
+            '    3-5\n'
+            'else:\n'
+            '    3+6\n',
+
+            'from sys import version_info\n'
+            '3+6\n',
+            id='from sys import version_info, < (3, 6)',
+        ),
+        pytest.param(
+            'import sys\n'
+            'if sys.version_info <= (3, 5):\n'
+            '    3-5\n'
+            'else:\n'
+            '    3+6\n',
+
+            'import sys\n'
+            '3+6\n',
+            id='sys.version_info <= (3, 5)',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info <= (3, 5):\n'
+            '    3-5\n'
+            'else:\n'
+            '    3+6\n',
+
+            'from sys import version_info\n'
+            '3+6\n',
+            id='from sys import version_info, <= (3, 5)',
+        ),
+    ),
+)
+def test_fix_py3x_only_code(s, expected):
+    ret = _fix_plugins(s, settings=Settings(min_version=(3, 6)))
+    assert ret == expected
+
+
+@pytest.mark.parametrize(
+    's',
+    (
+        # we timidly skip `if` without `else` as it could cause a SyntaxError
+        'import sys'
+        'if sys.version_info >= (3, 6):\n'
+        '    pass',
+        # here's the case where it causes a SyntaxError
+        'import sys'
+        'if True'
+        '    if sys.version_info >= (3, 6):\n'
+        '        pass\n',
+        # both branches are still relevant in the following cases
+        'import sys\n'
+        'if sys.version_info > (3, 7):\n'
+        '    3-6\n'
+        'else:\n'
+        '    3+7\n',
+
+        'import sys\n'
+        'if sys.version_info < (3, 7):\n'
+        '    3-6\n'
+        'else:\n'
+        '    3+7\n',
+
+        'import sys\n'
+        'if sys.version_info >= (3, 7):\n'
+        '    3+7\n'
+        'else:\n'
+        '    3-6\n',
+
+        'import sys\n'
+        'if sys.version_info <= (3, 7):\n'
+        '    3-7\n'
+        'else:\n'
+        '    3+8\n',
+
+        'import sys\n'
+        'if sys.version_info <= (3, 6):\n'
+        '    3-6\n'
+        'else:\n'
+        '    3+7\n',
+
+        'import sys\n'
+        'if sys.version_info > (3, 6):\n'
+        '    3+7\n'
+        'else:\n'
+        '    3-6\n',
+    ),
+)
+def test_fix_py3x_only_noop(s):
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 6))) == s
