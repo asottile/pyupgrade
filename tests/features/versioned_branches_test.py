@@ -545,6 +545,15 @@ def test_fix_py3_only_code(s, expected):
             '3+6\n',
             id='from sys import version_info, <= (3, 5)',
         ),
+        pytest.param(
+            'import sys\n'
+            'if sys.version_info >= (3, 6):\n'
+            '    pass',
+
+            'import sys\n'
+            'pass',
+            id='sys.version_info >= (3, 6), noelse',
+        ),
     ),
 )
 def test_fix_py3x_only_code(s, expected):
@@ -555,15 +564,6 @@ def test_fix_py3x_only_code(s, expected):
 @pytest.mark.parametrize(
     's',
     (
-        # we timidly skip `if` without `else` as it could cause a SyntaxError
-        'import sys'
-        'if sys.version_info >= (3, 6):\n'
-        '    pass',
-        # here's the case where it causes a SyntaxError
-        'import sys'
-        'if True'
-        '    if sys.version_info >= (3, 6):\n'
-        '        pass\n',
         # both branches are still relevant in the following cases
         'import sys\n'
         'if sys.version_info > (3, 7):\n'
