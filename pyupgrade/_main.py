@@ -900,34 +900,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')
     parser.add_argument('--keep-runtime-typing', action='store_true')
-    parser.add_argument(
+    min_version_group = parser.add_mutually_exclusive_group()
+    min_version_group.add_argument(
         '--py3-plus', '--py3-only',
         action='store_const', dest='min_version', default=(2, 7), const=(3,),
     )
-    parser.add_argument(
-        '--py36-plus',
-        action='store_const', dest='min_version', const=(3, 6),
-    )
-    parser.add_argument(
-        '--py37-plus',
-        action='store_const', dest='min_version', const=(3, 7),
-    )
-    parser.add_argument(
-        '--py38-plus',
-        action='store_const', dest='min_version', const=(3, 8),
-    )
-    parser.add_argument(
-        '--py39-plus',
-        action='store_const', dest='min_version', const=(3, 9),
-    )
-    parser.add_argument(
-        '--py310-plus',
-        action='store_const', dest='min_version', const=(3, 10),
-    )
-    parser.add_argument(
-        '--py311-plus',
-        action='store_const', dest='min_version', const=(3, 11),
-    )
+    for v in (6, 7, 8, 9, 10, 11):
+        min_version_group.add_argument(
+            f'--py3{v}-plus',
+            action='store_const', dest='min_version', const=(3, v),
+        )
     args = parser.parse_args(argv)
 
     ret = 0
