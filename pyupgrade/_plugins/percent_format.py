@@ -18,6 +18,7 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
+from pyupgrade._string_helpers import curly_escape
 from pyupgrade._token_helpers import KEYWORDS
 from pyupgrade._token_helpers import remove_brace
 from pyupgrade._token_helpers import victims
@@ -120,7 +121,8 @@ def _simplify_conversion_flag(flag: str) -> str:
 def _percent_to_format(s: str) -> str:
     def _handle_part(part: PercentFormat) -> str:
         s, fmt = part
-        s = s.replace('{', '{{').replace('}', '}}')
+        s = curly_escape(s)
+
         if fmt is None:
             return s
         else:
@@ -155,10 +157,6 @@ def _fix_percent_format_tuple(
         *,
         node_right: ast.Tuple,
 ) -> None:
-    # TODO: handle \N escape sequences
-    if r'\N' in tokens[i].src:
-        return
-
     # TODO: this is overly timid
     paren = i + 4
     if tokens_to_src(tokens[i + 1:paren + 1]) != ' % (':
@@ -181,10 +179,6 @@ def _fix_percent_format_dict(
         *,
         node_right: ast.Dict,
 ) -> None:
-    # TODO: handle \N escape sequences
-    if r'\N' in tokens[i].src:
-        return
-
     seen_keys: Set[str] = set()
     keys = {}
 

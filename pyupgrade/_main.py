@@ -31,8 +31,10 @@ from pyupgrade._data import FUNCS
 from pyupgrade._data import Settings
 from pyupgrade._data import Version
 from pyupgrade._data import visit
+from pyupgrade._string_helpers import curly_escape
 from pyupgrade._string_helpers import is_ascii
 from pyupgrade._string_helpers import is_codec
+from pyupgrade._string_helpers import NAMED_UNICODE_RE
 from pyupgrade._token_helpers import CLOSING
 from pyupgrade._token_helpers import KEYWORDS
 from pyupgrade._token_helpers import OPENING
@@ -47,21 +49,34 @@ _stdlib_parse_format = string.Formatter().parse
 
 
 def parse_format(s: str) -> Tuple[DotFormatPart, ...]:
-    """Makes the empty string not a special case.  In the stdlib, there's
-    loss of information (the type) on the empty string.
-    """
-    parsed = tuple(_stdlib_parse_format(s))
-    if not parsed:
-        return ((s, None, None, None),)
-    else:
-        return parsed
+    """handle named escape sequences"""
+    ret: List[DotFormatPart] = []
+
+    for part in NAMED_UNICODE_RE.split(s):
+        if NAMED_UNICODE_RE.fullmatch(part):
+            if not ret:
+                ret.append((part, None, None, None))
+            else:
+                ret[-1] = (ret[-1][0] + part, None, None, None)
+        else:
+            first = True
+            for tup in _stdlib_parse_format(part):
+                if not first or not ret:
+                    ret.append(tup)
+                else:
+                    ret[-1] = (ret[-1][0] + tup[0], *tup[1:])
+                first = False
+
+    if not ret:
+        ret.append((s, None, None, None))
+
+    return tuple(ret)
 
 
 def unparse_parsed_string(parsed: Sequence[DotFormatPart]) -> str:
     def _convert_tup(tup: DotFormatPart) -> str:
         ret, field_name, format_spec, conversion = tup
-        ret = ret.replace('{', '{{')
-        ret = ret.replace('}', '}}')
+        ret = curly_escape(ret)
         if field_name is not None:
             ret += '{' + field_name
             if conversion:
@@ -786,10 +801,6 @@ def _fix_py36_plus(contents_text: str, *, min_version: Version) -> str:
         return contents_text
     for i, token in reversed_enumerate(tokens):
         if token.offset in visitor.fstrings:
-            # TODO: handle \N escape sequences
-            if r'\N' in token.src:
-                continue
-
             paren = i + 3
             if tokens_to_src(tokens[i + 1:paren + 1]) != '.format(':
                 continue

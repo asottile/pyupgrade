@@ -26,8 +26,6 @@ from pyupgrade._main import _fix_py36_plus
         '"{:{}}".format(x, y)',
         '"{a[b]}".format(a=a)',
         '"{a.a[b]}".format(a=a)',
-        # TODO: handle \N escape sequences
-        r'"\N{snowman} {}".format(a)',
         # not enough placeholders / placeholders missing
         '"{}{}".format(a)', '"{a}{b}".format(a=a)',
         # backslashes and quotes cannot nest
@@ -58,6 +56,11 @@ def test_fix_fstrings_noop(s):
         ('"{}{{}}{}".format(escaped, y)', 'f"{escaped}{{}}{y}"'),
         ('"{}{b}{}".format(a, c, b=b)', 'f"{a}{b}{c}"'),
         ('"{}".format(0x0)', 'f"{0x0}"'),
+        pytest.param(
+            r'"\N{snowman} {}".format(a)',
+            r'f"\N{snowman} {a}"',
+            id='named escape sequences',
+        ),
         # TODO: poor man's f-strings?
         # '"{foo}".format(**locals())'
     ),

@@ -16,6 +16,14 @@ def test_roundtrip_text(s):
     assert unparse_parsed_string(parse_format(s)) == s
 
 
+def test_parse_format_starts_with_named():
+    # technically not possible since our string always starts with quotes
+    assert parse_format(r'\N{snowman} hi {0} hello') == (
+        (r'\N{snowman} hi ', '0', '', None),
+        (' hello', None, None, None),
+    )
+
+
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
@@ -49,8 +57,6 @@ def test_intentionally_not_round_trip(s, expected):
         "'{' '0}'.format(1)",
         # comment looks like placeholder but is not!
         '("{0}" # {1}\n"{2}").format(1, 2, 3)',
-        # TODO: this works by accident (extended escape treated as placeholder)
-        r'"\N{snowman} {}".format(1)',
         # don't touch f-strings (these are wrong but don't make it worse)
         'f"{0}".format(a)',
     ),
@@ -101,6 +107,11 @@ def test_format_literals_noop(s):
         ),
         # parenthesized string literals
         ('("{0}").format(1)', '("{}").format(1)'),
+        pytest.param(
+            r'"\N{snowman} {0}".format(1)',
+            r'"\N{snowman} {}".format(1)',
+            id='named escape sequence',
+        ),
     ),
 )
 def test_format_literals(s, expected):

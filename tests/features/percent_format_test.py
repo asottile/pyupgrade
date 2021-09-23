@@ -178,9 +178,6 @@ def test_simplify_conversion_flag(s, expected):
         '"%(and)s" % {"and": 2}',
         # invalid string formats
         '"%" % {}', '"%(hi)" % {}', '"%2" % {}',
-        # TODO: handle \N escape sequences
-        r'"%s \N{snowman}" % (a,)',
-        r'"%(foo)s \N{snowman}" % {"foo": 1}',
     ),
 )
 def test_percent_format_noop(s):
@@ -223,6 +220,15 @@ def test_percent_format_noop_if_bug_16806():
         # dict
         ('"%(k)s" % {"k": "v"}', '"{k}".format(k="v")'),
         ('"%(to_list)s" % {"to_list": []}', '"{to_list}".format(to_list=[])'),
+        # \N escapes
+        (
+            r'"%s \N{snowman}" % (a,)',
+            r'"{} \N{snowman}".format(a)',
+        ),
+        (
+            r'"%(foo)s \N{snowman}" % {"foo": 1}',
+            r'"{foo} \N{snowman}".format(foo=1)',
+        ),
     ),
 )
 def test_percent_format(s, expected):
