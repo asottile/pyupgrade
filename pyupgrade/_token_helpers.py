@@ -396,6 +396,16 @@ def arg_str(tokens: List[Token], start: int, end: int) -> str:
     return tokens_to_src(tokens[start:end]).strip()
 
 
+def _arg_contains_newline(tokens: List[Token], start: int, end: int) -> bool:
+    while tokens[start].name in {'NL', 'NEWLINE', UNIMPORTANT_WS}:
+        start += 1
+    for i in range(start, end):
+        if tokens[i].name in {'NL', 'NEWLINE'}:
+            return True
+    else:
+        return False
+
+
 def replace_call(
         tokens: List[Token],
         start: int,
@@ -408,6 +418,14 @@ def replace_call(
     arg_strs = [arg_str(tokens, *arg) for arg in args]
     for paren in parens:
         arg_strs[paren] = f'({arg_strs[paren]})'
+
+    # there are a few edge cases which cause syntax errors when the first
+    # argument contains newlines (especially when moved outside of a natural
+    # contiunuation context)
+    if _arg_contains_newline(tokens, *args[0]) and 0 not in parens:
+        # this attempts to preserve more of the whitespace by using the
+        # original non-stripped argument string
+        arg_strs[0] = f'({tokens_to_src(tokens[slice(*args[0])])})'
 
     start_rest = args[0][1] + 1
     while (
