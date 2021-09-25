@@ -126,6 +126,7 @@ class Visitor(ast.NodeVisitor):
                 # argument of this function
                 isinstance(self._scopes[-1].node, NON_LAMBDA_FUNC_TYPES) and
                 node.func.attr == self._scopes[-1].node.name and
+                node.func.attr != '__new__' and
                 len(self._scopes[-1].node.args.args) >= 1 and
                 node.args[0].id == self._scopes[-1].node.args.args[0].arg and
                 # the function is an attribute of the contained class name

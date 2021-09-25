@@ -182,6 +182,12 @@ def test_fix_super(s, expected):
             '   def find(self):\n'
             '        return C.make(self)\n',
         ),
+        pytest.param(
+            'class C(tuple):\n'
+            '    def __new__(cls, arg):\n'
+            '        return tuple.__new__(cls, (arg,))\n',
+            id='super() does not work properly for __new__',
+        ),
     ),
 )
 def test_old_style_class_super_noop(s):
