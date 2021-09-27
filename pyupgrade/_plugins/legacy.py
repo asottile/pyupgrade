@@ -8,6 +8,7 @@ from typing import Iterable
 from typing import List
 from typing import Set
 from typing import Tuple
+from typing import Union
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -25,6 +26,7 @@ from pyupgrade._token_helpers import find_token
 
 FUNC_TYPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)
 NON_LAMBDA_FUNC_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
+NonLambdaFuncTypes_T = Union[ast.FunctionDef, ast.AsyncFunctionDef]
 
 
 def _fix_yield(i: int, tokens: List[Token]) -> None:
@@ -42,6 +44,14 @@ def _is_simple_base(base: ast.AST) -> bool:
             _is_simple_base(base.value)
         )
     )
+
+
+def _is_staticmethod_decorated(node: NonLambdaFuncTypes_T) -> bool:
+    for decorator in node.decorator_list:
+        if isinstance(decorator, ast.Name) and decorator.id == 'staticmethod':
+            return True
+    else:
+        return False
 
 
 class Scope:
@@ -127,6 +137,7 @@ class Visitor(ast.NodeVisitor):
                 isinstance(self._scopes[-1].node, NON_LAMBDA_FUNC_TYPES) and
                 node.func.attr == self._scopes[-1].node.name and
                 node.func.attr != '__new__' and
+                not _is_staticmethod_decorated(self._scopes[-1].node) and
                 len(self._scopes[-1].node.args.args) >= 1 and
                 node.args[0].id == self._scopes[-1].node.args.args[0].arg and
                 # the function is an attribute of the contained class name
