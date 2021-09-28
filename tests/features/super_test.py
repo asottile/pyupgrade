@@ -188,13 +188,6 @@ def test_fix_super(s, expected):
             '        return tuple.__new__(cls, (arg,))\n',
             id='super() does not work properly for __new__',
         ),
-        pytest.param(
-            'class C(B):\n'
-            '    @staticmethod\n'
-            '    def f(arg):\n'
-            '       return B.f(arg)\n',
-            id='skip staticmethod',
-        ),
     ),
 )
 def test_old_style_class_super_noop(s):
@@ -213,17 +206,6 @@ def test_old_style_class_super_noop(s):
             '    def f(self):\n'
             '        super().f()\n'
             '        super().f(arg, arg)\n',
-        ),
-        pytest.param(
-            'class C(B):\n'
-            '    @classmethod\n'
-            '    def f(cls):\n'
-            '        B.f(cls)\n',
-            'class C(B):\n'
-            '    @classmethod\n'
-            '    def f(cls):\n'
-            '        super().f()\n',
-            id='@classmethod',
         ),
         pytest.param(
             'class C(B):\n'
