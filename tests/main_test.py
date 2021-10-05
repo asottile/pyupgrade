@@ -147,7 +147,7 @@ def test_py36_plus_fstrings(tmpdir):
     assert f.read() == 'f"{hello} {world}"'
 
 
-def test_py37_plus_removes_annotations(tmpdir):
+def test_py37_plus_removes_generator_stop(tmpdir):
     f = tmpdir.join('f.py')
     f.write('from __future__ import generator_stop\nx = 1\n')
     assert main((f.strpath,)) == 0
@@ -215,3 +215,14 @@ def test_main_stdin_with_changes(capsys):
         assert main(('-',)) == 1
     out, err = capsys.readouterr()
     assert out == '{1, 2}\n'
+
+
+def test_py310_plus_removes_generator_stop(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('from __future__ import annotations\nx = 1\n')
+    assert main((f.strpath,)) == 0
+    assert main((f.strpath, '--py37-plus')) == 0
+    assert main((f.strpath, '--py38-plus')) == 0
+    assert main((f.strpath, '--py39-plus')) == 0
+    assert main((f.strpath, '--py310-plus')) == 1
+    assert f.read() == 'x = 1\n'
