@@ -1,5 +1,6 @@
 import ast
-from typing import Iterable
+import functools
+from typing import Iterable, Optional
 from typing import List
 from typing import Tuple
 
@@ -10,23 +11,65 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import find_token, find_end
 
 MOCK_MODULES = frozenset(('mock', 'mock.mock'))
 
 
-def _fix_import_from_mock(i: int, tokens: List[Token]) -> None:
-    j = find_token(tokens, i, 'mock')
-    if (
-            j + 2 < len(tokens) and
-            tokens[j + 1].src == '.' and
-            tokens[j + 2].src == 'mock'
-    ):
-        k = j + 2
+def _add_import(i: int, tokens: List[Token], module: str, name: str, alias: Optional[str]) -> None:
+    asname = ''
+    if alias:
+        asname = f' as {alias}'
+    src = f'from {module} import {name}{asname}\n'
+    tokens.insert(i, Token('CODE', src))    
+
+
+def _remove_import(i: int, tokens: List[Token]) -> None:
+    j = i + 1
+    while tokens[j].src not in {',', ')'} and tokens[j].name != 'NEWLINE':
+        j += 1
+
+    if tokens[j].src != ',':
+        # Include previous comma when import is last in group
+        while tokens[i].src != ',':
+            i -= 1
     else:
-        k = j
-    src = 'unittest.mock'
-    tokens[j:k + 1] = [tokens[j]._replace(name='NAME', src=src)]
+        # Increment to include ',' in deletion
+        j += 1
+    del tokens[i:j]
+
+
+def _fix_relative_import_mock(i: int, tokens: List[Token], names: List[ast.Name]) -> None:
+    j = find_token(tokens, i, 'mock')
+
+    if len(names) == 1:
+        src = 'unittest'
+        tokens[j:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
+    else:
+        name: ast.Name = next((name for name in names if name.name == 'mock'))
+        src = 'unittest.mock'
+        tokens[j:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
+        idx = find_token(tokens, j+1, 'mock')
+        _remove_import(idx, tokens)
+        _add_import(i, tokens, 'unittest', name.name, name.asname)
+
+
+
+def _fix_import_from_mock(i: int, tokens: List[Token], names: List[ast.Name]) -> None:
+    if any(n.name == 'mock' for n in names):
+        _fix_relative_import_mock(i, tokens, names)
+    else:
+        j = find_token(tokens, i, 'mock')
+        if (
+                j + 2 < len(tokens) and
+                tokens[j + 1].src == '.' and
+                tokens[j + 2].src == 'mock'
+        ):
+            k = j + 2
+        else:
+            k = j
+        src = 'unittest.mock'
+        tokens[j:k + 1] = [tokens[j]._replace(name='NAME', src=src)]
 
 
 def _fix_import_mock(i: int, tokens: List[Token]) -> None:
@@ -58,7 +101,8 @@ def visit_ImportFrom(
             not node.level and
             node.module in MOCK_MODULES
     ):
-        yield ast_to_offset(node), _fix_import_from_mock
+        func = functools.partial(_fix_import_from_mock, names=node.names)
+        yield ast_to_offset(node), func
 
 
 @register(ast.Import)
