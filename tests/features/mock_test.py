@@ -78,19 +78,19 @@ def test_mock_noop_keep_mock():
             'from mock import mock\n',
             'from unittest import mock\n',
             id='relative import mock',
-        ),        
+        ),
         pytest.param(
             'from mock import mock, patch\n',
             'from unittest import mock\n'
             'from unittest.mock import  patch\n',
             id='relative import mock and func',
-        ),        
+        ),
         pytest.param(
             'from mock import patch, mock\n',
             'from unittest import mock\n'
             'from unittest.mock import patch\n',
             id='relative import func and mock',
-        ),        
+        ),
         pytest.param(
             'from mock import (\n'
             '  mock as mock2, patch\n'
@@ -100,7 +100,7 @@ def test_mock_noop_keep_mock():
             '   patch\n'
             ')\n',
             id='relative import func and mock',
-        ),               
+        ),
 
         pytest.param(
             'from mock import patch\n'

@@ -1,7 +1,8 @@
 import ast
 import functools
-from typing import Iterable, Optional
+from typing import Iterable
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 from tokenize_rt import Offset
@@ -11,7 +12,8 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import find_token, find_end
+from pyupgrade._token_helpers import find_end
+from pyupgrade._token_helpers import find_token
 
 MOCK_MODULES = frozenset(('mock', 'mock.mock'))
 
@@ -21,7 +23,7 @@ def _add_import(i: int, tokens: List[Token], module: str, name: str, alias: Opti
     if alias:
         asname = f' as {alias}'
     src = f'from {module} import {name}{asname}\n'
-    tokens.insert(i, Token('CODE', src))    
+    tokens.insert(i, Token('CODE', src))
 
 
 def _remove_import(i: int, tokens: List[Token]) -> None:
@@ -46,13 +48,12 @@ def _fix_relative_import_mock(i: int, tokens: List[Token], names: List[ast.Name]
         src = 'unittest'
         tokens[j:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
     else:
-        name: ast.Name = next((name for name in names if name.name == 'mock'))
+        name: ast.Name = next(name for name in names if name.name == 'mock')
         src = 'unittest.mock'
         tokens[j:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
-        idx = find_token(tokens, j+1, 'mock')
+        idx = find_token(tokens, j + 1, 'mock')
         _remove_import(idx, tokens)
         _add_import(i, tokens, 'unittest', name.name, name.asname)
-
 
 
 def _fix_import_from_mock(i: int, tokens: List[Token], names: List[ast.Name]) -> None:
