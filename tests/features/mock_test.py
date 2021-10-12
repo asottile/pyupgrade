@@ -92,14 +92,10 @@ def test_mock_noop_keep_mock():
             id='relative import func and mock',
         ),
         pytest.param(
-            'from mock import (\n'
-            '  mock as mock2, patch\n'
-            ')\n',
+            'from mock import (patch, mock as mock2)',
             'from unittest import mock as mock2\n'
-            'from unittest.mock import (\n'
-            '   patch\n'
-            ')\n',
-            id='relative import func and mock',
+            'from unittest.mock import (patch)',
+            id='relative import func and mock with as',
         ),
 
         pytest.param(

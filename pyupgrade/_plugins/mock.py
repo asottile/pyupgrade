@@ -41,14 +41,13 @@ def _remove_import(i: int, tokens: List[Token]) -> None:
     del tokens[i:j]
 
 
-def _fix_relative_import_mock(i: int, tokens: List[Token], names: List[ast.Name]) -> None:
+def _fix_relative_import_mock(i: int, tokens: List[Token], name: ast.Name, n: int) -> None:
     j = find_token(tokens, i, 'mock')
 
-    if len(names) == 1:
+    if n == 1:
         src = 'unittest'
         tokens[j:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
     else:
-        name: ast.Name = next(name for name in names if name.name == 'mock')
         src = 'unittest.mock'
         tokens[j:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
         idx = find_token(tokens, j + 1, 'mock')
@@ -57,8 +56,10 @@ def _fix_relative_import_mock(i: int, tokens: List[Token], names: List[ast.Name]
 
 
 def _fix_import_from_mock(i: int, tokens: List[Token], names: List[ast.Name]) -> None:
-    if any(n.name == 'mock' for n in names):
-        _fix_relative_import_mock(i, tokens, names)
+    
+    name = next((name for name in names if name.name == 'mock'), None)
+    if name:
+        _fix_relative_import_mock(i, tokens, name, len(names))
     else:
         j = find_token(tokens, i, 'mock')
         if (
