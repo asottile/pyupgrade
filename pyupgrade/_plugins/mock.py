@@ -22,7 +22,7 @@ def _add_import(
         tokens: List[Token],
         module: str,
         name: str,
-        alias: Optional[str]
+        alias: Optional[str],
 ) -> None:
     asname = ''
     if alias:
@@ -50,7 +50,7 @@ def _fix_relative_import_mock(
         i: int,
         tokens: List[Token],
         name: ast.alias,
-        n: int
+        n: int,
 ) -> None:
     j = find_token(tokens, i, 'mock')
 
@@ -68,7 +68,7 @@ def _fix_relative_import_mock(
 def _fix_import_from_mock(
         i: int,
         tokens: List[Token],
-        names: List[ast.alias]
+        names: List[ast.alias],
 ) -> None:
     name = next((name for name in names if name.name == 'mock'), None)
     if name:
