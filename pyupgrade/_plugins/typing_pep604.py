@@ -126,6 +126,15 @@ def _supported_version(state: State) -> bool:
     )
 
 
+def _any_arg_is_str(node_slice: ast.expr) -> bool:
+    return (
+        isinstance(node_slice, ast.Str) or (
+            isinstance(node_slice, ast.Tuple) and
+            any(isinstance(elt, ast.Str) for elt in node_slice.elts)
+        )
+    )
+
+
 @register(ast.Subscript)
 def visit_Subscript(
         state: State,
@@ -133,6 +142,17 @@ def visit_Subscript(
         parent: ast.AST,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if not _supported_version(state):
+        return
+
+    # prevent rewriting forward annotations
+    if (
+            (sys.version_info >= (3, 9) and _any_arg_is_str(node.slice)) or
+            (
+                sys.version_info < (3, 9) and
+                isinstance(node.slice, ast.Index) and
+                _any_arg_is_str(node.slice.value)
+            )
+    ):
         return
 
     if is_name_attr(node.value, state.from_imports, 'typing', ('Optional',)):
