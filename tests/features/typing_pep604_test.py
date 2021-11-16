@@ -41,6 +41,19 @@ from pyupgrade._main import _fix_plugins
             (3, 10),
             id='3.10+ empty Union',
         ),
+        # https://github.com/asottile/pyupgrade/issues/567
+        pytest.param(
+            'from typing import Optional\n'
+            'def f() -> Optional["str"]: ...\n',
+            (3, 10),
+            id='3.10+ Optional of forward reference',
+        ),
+        pytest.param(
+            'from typing import Union\n'
+            'def f() -> Union[int, "str"]: ...\n',
+            (3, 10),
+            id='3.10+ Union of forward reference',
+        ),
     ),
 )
 def test_fix_pep604_types_noop(s, version):
