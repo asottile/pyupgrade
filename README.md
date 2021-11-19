@@ -29,38 +29,53 @@ Sample `.pre-commit-config.yaml`:
 
 ### Set literals
 
-```python
-set(())              # set()
-set([])              # set()
-set((1,))            # {1}
-set((1, 2))          # {1, 2}
-set([1, 2])          # {1, 2}
-set(x for x in y)    # {x for x in y}
-set([x for x in y])  # {x for x in y}
+```diff
+-set(())
++set()
+-set([])
++set()
+-set((1,))
++{1}
+-set((1, 2))
++{1, 2}
+-set([1, 2])
++{1, 2}
+-set(x for x in y)
++{x for x in y}
+-set([x for x in y])
++{x for x in y}
 ```
 
 ### Dictionary comprehensions
 
-```python
-dict((a, b) for a, b in y)    # {a: b for a, b in y}
-dict([(a, b) for a, b in y])  # {a: b for a, b in y}
+```diff
+-dict((a, b) for a, b in y)
++{a: b for a, b in y}
+-dict([(a, b) for a, b in y])
++{a: b for a, b in y}
 ```
 
 
 ### Generator expressions for some built-in functions (pep 289)
 
-```python
-min([i for i in range(3)])  # min(i for i in range(3))
-max([i for i in range(3)])  # max(i for i in range(3))
-sum([i for i in range(3)])  # sum(i for i in range(3))
-''.join([str(i) for i in range(3)])  # ''.join(str(i) for i in range(3))
+```diff
+-min([i for i in range(3)])
++min(i for i in range(3))
+-max([i for i in range(3)])
++max(i for i in range(3))
+-sum([i for i in range(3)])
++sum(i for i in range(3))
+-''.join([str(i) for i in range(3)])
++''.join(str(i) for i in range(3))
 ```
 
 ### Python2.7+ Format Specifiers
 
-```python
-'{0} {1}'.format(1, 2)    # '{} {}'.format(1, 2)
-'{0}' '{1}'.format(1, 2)  # '{}' '{}'.format(1, 2)
+```diff
+-'{0} {1}'.format(1, 2)
++'{} {}'.format(1, 2)
+-'{0}' '{1}'.format(1, 2)
++'{}' '{}'.format(1, 2)
 ```
 
 ### printf-style string formatting
@@ -68,10 +83,13 @@ sum([i for i in range(3)])  # sum(i for i in range(3))
 Availability:
 - Unless `--keep-percent-format` is passed.
 
-```python
-'%s %s' % (a, b)                  # '{} {}'.format(a, b)
-'%r %2f' % (a, b)                 # '{!r} {:2f}'.format(a, b)
-'%(a)s %(b)s' % {'a': 1, 'b': 2}  # '{a} {b}'.format(a=1, b=2)
+```diff
+-'%s %s' % (a, b)
++'{} {}'.format(a, b)
+-'%r %2f' % (a, b)
++'{!r} {:2f}'.format(a, b)
+-'%(a)s %(b)s' % {'a': 1, 'b': 2}
++'{a} {b}'.format(a=1, b=2)
 ```
 
 ### Unicode literals
@@ -80,24 +98,30 @@ Availability:
 - File imports `from __future__ import unicode_literals`
 - `--py3-plus` is passed on the commandline.
 
-```python
-u'foo'      # 'foo'
-u"foo"      # 'foo'
-u'''foo'''  # '''foo'''
+```diff
+-u'foo'
++'foo'
+-u"foo"
++'foo'
+-u'''foo'''
++'''foo'''
 ```
 
 ### Invalid escape sequences
 
-```python
-# strings with only invalid sequences become raw strings
-'\d'    # r'\d'
-# strings with mixed valid / invalid sequences get escaped
-'\n\d'  # '\n\\d'
-# `ur` is not a valid string prefix in python3
-u'\d'   # u'\\d'
-
-# this fixes a syntax error in python3.3+
-'\N'    # r'\N'
+```diff
+ # strings with only invalid sequences become raw strings
+-'\d'
++r'\d'
+ # strings with mixed valid / invalid sequences get escaped
+-'\n\d'
++'\n\\d'
+ # `ur` is not a valid string prefix in python3
+-u'\d'
++u'\\d'
+ # this fixes a syntax error in python3.3+
+-'\N'
++r'\N'
 
 # note: pyupgrade is timid in one case (that's usually a mistake)
 # in python2.x `'\u2603'` is the same as `'\\u2603'` without `unicode_literals`
@@ -109,58 +133,80 @@ u'\d'   # u'\\d'
 In python3.8+, comparison to literals becomes a `SyntaxWarning` as the success
 of those comparisons is implementation specific (due to common object caching).
 
-```python
-x is 5      # x == 5
-x is not 5  # x != 5
-x is 'foo'  # x == 'foo'
+```diff
+-x is 5
++x == 5
+-x is not 5
++x != 5
+-x is 'foo'
++x == 'foo'
 ```
 
 ### `ur` string literals
 
 `ur'...'` literals are not valid in python 3.x
 
-```python
-ur'foo'         # u'foo'
-ur'\s'          # u'\\s'
-# unicode escapes are left alone
-ur'\u2603'      # u'\u2603'
-ur'\U0001f643'  # u'\U0001f643'
+```diff
+-ur'foo'
++u'foo'
+-ur'\s'
++u'\\s'
+ # unicode escapes are left alone
+-ur'\u2603'
++u'\u2603'
+-ur'\U0001f643'
++u'\U0001f643'
 ```
 
 ### `.encode()` to bytes literals
 
-```python
-'foo'.encode()           # b'foo'
-'foo'.encode('ascii')    # b'foo'
-'foo'.encode('utf-8')    # b'foo'
-u'foo'.encode()          # b'foo'
-'\xa0'.encode('latin1')  # b'\xa0'
+```diff
+-'foo'.encode()
++b'foo'
+-'foo'.encode('ascii')
++b'foo'
+-'foo'.encode('utf-8')
++b'foo'
+-u'foo'.encode()
++b'foo'
+-'\xa0'.encode('latin1')
++b'\xa0'
 ```
 
 ### Long literals
 
-```python
-5L                            # 5
-5l                            # 5
-123456789123456789123456789L  # 123456789123456789123456789
+```diff
+-5L
++5
+-5l
++5
+-123456789123456789123456789L
++123456789123456789123456789
 ```
 
 ### Octal literals
 
-```
-0755  # 0o755
-05    # 5
+```diff
+-0755
++0o755
+-05
++5
 ```
 
 ### extraneous parens in `print(...)`
 
 A fix for [python-modernize/python-modernize#178]
 
-```python
-print(())                       # ok: printing an empty tuple
-print((1,))                     # ok: printing a tuple
-sum((i for i in range(3)), [])  # ok: parenthesized generator argument
-print(("foo"))                  # print("foo")
+```diff
+ # ok: printing an empty tuple
+ print(())
+ # ok: printing a tuple
+ print((1,))
+ # ok: parenthesized generator argument
+ sum((i for i in range(3)), [])
+ # fixed:
+-print(("foo"))
++print("foo")
 ```
 
 [python-modernize/python-modernize#178]: https://github.com/python-modernize/python-modernize/issues/178
@@ -189,10 +235,11 @@ Availability:
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-```python
-class C(Base):
-    def f(self):
-        super(C, self).f()   # super().f()
+```diff
+ class C(Base):
+     def f(self):
+-        super(C, self).f()
++        super().f()
 ```
 
 ### "new style" classes
@@ -202,15 +249,18 @@ Availability:
 
 #### rewrites class declaration
 
-```python
-class C(object): pass     # class C: pass
-class C(B, object): pass  # class C(B): pass
+```diff
+-class C(object): pass
++class C: pass
+-class C(B, object): pass
++class C(B): pass
 ```
 
 #### removes `__metaclass__ = type` declaration
 
 ```diff
--__metaclass__ = type
+ class C:
+-    __metaclass__ = type
 ```
 
 ### forced `str("native")` literals
@@ -218,9 +268,11 @@ class C(B, object): pass  # class C(B): pass
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-```python
-str()       # "''"
-str("foo")  # "foo"
+```diff
+-str()
++"''"
+-str("foo")
++"foo"
 ```
 
 ### `.encode("utf-8")`
@@ -228,8 +280,9 @@ str("foo")  # "foo"
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-```python
-"foo".encode("utf-8")  # "foo".encode()
+```diff
+-"foo".encode("utf-8")
++"foo".encode()
 ```
 
 ### `# coding: ...` comment
@@ -285,13 +338,14 @@ Availability:
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-```python
-def f():
-    for x in y:       # yield from y
-        yield x
-
-    for a, b in c:    # yield from c
-        yield (a, b)
+```diff
+ def f():
+-    for x in y:
+-        yield x
++    yield from y
+-    for a, b in c:
+-        yield (a, b)
++    yield from c
 ```
 
 ### Python2 and old Python3.x blocks
@@ -351,74 +405,127 @@ Note that `if` blocks without an `else` will not be rewriten as it could introdu
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-```python
-six.text_type             # str
-six.binary_type           # bytes
-six.class_types           # (type,)
-six.string_types          # (str,)
-six.integer_types         # (int,)
-six.unichr                # chr
-six.iterbytes             # iter
-six.print_(...)           # print(...)
-six.exec_(c, g, l)        # exec(c, g, l)
-six.advance_iterator(it)  # next(it)
-six.next(it)              # next(it)
-six.callable(x)           # callable(x)
-six.moves.range(x)        # range(x)
-six.moves.xrange(x)       # range(x)
+```diff
+-six.text_type
++str
+-six.binary_type
++bytes
+-six.class_types
++(type,)
+-six.string_types
++(str,)
+-six.integer_types
++(int,)
+-six.unichr
++chr
+-six.iterbytes
++iter
+-six.print_(...)
++print(...)
+-six.exec_(c, g, l)
++exec(c, g, l)
+-six.advance_iterator(it)
++next(it)
+-six.next(it)
++next(it)
+-six.callable(x)
++callable(x)
+-six.moves.range(x)
++range(x)
+-six.moves.xrange(x)
++range(x)
 
-from six import text_type
-text_type                 # str
 
-@six.python_2_unicode_compatible  # decorator is removed
-class C:
-    def __str__(self):
-        return u'C()'
+-from six import text_type
+-text_type
++str
 
-class C(six.Iterator): pass              # class C: pass
+-@six.python_2_unicode_compatible
+ class C:
+     def __str__(self):
+         return u'C()'
 
-class C(six.with_metaclass(M, B)): pass  # class C(B, metaclass=M): pass
+-class C(six.Iterator): pass
++class C: pass
 
-@six.add_metaclass(M)   # class C(B, metaclass=M): pass
-class C(B): pass
+-class C(six.with_metaclass(M, B)): pass
++class C(B, metaclass=M): pass
 
-isinstance(..., six.class_types)    # isinstance(..., type)
-issubclass(..., six.integer_types)  # issubclass(..., int)
-isinstance(..., six.string_types)   # isinstance(..., str)
+-@six.add_metaclass(M)
+-class C(B): pass
++class C(B, metaclass=M): pass
 
-six.b('...')                            # b'...'
-six.u('...')                            # '...'
-six.byte2int(bs)                        # bs[0]
-six.indexbytes(bs, i)                   # bs[i]
-six.int2byte(i)                         # bytes((i,))
-six.iteritems(dct)                      # dct.items()
-six.iterkeys(dct)                       # dct.keys()
-six.itervalues(dct)                     # dct.values()
-next(six.iteritems(dct))                # next(iter(dct.items()))
-next(six.iterkeys(dct))                 # next(iter(dct.keys()))
-next(six.itervalues(dct))               # next(iter(dct.values()))
-six.viewitems(dct)                      # dct.items()
-six.viewkeys(dct)                       # dct.keys()
-six.viewvalues(dct)                     # dct.values()
-six.create_unbound_method(fn, cls)      # fn
-six.get_unbound_function(meth)          # meth
-six.get_method_function(meth)           # meth.__func__
-six.get_method_self(meth)               # meth.__self__
-six.get_function_closure(fn)            # fn.__closure__
-six.get_function_code(fn)               # fn.__code__
-six.get_function_defaults(fn)           # fn.__defaults__
-six.get_function_globals(fn)            # fn.__globals__
-six.raise_from(exc, exc_from)           # raise exc from exc_from
-six.reraise(tp, exc, tb)                # raise exc.with_traceback(tb)
-six.reraise(*sys.exc_info())            # raise
-six.assertCountEqual(self, a1, a2)      # self.assertCountEqual(a1, a2)
-six.assertRaisesRegex(self, e, r, fn)   # self.assertRaisesRegex(e, r, fn)
-six.assertRegex(self, s, r)             # self.assertRegex(s, r)
+-isinstance(..., six.class_types)
++isinstance(..., type)
+-issubclass(..., six.integer_types)
++issubclass(..., int)
+-isinstance(..., six.string_types)
++isinstance(..., str)
 
-# note: only for *literals*
-six.ensure_binary('...')                # b'...'
-six.ensure_str('...')                   # '...'
-six.ensure_text('...')                  # '...'
+-six.b('...')
++b'...'
+-six.u('...')
++'...'
+-six.byte2int(bs)
++bs[0]
+-six.indexbytes(bs, i)
++bs[i]
+-six.int2byte(i)
++bytes((i,))
+-six.iteritems(dct)
++dct.items()
+-six.iterkeys(dct)
++dct.keys()
+-six.itervalues(dct)
++dct.values()
+-next(six.iteritems(dct))
++next(iter(dct.items()))
+-next(six.iterkeys(dct))
++next(iter(dct.keys()))
+-next(six.itervalues(dct))
++next(iter(dct.values()))
+-six.viewitems(dct)
++dct.items()
+-six.viewkeys(dct)
++dct.keys()
+-six.viewvalues(dct)
++dct.values()
+-six.create_unbound_method(fn, cls)
++fn
+-six.get_unbound_function(meth)
++meth
+-six.get_method_function(meth)
++meth.__func__
+-six.get_method_self(meth)
++meth.__self__
+-six.get_function_closure(fn)
++fn.__closure__
+-six.get_function_code(fn)
++fn.__code__
+-six.get_function_defaults(fn)
++fn.__defaults__
+-six.get_function_globals(fn)
++fn.__globals__
+-six.raise_from(exc, exc_from)
++raise exc from exc_from
+-six.reraise(tp, exc, tb)
++raise exc.with_traceback(tb)
+-six.reraise(*sys.exc_info())
++raise
+-six.assertCountEqual(self, a1, a2)
++self.assertCountEqual(a1, a2)
+-six.assertRaisesRegex(self, e, r, fn)
++self.assertRaisesRegex(e, r, fn)
+-six.assertRegex(self, s, r)
++self.assertRegex(s, r)
+
+ # note: only for *literals*
+-six.ensure_binary('...')
++b'...'
+-six.ensure_str('...')
++'...'
+-six.ensure_text('...')
++'...'
 ```
 
 ### `open` alias
@@ -438,14 +545,21 @@ Availability:
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-```python
-open("foo", "U")                      # open("foo")
-open("foo", "Ur")                     # open("foo")
-open("foo", "Ub")                     # open("foo", "rb")
-open("foo", "rUb")                    # open("foo", "rb")
-open("foo", "r")                      # open("foo")
-open("foo", "rt")                     # open("foo")
-open("f", "r", encoding="UTF-8")      # open("f", encoding="UTF-8")
+```diff
+-open("foo", "U")
++open("foo")
+-open("foo", "Ur")
++open("foo")
+-open("foo", "Ub")
++open("foo", "rb")
+-open("foo", "rUb")
++open("foo", "rb")
+-open("foo", "r")
++open("foo")
+-open("foo", "rt")
++open("foo")
+-open("f", "r", encoding="UTF-8")
++open("f", encoding="UTF-8")
 ```
 
 
@@ -560,11 +674,15 @@ class D2(typing.TypedDict):
 Availability:
 - `--py36-plus` is passed on the commandline.
 
-```python
-'{foo} {bar}'.format(foo=foo, bar=bar)  # f'{foo} {bar}'
-'{} {}'.format(foo, bar)                # f'{foo} {bar}'
-'{} {}'.format(foo.bar, baz.womp)       # f'{foo.bar} {baz.womp}'
-'{} {}'.format(f(), g())                # f'{f()} {g()}'
+```diff
+-'{foo} {bar}'.format(foo=foo, bar=bar)
++f'{foo} {bar}'
+-'{} {}'.format(foo, bar)
++f'{foo} {bar}'
+-'{} {}'.format(foo.bar, baz.womp)
++f'{foo.bar} {baz.womp}'
+-'{} {}'.format(f(), g())
++f'{f()} {g()}'
 ```
 
 _note_: `pyupgrade` is intentionally timid and will not create an f-string
