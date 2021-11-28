@@ -25,7 +25,7 @@ _EXPR_NEEDS_PARENS: Tuple[Type[ast.expr], ...] = (
     ast.Await, ast.BinOp, ast.BoolOp, ast.Compare, ast.GeneratorExp, ast.IfExp,
     ast.Lambda, ast.UnaryOp,
 )
-if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
+if sys.version_info >= (3, 8):  # pragma: >=3.8 cover
     _EXPR_NEEDS_PARENS += (ast.NamedExpr,)
 
 SIX_CALLS = {

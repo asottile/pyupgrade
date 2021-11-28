@@ -54,6 +54,12 @@ from pyupgrade._main import _fix_plugins
             (3, 10),
             id='3.10+ Union of forward reference',
         ),
+        pytest.param(
+            'from typing import Union\n'
+            'def f() -> Union[1:2]: ...\n',
+            (3, 10),
+            id='invalid Union slicing',
+        ),
     ),
 )
 def test_fix_pep604_types_noop(s, version):

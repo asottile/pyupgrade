@@ -57,6 +57,12 @@ from pyupgrade._main import _fix_plugins
             (3,),
             id='Kwonly, untyped',
         ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'x: Annotated[1:2] = ...\n',
+            (3,),
+            id='Annotated with invalid slice',
+        ),
     ),
 )
 def test_fix_typing_pep563_noop(s, version):
