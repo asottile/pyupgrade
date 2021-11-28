@@ -65,14 +65,14 @@ def find_end(tokens: List[Token], i: int) -> int:
     return i
 
 
-if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
+if sys.version_info >= (3, 8):  # pragma: >=3.8 cover
     # python 3.8 fixed the offsets of generators / tuples
     def _arg_token_index(tokens: List[Token], i: int, arg: ast.expr) -> int:
         idx = _search_until(tokens, i, arg) + 1
         while idx < len(tokens) and tokens[idx].name in NON_CODING_TOKENS:
             idx += 1
         return idx
-else:  # pragma: no cover (<py38)
+else:  # pragma: <3.8 cover
     def _arg_token_index(tokens: List[Token], i: int, arg: ast.expr) -> int:
         # lists containing non-tuples report the first element correctly
         if isinstance(arg, ast.List):
@@ -502,12 +502,12 @@ def replace_argument(
 
 def find_comprehension_opening_bracket(i: int, tokens: List[Token]) -> int:
     """Find opening bracket of comprehension given first argument."""
-    if sys.version_info < (3, 8):  # pragma: no cover (py38+)
+    if sys.version_info < (3, 8):  # pragma: <3.8 cover
         i -= 1
         while not (tokens[i].name == 'OP' and tokens[i].src == '[') and i:
             i -= 1
         return i
-    else:  # pragma: no cover (<py38)
+    else:  # pragma: >=3.8 cover
         return i
 
 

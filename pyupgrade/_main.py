@@ -694,9 +694,9 @@ def _unparse(node: ast.expr) -> str:
     elif isinstance(node, ast.Attribute):
         return ''.join((_unparse(node.value), '.', node.attr))
     elif isinstance(node, ast.Subscript):
-        if sys.version_info >= (3, 9):  # pragma: no cover (py39+)
+        if sys.version_info >= (3, 9):  # pragma: >=3.9 cover
             node_slice: ast.expr = node.slice
-        elif isinstance(node.slice, ast.Index):  # pragma: no cover (<py39)
+        elif isinstance(node.slice, ast.Index):  # pragma: <3.9 cover
             node_slice = node.slice.value
         else:
             raise AssertionError(f'expected Slice: {ast.dump(node)}')

@@ -158,12 +158,15 @@ def visit_Subscript(
     if is_name_attr(node.value, state.from_imports, 'typing', ('Optional',)):
         yield ast_to_offset(node), _fix_optional
     elif is_name_attr(node.value, state.from_imports, 'typing', ('Union',)):
-        if sys.version_info >= (3, 9):  # pragma: no cover (py39+)
-            node_slice: ast.expr = node.slice
-        elif isinstance(node.slice, ast.Index):  # pragma: no cover (<py39)
-            node_slice = node.slice.value
-        else:  # pragma: no cover (<py39)
-            return  # unexpected slice type
+        if sys.version_info >= (3, 9):  # pragma: >=3.9 cover
+            node_slice = node.slice
+        elif isinstance(node.slice, ast.Index):  # pragma: <3.9 cover
+            node_slice: ast.AST = node.slice.value
+        else:  # pragma: <3.9 cover
+            node_slice = node.slice  # unexpected slice type
+
+        if isinstance(node_slice, ast.Slice):  # not a valid annotation
+            return
 
         if isinstance(node_slice, ast.Tuple):
             if node_slice.elts:
