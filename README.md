@@ -270,7 +270,7 @@ Availability:
 
 ```diff
 -str()
-+"''"
++''
 -str("foo")
 +"foo"
 ```
