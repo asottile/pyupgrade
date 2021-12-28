@@ -116,8 +116,7 @@ def visit(
 
 
 def _import_plugins() -> None:
-    # https://github.com/python/mypy/issues/1422
-    plugins_path: str = _plugins.__path__  # type: ignore
+    plugins_path = _plugins.__path__
     mod_infos = pkgutil.walk_packages(plugins_path, f'{_plugins.__name__}.')
     for _, name, _ in mod_infos:
         __import__(name, fromlist=['_trash'])
