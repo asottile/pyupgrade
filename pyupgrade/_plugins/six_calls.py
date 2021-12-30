@@ -172,13 +172,21 @@ def visit_Call(
                 ('reraise',),
             )
     ):
-        if len(node.args) == 2 and not has_starargs(node):
+        if (
+                len(node.args) == 2 and
+                not node.keywords and
+                not has_starargs(node)
+        ):
             func = functools.partial(
                 find_and_replace_call,
                 template=RERAISE_2_TMPL,
             )
             yield ast_to_offset(node), func
-        elif len(node.args) == 3 and not has_starargs(node):
+        elif (
+                len(node.args) == 3 and
+                not node.keywords and
+                not has_starargs(node)
+        ):
             func = functools.partial(
                 find_and_replace_call,
                 template=RERAISE_3_TMPL,
@@ -186,6 +194,7 @@ def visit_Call(
             yield ast_to_offset(node), func
         elif (
                 len(node.args) == 1 and
+                not node.keywords and
                 isinstance(node.args[0], ast.Starred) and
                 isinstance(node.args[0].value, ast.Call) and
                 is_name_attr(
