@@ -24,6 +24,7 @@ from pyupgrade._main import _fix_plugins
         'class C(six.with_metaclass(Meta, B), D): pass',
         # cannot determine args to rewrite them
         'six.reraise(*err)', 'six.u(*a)',
+        'six.reraise(a, b, tb=c)',
         'class C(six.with_metaclass(*a)): pass',
         '@six.add_metaclass(*a)\n'
         'class C: pass\n',
