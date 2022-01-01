@@ -61,8 +61,6 @@ def test_fix_fstrings_noop(s):
             r'f"\N{snowman} {a}"',
             id='named escape sequences',
         ),
-        # TODO: poor man's f-strings?
-        # '"{foo}".format(**locals())'
     ),
 )
 def test_fix_fstrings(s, expected):
