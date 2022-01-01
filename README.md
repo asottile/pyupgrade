@@ -683,6 +683,8 @@ Availability:
 +f'{foo.bar} {baz.womp}'
 -'{} {}'.format(f(), g())
 +f'{f()} {g()}'
+-'{x}'.format(**locals())
++f'{x}'
 ```
 
 _note_: `pyupgrade` is intentionally timid and will not create an f-string
