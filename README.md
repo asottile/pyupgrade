@@ -96,7 +96,7 @@ Availability:
 
 Availability:
 - File imports `from __future__ import unicode_literals`
-- `--py3-plus` is passed on the commandline.
+- or `--py3-plus` is passed on the commandline.
 
 ```diff
 -u'foo'
@@ -326,7 +326,7 @@ Availability:
 
 Availability:
 - `--py3-plus` is passed on the commandline.
-- [Unless `--keep-mock` is passed on the commandline](https://github.com/asottile/pyupgrade/issues/314).
+- [unless `--keep-mock` is passed on the commandline](https://github.com/asottile/pyupgrade/issues/314).
 
 ```diff
 -from mock import patch
@@ -748,8 +748,8 @@ Availability:
 
 Availability:
 - File imports `from __future__ import annotations`
-    - Unless `--keep-runtime-typing` is passed on the commandline.
-- `--py39-plus` is passed on the commandline.
+    - unless `--keep-runtime-typing` is passed on the commandline.
+- or `--py39-plus` is passed on the commandline.
 
 ```diff
 -def f(x: List[str]) -> None:
@@ -775,8 +775,8 @@ Availability:
 
 Availability:
 - File imports `from __future__ import annotations`
-    - Unless `--keep-runtime-typing` is passed on the commandline.
-- `--py310-plus` is passed on the commandline.
+    - unless `--keep-runtime-typing` is passed on the commandline.
+- or `--py310-plus` is passed on the commandline.
 
 ```diff
 -def f() -> Optional[str]:
@@ -795,7 +795,7 @@ Availability:
 
 Availability:
 - File imports `from __future__ import annotations`
-- `--py311-plus` is passed on the commandline.
+- or `--py311-plus` is passed on the commandline.
 
 ```diff
 -def f(x: 'queue.Queue[int]') -> C:
