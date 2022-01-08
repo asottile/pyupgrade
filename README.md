@@ -353,16 +353,13 @@ Availability:
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-```python
-# input
-import sys
-if sys.version_info < (3,):  # also understands `six.PY2` (and `not`), `six.PY3` (and `not`)
-    print('py2')
-else:
-    print('py3')
-# output
-import sys
-print('py3')
+```diff
+ import sys
+-if sys.version_info < (3,):  # also understands `six.PY2` (and `not`), `six.PY3` (and `not`)
+-    print('py2')
+-else:
+-    print('py3')
++print('py3')
 ```
 
 Availability:
@@ -370,32 +367,27 @@ Availability:
 - `--py37-plus` will remove Python <= 3.6 only blocks
 - so on and so forth
 
-```python
-# using --py36-plus for this example
-# input
-import sys
-if sys.version_info < (3, 6):
-    print('py3.5')
-else:
-    print('py3.6+')
+```diff
+ # using --py36-plus for this example
+ 
+ import sys
+-if sys.version_info < (3, 6):
+-    print('py3.5')
+-else:
+-    print('py3.6+')
++print('py3.6+')
 
-if sys.version_info <= (3, 5):
-    print('py3.5')
-else:
-    print('py3.6+')
+-if sys.version_info <= (3, 5):
+-    print('py3.5')
+-else:
+-    print('py3.6+')
++print('py3.6+')
 
-if sys.version_info >= (3, 6):
-    print('py3.6+')
-else:
-    print('py3.5')
-
-# output
-import sys
-print('py3.6+')
-
-print('py3.6+')
-
-print('py3.6+')
+-if sys.version_info >= (3, 6):
+-    print('py3.6+')
+-else:
+-    print('py3.5')
++print('py3.6+')
 ```
 
 Note that `if` blocks without an `else` will not be rewriten as it could introduce a syntax error.
@@ -568,25 +560,24 @@ Availability:
 Availability:
 - `--py3-plus` is passed on the commandline.
 
-```python
-# input
+```diff
+ # also understands:
+ # - IOError
+ # - WindowsError
+ # - mmap.error and uses of `from mmap import error`
+ # - select.error and uses of `from select import error`
+ # - socket.error and uses of `from socket import error`
 
-# also understands:
-# - IOError
-# - WindowsError
-# - mmap.error and uses of `from mmap import error`
-# - select.error and uses of `from select import error`
-# - socket.error and uses of `from socket import error`
+ def throw():
+-    raise EnvironmentError('boom')
++    raise OSError('boom')
 
-try:
-    raise EnvironmentError('boom')
-except EnvironmentError:
-    raise
-# output
-try:
-    raise OSError('boom')
-except OSError:
-    raise
+ def catch():
+     try:
+         throw()
+-    except EnvironmentError:
++    except OSError:
+         handle_error()
 ```
 
 ### `typing.Text` str alias
@@ -646,27 +637,21 @@ Availability:
 Availability:
 - `--py36-plus` is passed on the commandline.
 
-```python
-# input
-NT = typing.NamedTuple('NT', [('a', int), ('b', Tuple[str, ...])])
+```diff
+-NT = typing.NamedTuple('NT', [('a', int), ('b', Tuple[str, ...])])
++class NT(typing.NamedTuple):
++    a: int
++    b: Tuple[str, ...]
 
-D1 = typing.TypedDict('D1', a=int, b=str)
+-D1 = typing.TypedDict('D1', a=int, b=str)
++class D1(typing.TypedDict):
++    a: int
++    b: str
 
-D2 = typing.TypedDict('D2', {'a': int, 'b': str})
-
-# output
-
-class NT(typing.NamedTuple):
-    a: int
-    b: Tuple[str, ...]
-
-class D1(typing.TypedDict):
-    a: int
-    b: str
-
-class D2(typing.TypedDict):
-    a: int
-    b: str
+-D2 = typing.TypedDict('D2', {'a': int, 'b': str})
++class D2(typing.TypedDict):
++    a: int
++    b: str
 ```
 
 ### f-strings
