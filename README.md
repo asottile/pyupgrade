@@ -369,7 +369,7 @@ Availability:
 
 ```diff
  # using --py36-plus for this example
- 
+
  import sys
 -if sys.version_info < (3, 6):
 -    print('py3.5')
