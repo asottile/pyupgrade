@@ -1,10 +1,9 @@
+from __future__ import annotations
+
 import ast
 from typing import cast
 from typing import Iterable
 from typing import List
-from typing import Tuple
-from typing import Type
-from typing import Union
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -18,7 +17,7 @@ from pyupgrade._data import Version
 from pyupgrade._token_helpers import Block
 
 
-def _find_if_else_block(tokens: List[Token], i: int) -> Tuple[Block, Block]:
+def _find_if_else_block(tokens: list[Token], i: int) -> tuple[Block, Block]:
     if_block = Block.find(tokens, i)
     i = if_block.end
     while tokens[i].src != 'else':
@@ -27,13 +26,13 @@ def _find_if_else_block(tokens: List[Token], i: int) -> Tuple[Block, Block]:
     return if_block, else_block
 
 
-def _find_elif(tokens: List[Token], i: int) -> int:
+def _find_elif(tokens: list[Token], i: int) -> int:
     while tokens[i].src != 'elif':  # pragma: no cover (only for <3.8.1)
         i -= 1
     return i
 
 
-def _fix_py3_block(i: int, tokens: List[Token]) -> None:
+def _fix_py3_block(i: int, tokens: list[Token]) -> None:
     if tokens[i].src == 'if':
         if_block = Block.find(tokens, i)
         if_block.dedent(tokens)
@@ -43,7 +42,7 @@ def _fix_py3_block(i: int, tokens: List[Token]) -> None:
         if_block.replace_condition(tokens, [Token('NAME', 'else')])
 
 
-def _fix_py2_block(i: int, tokens: List[Token]) -> None:
+def _fix_py2_block(i: int, tokens: list[Token]) -> None:
     if tokens[i].src == 'if':
         if_block, else_block = _find_if_else_block(tokens, i)
         else_block.dedent(tokens)
@@ -54,7 +53,7 @@ def _fix_py2_block(i: int, tokens: List[Token]) -> None:
         del tokens[if_block.start:else_block.start]
 
 
-def _fix_py3_block_else(i: int, tokens: List[Token]) -> None:
+def _fix_py3_block_else(i: int, tokens: list[Token]) -> None:
     if tokens[i].src == 'if':
         if_block, else_block = _find_if_else_block(tokens, i)
         if_block.dedent(tokens)
@@ -77,7 +76,7 @@ def _eq(test: ast.Compare, n: int) -> bool:
 
 def _compare_to_3(
     test: ast.Compare,
-    op: Union[Type[ast.cmpop], Tuple[Type[ast.cmpop], ...]],
+    op: type[ast.cmpop] | tuple[type[ast.cmpop], ...],
     minor: int = 0,
 ) -> bool:
     if not (
@@ -101,7 +100,7 @@ def visit_If(
         state: State,
         node: ast.If,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
 
     min_version: Version
     if state.settings.min_version == (3,):

@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 import ast
 import functools
 import sys
 from typing import Iterable
-from typing import List
-from typing import Optional
 from typing import Sequence
-from typing import Tuple
 
 from tokenize_rt import Offset
 
@@ -23,7 +22,7 @@ def _supported_version(state: State) -> bool:
     )
 
 
-def _dequote(i: int, tokens: List[Token], *, new: str) -> None:
+def _dequote(i: int, tokens: list[Token], *, new: str) -> None:
     tokens[i] = tokens[i]._replace(src=new)
 
 
@@ -37,9 +36,9 @@ def _get_name(node: ast.expr) -> str:
 
 
 def _get_keyword_value(
-        keywords: List[ast.keyword],
+        keywords: list[ast.keyword],
         keyword: str,
-) -> Optional[ast.expr]:
+) -> ast.expr | None:
     for kw in keywords:
         if kw.arg == keyword:
             return kw.value
@@ -63,7 +62,7 @@ def _process_call(node: ast.Call) -> Iterable[ast.AST]:
             raise AssertionError(f'expected ast.Dict: {ast.dump(args[1])}')
     elif name == 'NamedTuple':
         if len(args) == 2:
-            fields: Optional[ast.expr] = args[1]
+            fields: ast.expr | None = args[1]
         elif keywords:
             fields = _get_keyword_value(keywords, 'fields')
         else:  # garbage
@@ -109,8 +108,8 @@ def _process_subscript(node: ast.Subscript) -> Iterable[ast.AST]:
 
 def _replace_string_literal(
         annotation: ast.expr,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
-    nodes: List[ast.AST] = [annotation]
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    nodes: list[ast.AST] = [annotation]
     while nodes:
         node = nodes.pop()
         if isinstance(node, ast.Call):
@@ -130,8 +129,8 @@ def _replace_string_literal(
 
 
 def _process_args(
-        args: Sequence[Optional[ast.arg]],
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+        args: Sequence[ast.arg | None],
+) -> Iterable[tuple[Offset, TokenFunc]]:
     for arg in args:
         if arg is not None and arg.annotation is not None:
             yield from _replace_string_literal(arg.annotation)
@@ -142,7 +141,7 @@ def visit_FunctionDef(
         state: State,
         node: ast.FunctionDef,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if not _supported_version(state):
         return
 
@@ -159,7 +158,7 @@ def visit_AnnAssign(
         state: State,
         node: ast.AnnAssign,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if not _supported_version(state):
         return
     yield from _replace_string_literal(node.annotation)

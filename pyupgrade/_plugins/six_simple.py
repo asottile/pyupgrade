@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import Optional
-from typing import Tuple
 
 from tokenize_rt import Offset
 
@@ -34,7 +34,7 @@ NAMES_TYPE_CTX = {
 }
 
 
-def _is_type_check(node: Optional[ast.AST]) -> bool:
+def _is_type_check(node: ast.AST | None) -> bool:
     return (
         isinstance(node, ast.Call) and
         isinstance(node.func, ast.Name) and
@@ -47,7 +47,7 @@ def visit_Attribute(
         state: State,
         node: ast.Attribute,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             isinstance(node.value, ast.Name) and
@@ -85,7 +85,7 @@ def visit_Name(
         state: State,
         node: ast.Name,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             node.id in state.from_imports['six'] and

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import ast
 from typing import Iterable
-from typing import Tuple
 
 from tokenize_rt import Offset
 
@@ -16,7 +17,7 @@ def visit_ClassDef(
         state: State,
         node: ast.ClassDef,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if state.settings.min_version >= (3,):
         for base in node.bases:
             if isinstance(base, ast.Name) and base.id == 'object':

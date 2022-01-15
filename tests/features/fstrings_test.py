@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 
 from pyupgrade._main import _fix_py36_plus

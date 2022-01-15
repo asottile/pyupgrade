@@ -1,9 +1,9 @@
+from __future__ import annotations
+
 import ast
 import functools
 import sys
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
@@ -20,7 +20,7 @@ from pyupgrade._token_helpers import find_token
 from pyupgrade._token_helpers import OPENING
 
 
-def _fix_optional(i: int, tokens: List[Token]) -> None:
+def _fix_optional(i: int, tokens: list[Token]) -> None:
     j = find_token(tokens, i, '[')
     k = find_closing_bracket(tokens, j)
     if tokens[j].line == tokens[k].line:
@@ -34,7 +34,7 @@ def _fix_optional(i: int, tokens: List[Token]) -> None:
 
 def _fix_union(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         arg_count: int,
 ) -> None:
@@ -140,7 +140,7 @@ def visit_Subscript(
         state: State,
         node: ast.Subscript,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if not _supported_version(state):
         return
 

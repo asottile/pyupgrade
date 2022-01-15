@@ -1,14 +1,13 @@
+from __future__ import annotations
+
 import ast
 import collections
 import pkgutil
 from typing import Callable
-from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import NamedTuple
-from typing import Set
 from typing import Tuple
-from typing import Type
 from typing import TYPE_CHECKING
 from typing import TypeVar
 
@@ -34,7 +33,7 @@ class Settings(NamedTuple):
 
 class State(NamedTuple):
     settings: Settings
-    from_imports: Dict[str, Set[str]]
+    from_imports: dict[str, set[str]]
     in_annotation: bool = False
 
 
@@ -59,7 +58,7 @@ RECORD_FROM_IMPORTS = frozenset((
 FUNCS = collections.defaultdict(list)
 
 
-def register(tp: Type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
+def register(tp: type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
     def register_decorator(func: ASTFunc[AST_T]) -> ASTFunc[AST_T]:
         FUNCS[tp].append(func)
         return func
@@ -67,20 +66,20 @@ def register(tp: Type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
 
 
 class ASTCallbackMapping(Protocol):
-    def __getitem__(self, tp: Type[AST_T]) -> List[ASTFunc[AST_T]]: ...
+    def __getitem__(self, tp: type[AST_T]) -> list[ASTFunc[AST_T]]: ...
 
 
 def visit(
         funcs: ASTCallbackMapping,
         tree: ast.Module,
         settings: Settings,
-) -> Dict[Offset, List[TokenFunc]]:
+) -> dict[Offset, list[TokenFunc]]:
     initial_state = State(
         settings=settings,
         from_imports=collections.defaultdict(set),
     )
 
-    nodes: List[Tuple[State, ast.AST, ast.AST]] = [(initial_state, tree, tree)]
+    nodes: list[tuple[State, ast.AST, ast.AST]] = [(initial_state, tree, tree)]
 
     ret = collections.defaultdict(list)
     while nodes:

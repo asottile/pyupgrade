@@ -1,11 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
-from typing import Dict
 from typing import Iterable
-from typing import List
-from typing import Optional
-from typing import Set
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -25,9 +22,9 @@ ERROR_MODULES = frozenset(('mmap', 'select', 'socket'))
 
 def _fix_oserror_except(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
-        from_imports: Dict[str, Set[str]],
+        from_imports: dict[str, set[str]],
 ) -> None:
     # find all the arg strs in the tuple
     except_index = i
@@ -72,8 +69,8 @@ def _fix_oserror_except(
 
 def _is_oserror_alias(
         node: ast.AST,
-        from_imports: Dict[str, Set[str]],
-) -> Optional[Tuple[Offset, str]]:
+        from_imports: dict[str, set[str]],
+) -> tuple[Offset, str] | None:
     if isinstance(node, ast.Name) and node.id in ERROR_NAMES:
         return ast_to_offset(node), node.id
     elif (
@@ -95,8 +92,8 @@ def _is_oserror_alias(
 
 def _oserror_alias_cbs(
         node: ast.AST,
-        from_imports: Dict[str, Set[str]],
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+        from_imports: dict[str, set[str]],
+) -> Iterable[tuple[Offset, TokenFunc]]:
     offset_name = _is_oserror_alias(node, from_imports)
     if offset_name is not None:
         offset, name = offset_name
@@ -109,7 +106,7 @@ def visit_Raise(
         state: State,
         node: ast.Raise,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if state.settings.min_version >= (3,) and node.exc is not None:
         yield from _oserror_alias_cbs(node.exc, state.from_imports)
         if isinstance(node.exc, ast.Call):
@@ -121,7 +118,7 @@ def visit_Try(
         state: State,
         node: ast.Try,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if state.settings.min_version >= (3,):
         for handler in node.handlers:
             if (

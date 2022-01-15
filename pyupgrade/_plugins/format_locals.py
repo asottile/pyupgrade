@@ -1,7 +1,7 @@
+from __future__ import annotations
+
 import ast
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import rfind_string_parts
@@ -16,7 +16,7 @@ from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import find_token
 
 
-def _fix(i: int, tokens: List[Token]) -> None:
+def _fix(i: int, tokens: list[Token]) -> None:
     dot_pos = find_token(tokens, i, '.')
     open_pos = find_open_paren(tokens, dot_pos)
     close_pos = find_closing_bracket(tokens, open_pos)
@@ -31,7 +31,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3, 6) and
             isinstance(node.func, ast.Attribute) and

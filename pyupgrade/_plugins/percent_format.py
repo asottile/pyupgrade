@@ -1,13 +1,13 @@
+from __future__ import annotations
+
 import ast
 import functools
 import re
 from typing import Generator
 from typing import Iterable
-from typing import List
 from typing import Match
 from typing import Optional
 from typing import Pattern
-from typing import Set
 from typing import Tuple
 
 from tokenize_rt import Offset
@@ -45,7 +45,7 @@ def _must_match(regex: Pattern[str], string: str, pos: int) -> Match[str]:
     return match
 
 
-def _parse_percent_format(s: str) -> Tuple[PercentFormat, ...]:
+def _parse_percent_format(s: str) -> tuple[PercentFormat, ...]:
     def _parse_inner() -> Generator[PercentFormat, None, None]:
         string_start = 0
         string_end = 0
@@ -66,7 +66,7 @@ def _parse_percent_format(s: str) -> Tuple[PercentFormat, ...]:
             else:
                 key_match = MAPPING_KEY_RE.match(s, i)
                 if key_match:
-                    key: Optional[str] = key_match.group(1)
+                    key: str | None = key_match.group(1)
                     i = key_match.end()
                 else:
                     key = None
@@ -105,7 +105,7 @@ def _parse_percent_format(s: str) -> Tuple[PercentFormat, ...]:
 
 
 def _simplify_conversion_flag(flag: str) -> str:
-    parts: List[str] = []
+    parts: list[str] = []
     for c in flag:
         if c in parts:
             continue
@@ -153,7 +153,7 @@ def _percent_to_format(s: str) -> str:
 
 def _fix_percent_format_tuple(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         node_right: ast.Tuple,
 ) -> None:
@@ -175,11 +175,11 @@ def _fix_percent_format_tuple(
 
 def _fix_percent_format_dict(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         node_right: ast.Dict,
 ) -> None:
-    seen_keys: Set[str] = set()
+    seen_keys: set[str] = set()
     keys = {}
 
     for k in node_right.keys:
@@ -234,7 +234,7 @@ def visit_BinOp(
         state: State,
         node: ast.BinOp,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             not state.settings.keep_percent_format and
             isinstance(node.op, ast.Mod) and

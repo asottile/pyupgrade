@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -19,7 +19,7 @@ from pyupgrade._token_helpers import victims
 SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
 
 
-def _fix_set_empty_literal(i: int, tokens: List[Token]) -> None:
+def _fix_set_empty_literal(i: int, tokens: list[Token]) -> None:
     # TODO: this could be implemented with a little extra logic
     if not immediately_paren('set', tokens, i):
         return
@@ -41,7 +41,7 @@ def _fix_set_empty_literal(i: int, tokens: List[Token]) -> None:
     del tokens[i + 2:j - 1]
 
 
-def _fix_set_literal(i: int, tokens: List[Token], *, arg: ast.expr) -> None:
+def _fix_set_literal(i: int, tokens: list[Token], *, arg: ast.expr) -> None:
     # TODO: this could be implemented with a little extra logic
     if not immediately_paren('set', tokens, i):
         return
@@ -63,7 +63,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             isinstance(node.func, ast.Name) and
             node.func.id == 'set' and

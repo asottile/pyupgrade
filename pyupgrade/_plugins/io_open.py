@@ -1,7 +1,7 @@
+from __future__ import annotations
+
 import ast
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -13,7 +13,7 @@ from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_open_paren
 
 
-def _replace_io_open(i: int, tokens: List[Token]) -> None:
+def _replace_io_open(i: int, tokens: list[Token]) -> None:
     j = find_open_paren(tokens, i)
     tokens[i:j] = [tokens[i]._replace(name='NAME', src='open')]
 
@@ -23,7 +23,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             isinstance(node.func, ast.Attribute) and

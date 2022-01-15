@@ -1,7 +1,7 @@
+from __future__ import annotations
+
 import ast
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -13,7 +13,7 @@ from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_end
 
 
-def _remove_metaclass_type(i: int, tokens: List[Token]) -> None:
+def _remove_metaclass_type(i: int, tokens: list[Token]) -> None:
     j = find_end(tokens, i)
     del tokens[i:j]
 
@@ -23,7 +23,7 @@ def visit_Assign(
         state: State,
         node: ast.Assign,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             len(node.targets) == 1 and

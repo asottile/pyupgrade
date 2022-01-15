@@ -1,9 +1,9 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import List
 from typing import NamedTuple
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -29,7 +29,7 @@ class FunctionArg(NamedTuple):
     value: ast.expr
 
 
-def _fix_open_mode(i: int, tokens: List[Token], *, arg_idx: int) -> None:
+def _fix_open_mode(i: int, tokens: list[Token], *, arg_idx: int) -> None:
     j = find_open_paren(tokens, i)
     func_args, end = parse_call_args(tokens, j)
     mode = tokens_to_src(tokens[slice(*func_args[arg_idx])])
@@ -52,7 +52,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             isinstance(node.func, ast.Name) and

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 from tokenize_rt import src_to_tokens
 from tokenize_rt import tokens_to_src

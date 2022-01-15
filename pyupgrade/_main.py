@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import ast
 import collections
@@ -5,12 +7,9 @@ import re
 import string
 import sys
 import tokenize
-from typing import Dict
-from typing import List
 from typing import Match
 from typing import Optional
 from typing import Sequence
-from typing import Set
 from typing import Tuple
 
 from tokenize_rt import NON_CODING_TOKENS
@@ -32,7 +31,6 @@ from pyupgrade._data import Settings
 from pyupgrade._data import Version
 from pyupgrade._data import visit
 from pyupgrade._string_helpers import curly_escape
-from pyupgrade._string_helpers import is_ascii
 from pyupgrade._string_helpers import is_codec
 from pyupgrade._string_helpers import NAMED_UNICODE_RE
 from pyupgrade._token_helpers import CLOSING
@@ -48,9 +46,9 @@ FUNC_TYPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)
 _stdlib_parse_format = string.Formatter().parse
 
 
-def parse_format(s: str) -> Tuple[DotFormatPart, ...]:
+def parse_format(s: str) -> tuple[DotFormatPart, ...]:
     """handle named escape sequences"""
-    ret: List[DotFormatPart] = []
+    ret: list[DotFormatPart] = []
 
     for part in NAMED_UNICODE_RE.split(s):
         if NAMED_UNICODE_RE.fullmatch(part):
@@ -97,7 +95,7 @@ def inty(s: str) -> bool:
         return False
 
 
-def _fixup_dedent_tokens(tokens: List[Token]) -> None:
+def _fixup_dedent_tokens(tokens: list[Token]) -> None:
     """For whatever reason the DEDENT / UNIMPORTANT_WS tokens are misordered
 
     | if True:
@@ -261,7 +259,7 @@ def _fix_octal(s: str) -> str:
         return '0o' + s[1:]
 
 
-def _fix_extraneous_parens(tokens: List[Token], i: int) -> None:
+def _fix_extraneous_parens(tokens: list[Token], i: int) -> None:
     # search forward for another non-coding token
     i += 1
     while tokens[i].name in NON_CODING_TOKENS:
@@ -304,7 +302,7 @@ def _remove_fmt(tup: DotFormatPart) -> DotFormatPart:
         return (tup[0], '', tup[2], tup[3])
 
 
-def _fix_format_literal(tokens: List[Token], end: int) -> None:
+def _fix_format_literal(tokens: list[Token], end: int) -> None:
     parts = rfind_string_parts(tokens, end)
     parsed_parts = []
     last_int = -1
@@ -338,7 +336,7 @@ def _fix_format_literal(tokens: List[Token], end: int) -> None:
         tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed))
 
 
-def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
+def _fix_encode_to_binary(tokens: list[Token], i: int) -> None:
     parts = rfind_string_parts(tokens, i - 2)
     if not parts:
         return
@@ -376,7 +374,7 @@ def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
         prefix, rest = parse_string_literal(tokens[part].src)
         escapes = set(ESCAPE_RE.findall(rest))
         if (
-                not is_ascii(rest) or
+                not rest.isascii() or
                 '\\u' in escapes or
                 '\\U' in escapes or
                 '\\N' in escapes or
@@ -392,9 +390,9 @@ def _fix_encode_to_binary(tokens: List[Token], i: int) -> None:
     del tokens[victims]
 
 
-def _build_import_removals() -> Dict[Version, Dict[str, Tuple[str, ...]]]:
+def _build_import_removals() -> dict[Version, dict[str, tuple[str, ...]]]:
     ret = {}
-    future: Tuple[Tuple[Version, Tuple[str, ...]], ...] = (
+    future: tuple[tuple[Version, tuple[str, ...]], ...] = (
         ((2, 7), ('nested_scopes', 'generators', 'with_statement')),
         (
             (3,), (
@@ -410,7 +408,7 @@ def _build_import_removals() -> Dict[Version, Dict[str, Tuple[str, ...]]]:
         ((3, 11), ()),
     )
 
-    prev: Tuple[str, ...] = ()
+    prev: tuple[str, ...] = ()
     for min_version, names in future:
         prev += names
         ret[min_version] = {'__future__': prev}
@@ -435,7 +433,7 @@ IMPORT_REMOVALS = _build_import_removals()
 
 
 def _fix_import_removals(
-        tokens: List[Token],
+        tokens: list[Token],
         start: int,
         min_version: Version,
 ) -> None:
@@ -450,7 +448,7 @@ def _fix_import_removals(
     if modname not in IMPORT_REMOVALS[min_version]:
         return
 
-    found: List[Optional[int]] = []
+    found: list[int | None] = []
     i += 1
     while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
         if tokens[i].name == 'NAME' or tokens[i].src == '*':
@@ -464,7 +462,7 @@ def _fix_import_removals(
                 found.append(i)
         i += 1
     # depending on the version of python, some will not emit NEWLINE('') at the
-    # end of a file which does not end with a newline (for example 3.6.5)
+    # end of a file which does not end with a newline (for example 3.7.0)
     if tokens[i].name == 'ENDMARKER':  # pragma: no cover
         i -= 1
 
@@ -527,7 +525,7 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
     return tokens_to_src(tokens).lstrip()
 
 
-def _format_params(call: ast.Call) -> Set[str]:
+def _format_params(call: ast.Call) -> set[str]:
     params = {str(i) for i, arg in enumerate(call.args)}
     for kwd in call.keywords:
         # kwd.arg can't be None here because we exclude starargs
@@ -538,11 +536,11 @@ def _format_params(call: ast.Call) -> Set[str]:
 
 class FindPy36Plus(ast.NodeVisitor):
     def __init__(self, *, min_version: Version) -> None:
-        self.fstrings: Dict[Offset, ast.Call] = {}
-        self.named_tuples: Dict[Offset, ast.Call] = {}
-        self.dict_typed_dicts: Dict[Offset, ast.Call] = {}
-        self.kw_typed_dicts: Dict[Offset, ast.Call] = {}
-        self._from_imports: Dict[str, Set[str]] = collections.defaultdict(set)
+        self.fstrings: dict[Offset, ast.Call] = {}
+        self.named_tuples: dict[Offset, ast.Call] = {}
+        self.dict_typed_dicts: dict[Offset, ast.Call] = {}
+        self.kw_typed_dicts: dict[Offset, ast.Call] = {}
+        self._from_imports: dict[str, set[str]] = collections.defaultdict(set)
         self.min_version = min_version
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -552,7 +550,7 @@ class FindPy36Plus(ast.NodeVisitor):
                     self._from_imports[node.module].add(name.name)
         self.generic_visit(node)
 
-    def _is_attr(self, node: ast.AST, mods: Set[str], name: str) -> bool:
+    def _is_attr(self, node: ast.AST, mods: set[str], name: str) -> bool:
         return (
             (
                 isinstance(node, ast.Name) and
@@ -567,7 +565,7 @@ class FindPy36Plus(ast.NodeVisitor):
             )
         )
 
-    def _parse(self, node: ast.Call) -> Optional[Tuple[DotFormatPart, ...]]:
+    def _parse(self, node: ast.Call) -> tuple[DotFormatPart, ...] | None:
         if not (
                 isinstance(node.func, ast.Attribute) and
                 isinstance(node.func.value, ast.Str) and
@@ -585,7 +583,7 @@ class FindPy36Plus(ast.NodeVisitor):
         parsed = self._parse(node)
         if parsed is not None:
             params = _format_params(node)
-            seen: Set[str] = set()
+            seen: set[str] = set()
             i = 0
             for _, name, spec, _ in parsed:
                 # timid: difficult to rewrite correctly
@@ -720,14 +718,14 @@ def _unparse(node: ast.expr) -> str:
         raise NotImplementedError(ast.dump(node))
 
 
-def _skip_unimportant_ws(tokens: List[Token], i: int) -> int:
+def _skip_unimportant_ws(tokens: list[Token], i: int) -> int:
     while tokens[i].name == 'UNIMPORTANT_WS':
         i += 1
     return i
 
 
 def _to_fstring(
-    src: str, tokens: List[Token], args: List[Tuple[int, int]],
+    src: str, tokens: list[Token], args: list[tuple[int, int]],
 ) -> str:
     params = {}
     i = 0
@@ -756,11 +754,11 @@ def _to_fstring(
 
 
 def _typed_class_replacement(
-        tokens: List[Token],
+        tokens: list[Token],
         i: int,
         call: ast.Call,
-        types: Dict[str, ast.expr],
-) -> Tuple[int, str]:
+        types: dict[str, ast.expr],
+) -> tuple[int, str]:
     while i > 0 and tokens[i - 1].name == 'DEDENT':
         i -= 1
     if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
@@ -820,7 +818,7 @@ def _fix_py36_plus(contents_text: str, *, min_version: Version) -> str:
             del tokens[i + 1:end]
         elif token.offset in visitor.named_tuples and token.name == 'NAME':
             call = visitor.named_tuples[token.offset]
-            types: Dict[str, ast.expr] = {
+            types: dict[str, ast.expr] = {
                 tup.elts[0].s: tup.elts[1]
                 for tup in call.args[1].elts  # type: ignore  # (checked above)
             }
@@ -904,7 +902,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         return contents_text != contents_text_orig
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')

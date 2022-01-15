@@ -1,7 +1,7 @@
+from __future__ import annotations
+
 import ast
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -15,7 +15,7 @@ from pyupgrade._token_helpers import find_token
 MOCK_MODULES = frozenset(('mock', 'mock.mock'))
 
 
-def _fix_import_from_mock(i: int, tokens: List[Token]) -> None:
+def _fix_import_from_mock(i: int, tokens: list[Token]) -> None:
     j = find_token(tokens, i, 'mock')
     if (
             j + 2 < len(tokens) and
@@ -29,7 +29,7 @@ def _fix_import_from_mock(i: int, tokens: List[Token]) -> None:
     tokens[j:k + 1] = [tokens[j]._replace(name='NAME', src=src)]
 
 
-def _fix_import_mock(i: int, tokens: List[Token]) -> None:
+def _fix_import_mock(i: int, tokens: list[Token]) -> None:
     j = find_token(tokens, i, 'mock')
     if (
             j + 2 < len(tokens) and
@@ -41,7 +41,7 @@ def _fix_import_mock(i: int, tokens: List[Token]) -> None:
     tokens[i:j + 1] = [tokens[j]._replace(name='NAME', src=src)]
 
 
-def _fix_mock_mock(i: int, tokens: List[Token]) -> None:
+def _fix_mock_mock(i: int, tokens: list[Token]) -> None:
     j = find_token(tokens, i + 1, 'mock')
     del tokens[i + 1:j + 1]
 
@@ -51,7 +51,7 @@ def visit_ImportFrom(
         state: State,
         node: ast.ImportFrom,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             not state.settings.keep_mock and
@@ -66,7 +66,7 @@ def visit_Import(
         state: State,
         node: ast.Import,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             not state.settings.keep_mock and
@@ -81,7 +81,7 @@ def visit_Attribute(
         state: State,
         node: ast.Attribute,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             not state.settings.keep_mock and

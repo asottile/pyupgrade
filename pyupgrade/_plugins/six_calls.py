@@ -1,10 +1,9 @@
+from __future__ import annotations
+
 import ast
 import functools
 import sys
 from typing import Iterable
-from typing import List
-from typing import Tuple
-from typing import Type
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -15,13 +14,12 @@ from pyupgrade._ast_helpers import is_name_attr
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._string_helpers import is_ascii
 from pyupgrade._token_helpers import find_and_replace_call
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_call
 
-_EXPR_NEEDS_PARENS: Tuple[Type[ast.expr], ...] = (
+_EXPR_NEEDS_PARENS: tuple[type[ast.expr], ...] = (
     ast.Await, ast.BinOp, ast.BoolOp, ast.Compare, ast.GeneratorExp, ast.IfExp,
     ast.Lambda, ast.UnaryOp,
 )
@@ -57,11 +55,11 @@ RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
 RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
 
 
-def _fix_six_b(i: int, tokens: List[Token]) -> None:
+def _fix_six_b(i: int, tokens: list[Token]) -> None:
     j = find_open_paren(tokens, i)
     if (
             tokens[j + 1].name == 'STRING' and
-            is_ascii(tokens[j + 1].src) and
+            tokens[j + 1].src.isascii() and
             tokens[j + 2].src == ')'
     ):
         func_args, end = parse_call_args(tokens, j)
@@ -73,7 +71,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if state.settings.min_version < (3,):
         return
 
@@ -109,7 +107,7 @@ def visit_Call(
             not has_starargs(node)
     ):
         if isinstance(node.args[0], _EXPR_NEEDS_PARENS):
-            parens: Tuple[int, ...] = (0,)
+            parens: tuple[int, ...] = (0,)
         else:
             parens = ()
         func = functools.partial(

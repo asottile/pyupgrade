@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 import ast
 import keyword
 import sys
-from typing import List
 from typing import NamedTuple
-from typing import Optional
 from typing import Sequence
-from typing import Tuple
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Token
@@ -17,18 +16,18 @@ OPENING, CLOSING = frozenset(BRACES), frozenset(BRACES.values())
 KEYWORDS = frozenset(keyword.kwlist)
 
 
-def immediately_paren(func: str, tokens: List[Token], i: int) -> bool:
+def immediately_paren(func: str, tokens: list[Token], i: int) -> bool:
     return tokens[i].src == func and tokens[i + 1].src == '('
 
 
 class Victims(NamedTuple):
-    starts: List[int]
-    ends: List[int]
-    first_comma_index: Optional[int]
+    starts: list[int]
+    ends: list[int]
+    first_comma_index: int | None
     arg_index: int
 
 
-def _search_until(tokens: List[Token], idx: int, arg: ast.expr) -> int:
+def _search_until(tokens: list[Token], idx: int, arg: ast.expr) -> int:
     while (
             idx < len(tokens) and
             not (
@@ -40,23 +39,23 @@ def _search_until(tokens: List[Token], idx: int, arg: ast.expr) -> int:
     return idx
 
 
-def find_token(tokens: List[Token], i: int, src: str) -> int:
+def find_token(tokens: list[Token], i: int, src: str) -> int:
     while tokens[i].src != src:
         i += 1
     return i
 
 
-def find_open_paren(tokens: List[Token], i: int) -> int:
+def find_open_paren(tokens: list[Token], i: int) -> int:
     return find_token(tokens, i, '(')
 
 
-def find_end(tokens: List[Token], i: int) -> int:
+def find_end(tokens: list[Token], i: int) -> int:
     while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
         i += 1
 
     # depending on the version of python, some will not emit
     # NEWLINE('') at the end of a file which does not end with a
-    # newline (for example 3.6.5)
+    # newline (for example 3.7.0)
     if tokens[i].name == 'ENDMARKER':  # pragma: no cover
         i -= 1
     else:
@@ -67,13 +66,13 @@ def find_end(tokens: List[Token], i: int) -> int:
 
 if sys.version_info >= (3, 8):  # pragma: >=3.8 cover
     # python 3.8 fixed the offsets of generators / tuples
-    def _arg_token_index(tokens: List[Token], i: int, arg: ast.expr) -> int:
+    def _arg_token_index(tokens: list[Token], i: int, arg: ast.expr) -> int:
         idx = _search_until(tokens, i, arg) + 1
         while idx < len(tokens) and tokens[idx].name in NON_CODING_TOKENS:
             idx += 1
         return idx
 else:  # pragma: <3.8 cover
-    def _arg_token_index(tokens: List[Token], i: int, arg: ast.expr) -> int:
+    def _arg_token_index(tokens: list[Token], i: int, arg: ast.expr) -> int:
         # lists containing non-tuples report the first element correctly
         if isinstance(arg, ast.List):
             # If the first element is a tuple, the ast lies to us about its col
@@ -90,14 +89,14 @@ else:  # pragma: <3.8 cover
 
 
 def victims(
-        tokens: List[Token],
+        tokens: list[Token],
         start: int,
         arg: ast.expr,
         gen: bool,
 ) -> Victims:
     starts = [start]
     start_depths = [1]
-    ends: List[int] = []
+    ends: list[int] = []
     first_comma_index = None
     arg_depth = None
     arg_index = _arg_token_index(tokens, start, arg)
@@ -153,7 +152,7 @@ def victims(
     return Victims(starts, sorted(set(ends)), first_comma_index, arg_index)
 
 
-def find_closing_bracket(tokens: List[Token], i: int) -> int:
+def find_closing_bracket(tokens: list[Token], i: int) -> int:
     assert tokens[i].src in OPENING
     depth = 1
     i += 1
@@ -166,7 +165,7 @@ def find_closing_bracket(tokens: List[Token], i: int) -> int:
     return i - 1
 
 
-def find_block_start(tokens: List[Token], i: int) -> int:
+def find_block_start(tokens: list[Token], i: int) -> int:
     depth = 0
     while depth or tokens[i].src != ':':
         if tokens[i].src in OPENING:
@@ -184,13 +183,13 @@ class Block(NamedTuple):
     end: int
     line: bool
 
-    def _initial_indent(self, tokens: List[Token]) -> int:
+    def _initial_indent(self, tokens: list[Token]) -> int:
         if tokens[self.start].src.isspace():
             return len(tokens[self.start].src)
         else:
             return 0
 
-    def _minimum_indent(self, tokens: List[Token]) -> int:
+    def _minimum_indent(self, tokens: list[Token]) -> int:
         block_indent = None
         for i in range(self.block, self.end):
             if (
@@ -208,7 +207,7 @@ class Block(NamedTuple):
         assert block_indent is not None
         return block_indent
 
-    def dedent(self, tokens: List[Token]) -> None:
+    def dedent(self, tokens: list[Token]) -> None:
         if self.line:
             return
         initial_indent = self._initial_indent(tokens)
@@ -223,13 +222,13 @@ class Block(NamedTuple):
                 s = s[:initial_indent] + s[initial_indent + diff:]
                 tokens[i] = tokens[i]._replace(src=s)
 
-    def replace_condition(self, tokens: List[Token], new: List[Token]) -> None:
+    def replace_condition(self, tokens: list[Token], new: list[Token]) -> None:
         start = self.start
         while tokens[start].name == 'UNIMPORTANT_WS':
             start += 1
         tokens[start:self.colon] = new
 
-    def _trim_end(self, tokens: List[Token]) -> 'Block':
+    def _trim_end(self, tokens: list[Token]) -> Block:
         """the tokenizer reports the end of the block at the beginning of
         the next block
         """
@@ -251,10 +250,10 @@ class Block(NamedTuple):
     @classmethod
     def find(
             cls,
-            tokens: List[Token],
+            tokens: list[Token],
             i: int,
             trim_end: bool = False,
-    ) -> 'Block':
+    ) -> Block:
         if i > 0 and tokens[i - 1].name in {'INDENT', UNIMPORTANT_WS}:
             i -= 1
         start = i
@@ -287,7 +286,7 @@ class Block(NamedTuple):
             return cls(start, colon, block, j, line=True)
 
 
-def _is_on_a_line_by_self(tokens: List[Token], i: int) -> bool:
+def _is_on_a_line_by_self(tokens: list[Token], i: int) -> bool:
     return (
         tokens[i - 2].name == 'NL' and
         tokens[i - 1].name == UNIMPORTANT_WS and
@@ -295,14 +294,14 @@ def _is_on_a_line_by_self(tokens: List[Token], i: int) -> bool:
     )
 
 
-def remove_brace(tokens: List[Token], i: int) -> None:
+def remove_brace(tokens: list[Token], i: int) -> None:
     if _is_on_a_line_by_self(tokens, i):
         del tokens[i - 1:i + 2]
     else:
         del tokens[i]
 
 
-def remove_base_class(i: int, tokens: List[Token]) -> None:
+def remove_base_class(i: int, tokens: list[Token]) -> None:
     # look forward and backward to find commas / parens
     brace_stack = []
     j = i
@@ -353,7 +352,7 @@ def remove_base_class(i: int, tokens: List[Token]) -> None:
         del tokens[left:last_part + 1]
 
 
-def remove_decorator(i: int, tokens: List[Token]) -> None:
+def remove_decorator(i: int, tokens: list[Token]) -> None:
     while tokens[i - 1].src != '@':
         i -= 1
     if i > 1 and tokens[i - 2].name not in {'NEWLINE', 'NL'}:
@@ -365,9 +364,9 @@ def remove_decorator(i: int, tokens: List[Token]) -> None:
 
 
 def parse_call_args(
-        tokens: List[Token],
+        tokens: list[Token],
         i: int,
-) -> Tuple[List[Tuple[int, int]], int]:
+) -> tuple[list[tuple[int, int]], int]:
     args = []
     stack = [i]
     i += 1
@@ -392,11 +391,11 @@ def parse_call_args(
     return args, i
 
 
-def arg_str(tokens: List[Token], start: int, end: int) -> str:
+def arg_str(tokens: list[Token], start: int, end: int) -> str:
     return tokens_to_src(tokens[start:end]).strip()
 
 
-def _arg_contains_newline(tokens: List[Token], start: int, end: int) -> bool:
+def _arg_contains_newline(tokens: list[Token], start: int, end: int) -> bool:
     while tokens[start].name in {'NL', 'NEWLINE', UNIMPORTANT_WS}:
         start += 1
     for i in range(start, end):
@@ -407,10 +406,10 @@ def _arg_contains_newline(tokens: List[Token], start: int, end: int) -> bool:
 
 
 def replace_call(
-        tokens: List[Token],
+        tokens: list[Token],
         start: int,
         end: int,
-        args: List[Tuple[int, int]],
+        args: list[tuple[int, int]],
         tmpl: str,
         *,
         parens: Sequence[int] = (),
@@ -449,17 +448,17 @@ def replace_call(
 
 def find_and_replace_call(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         template: str,
-        parens: Tuple[int, ...] = (),
+        parens: tuple[int, ...] = (),
 ) -> None:
     j = find_open_paren(tokens, i)
     func_args, end = parse_call_args(tokens, j)
     replace_call(tokens, i, end, func_args, template, parens=parens)
 
 
-def replace_name(i: int, tokens: List[Token], *, name: str, new: str) -> None:
+def replace_name(i: int, tokens: list[Token], *, name: str, new: str) -> None:
     # preserve token offset in case we need to match it later
     new_token = tokens[i]._replace(name='CODE', src=new)
     j = i
@@ -472,8 +471,8 @@ def replace_name(i: int, tokens: List[Token], *, name: str, new: str) -> None:
 
 
 def delete_argument(
-        i: int, tokens: List[Token],
-        func_args: Sequence[Tuple[int, int]],
+        i: int, tokens: list[Token],
+        func_args: Sequence[tuple[int, int]],
 ) -> None:
     if i == 0:
         # delete leading whitespace before next token
@@ -488,8 +487,8 @@ def delete_argument(
 
 def replace_argument(
         i: int,
-        tokens: List[Token],
-        func_args: Sequence[Tuple[int, int]],
+        tokens: list[Token],
+        func_args: Sequence[tuple[int, int]],
         *,
         new: str,
 ) -> None:
@@ -500,7 +499,7 @@ def replace_argument(
     tokens[start_idx:end_idx] = [Token('SRC', new)]
 
 
-def find_comprehension_opening_bracket(i: int, tokens: List[Token]) -> int:
+def find_comprehension_opening_bracket(i: int, tokens: list[Token]) -> int:
     """Find opening bracket of comprehension given first argument."""
     if sys.version_info < (3, 8):  # pragma: <3.8 cover
         i -= 1
@@ -511,7 +510,7 @@ def find_comprehension_opening_bracket(i: int, tokens: List[Token]) -> int:
         return i
 
 
-def replace_list_comp_brackets(i: int, tokens: List[Token]) -> None:
+def replace_list_comp_brackets(i: int, tokens: list[Token]) -> None:
     start = find_comprehension_opening_bracket(i, tokens)
     end = find_closing_bracket(tokens, start)
     tokens[end] = Token('OP', ')')

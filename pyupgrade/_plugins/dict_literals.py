@@ -1,9 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import List
-from typing import Tuple
-from typing import Union
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -20,8 +19,8 @@ from pyupgrade._token_helpers import victims
 
 def _fix_dict_comp(
         i: int,
-        tokens: List[Token],
-        arg: Union[ast.ListComp, ast.GeneratorExp],
+        tokens: list[Token],
+        arg: ast.ListComp | ast.GeneratorExp,
 ) -> None:
     if not immediately_paren('dict', tokens, i):
         return
@@ -52,7 +51,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             isinstance(node.func, ast.Name) and
             node.func.id == 'dict' and

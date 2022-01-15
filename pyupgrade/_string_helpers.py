@@ -1,13 +1,7 @@
+from __future__ import annotations
+
 import codecs
 import re
-import string
-import sys
-
-if sys.version_info >= (3, 7):  # pragma: >=3.7 cover
-    is_ascii = str.isascii
-else:  # pragma: <3.7 cover
-    def is_ascii(s: str) -> bool:
-        return all(c in string.printable for c in s)
 
 NAMED_UNICODE_RE = re.compile(r'(?<!\\)(?:\\\\)*(\\N\{[^}]+\})')
 

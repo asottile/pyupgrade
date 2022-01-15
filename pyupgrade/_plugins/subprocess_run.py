@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -20,7 +20,7 @@ from pyupgrade._token_helpers import replace_argument
 
 def _use_capture_output(
     i: int,
-    tokens: List[Token],
+    tokens: list[Token],
     *,
     stdout_arg_idx: int,
     stderr_arg_idx: int,
@@ -47,7 +47,7 @@ def _use_capture_output(
 
 def _replace_universal_newlines_with_text(
     i: int,
-    tokens: List[Token],
+    tokens: list[Token],
     *,
     arg_idx: int,
 ) -> None:
@@ -66,7 +66,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3, 7) and
             is_name_attr(
