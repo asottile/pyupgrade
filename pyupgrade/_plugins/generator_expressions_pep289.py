@@ -1,7 +1,7 @@
+from __future__ import annotations
+
 import ast
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
@@ -30,7 +30,7 @@ ALLOWED_FUNCS = frozenset((
 ))
 
 
-def _delete_list_comp_brackets(i: int, tokens: List[Token]) -> None:
+def _delete_list_comp_brackets(i: int, tokens: list[Token]) -> None:
     start = find_comprehension_opening_bracket(i, tokens)
     end = find_closing_bracket(tokens, start)
     tokens[end] = Token('PLACEHOLDER', '')
@@ -47,7 +47,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             isinstance(node.func, ast.Name) and
             node.func.id in ALLOWED_FUNCS and

@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import Tuple
 
 from tokenize_rt import Offset
 
@@ -17,7 +18,7 @@ def visit_Attribute(
         state: State,
         node: ast.Attribute,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             isinstance(node.value, ast.Name) and
@@ -37,7 +38,7 @@ def visit_Name(
         state: State,
         node: ast.Name,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             node.id in state.from_imports['typing'] and

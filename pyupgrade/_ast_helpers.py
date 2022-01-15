@@ -1,9 +1,8 @@
+from __future__ import annotations
+
 import ast
 import warnings
 from typing import Container
-from typing import Dict
-from typing import Set
-from typing import Union
 
 from tokenize_rt import Offset
 
@@ -15,13 +14,13 @@ def ast_parse(contents_text: str) -> ast.Module:
         return ast.parse(contents_text.encode())
 
 
-def ast_to_offset(node: Union[ast.expr, ast.stmt]) -> Offset:
+def ast_to_offset(node: ast.expr | ast.stmt) -> Offset:
     return Offset(node.lineno, node.col_offset)
 
 
 def is_name_attr(
         node: ast.AST,
-        imports: Dict[str, Set[str]],
+        imports: dict[str, set[str]],
         mod: str,
         names: Container[str],
 ) -> bool:

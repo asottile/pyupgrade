@@ -1,4 +1,4 @@
-import sys
+from __future__ import annotations
 
 import pytest
 
@@ -95,25 +95,5 @@ def test_fix_sets_noop(s):
     ),
 )
 def test_sets(s, expected):
-    ret = _fix_plugins(s, settings=Settings())
-    assert ret == expected
-
-
-@pytest.mark.xfail(sys.version_info >= (3, 7), reason='genexp trailing comma')
-@pytest.mark.parametrize(
-    ('s', 'expected'),
-    (
-        ('set(x for x in y,)', '{x for x in y}'),
-        (
-            'set(\n'
-            '    x for x in y,\n'
-            ')',
-            '{\n'
-            '    x for x in y\n'
-            '}',
-        ),
-    ),
-)
-def test_sets_generators_trailing_commas(s, expected):
     ret = _fix_plugins(s, settings=Settings())
     assert ret == expected

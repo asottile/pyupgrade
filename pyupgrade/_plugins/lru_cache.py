@@ -1,9 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import List
-from typing import Optional
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -18,14 +17,14 @@ from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import find_token
 
 
-def _remove_call(i: int, tokens: List[Token]) -> None:
+def _remove_call(i: int, tokens: list[Token]) -> None:
     i = find_open_paren(tokens, i)
     j = find_token(tokens, i, ')')
     del tokens[i:j + 1]
 
 
 def _is_literal_kwarg(
-        keyword: ast.keyword, name: str, value: Optional[bool],
+        keyword: ast.keyword, name: str, value: bool | None,
 ) -> bool:
     return (
         keyword.arg == name and
@@ -34,7 +33,7 @@ def _is_literal_kwarg(
     )
 
 
-def _eligible(keywords: List[ast.keyword]) -> bool:
+def _eligible(keywords: list[ast.keyword]) -> bool:
     if len(keywords) == 1:
         return _is_literal_kwarg(keywords[0], 'maxsize', None)
     elif len(keywords) == 2:
@@ -57,7 +56,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3, 8) and
             not node.args and

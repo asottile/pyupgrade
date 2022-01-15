@@ -1,7 +1,7 @@
+from __future__ import annotations
+
 import ast
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import remove_decorator
 from pyupgrade._token_helpers import replace_call
 
 
-def _fix_add_metaclass(i: int, tokens: List[Token]) -> None:
+def _fix_add_metaclass(i: int, tokens: list[Token]) -> None:
     j = find_open_paren(tokens, i)
     func_args, end = parse_call_args(tokens, j)
     metaclass = f'metaclass={arg_str(tokens, *func_args[0])}'
@@ -54,7 +54,7 @@ def _fix_add_metaclass(i: int, tokens: List[Token]) -> None:
     remove_decorator(i, tokens)
 
 
-def _fix_with_metaclass(i: int, tokens: List[Token]) -> None:
+def _fix_with_metaclass(i: int, tokens: list[Token]) -> None:
     j = find_open_paren(tokens, i)
     func_args, end = parse_call_args(tokens, j)
     if len(func_args) == 1:
@@ -75,7 +75,7 @@ def visit_ClassDef(
         state: State,
         node: ast.ClassDef,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if state.settings.min_version < (3,):
         return
 

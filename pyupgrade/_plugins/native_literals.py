@@ -1,9 +1,7 @@
+from __future__ import annotations
+
 import ast
-from typing import Dict
 from typing import Iterable
-from typing import List
-from typing import Set
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -21,7 +19,7 @@ from pyupgrade._token_helpers import replace_call
 SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
 
 
-def _fix_native_str(i: int, tokens: List[Token]) -> None:
+def _fix_native_str(i: int, tokens: list[Token]) -> None:
     j = find_open_paren(tokens, i)
     func_args, end = parse_call_args(tokens, j)
     if any(tok.name == 'NL' for tok in tokens[i:end]):
@@ -34,7 +32,7 @@ def _fix_native_str(i: int, tokens: List[Token]) -> None:
 
 def is_a_native_literal_call(
         node: ast.Call,
-        from_imports: Dict[str, Set[str]],
+        from_imports: dict[str, set[str]],
 ) -> bool:
     return (
         (
@@ -55,7 +53,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             is_a_native_literal_call(node, state.from_imports)

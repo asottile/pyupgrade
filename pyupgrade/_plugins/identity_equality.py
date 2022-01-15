@@ -1,9 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import List
-from typing import Tuple
-from typing import Union
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -18,9 +17,9 @@ LITERAL_TYPES = (ast.Str, ast.Num, ast.Bytes)
 
 def _fix_is_literal(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
-        op: Union[ast.Is, ast.IsNot],
+        op: ast.Is | ast.IsNot,
 ) -> None:
     while tokens[i].src != 'is':
         i -= 1
@@ -41,7 +40,7 @@ def visit_Compare(
         state: State,
         node: ast.Compare,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     left = node.left
     for op, right in zip(node.ops, node.comparators):
         if (

@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import Tuple
 
 from tokenize_rt import Offset
 
@@ -40,7 +41,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if state.settings.min_version >= (3,):
         method_mapping = METHOD_MAPPING_PY35_PLUS
     else:

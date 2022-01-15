@@ -1,16 +1,12 @@
+from __future__ import annotations
+
 import ast
 import collections
 import contextlib
 import functools
 from typing import Any
-from typing import Dict
 from typing import Generator
 from typing import Iterable
-from typing import List
-from typing import Set
-from typing import Tuple
-from typing import Type
-from typing import Union
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -28,7 +24,7 @@ from pyupgrade._token_helpers import find_token
 FUNC_TYPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)
 
 
-def _fix_yield(i: int, tokens: List[Token]) -> None:
+def _fix_yield(i: int, tokens: list[Token]) -> None:
     in_token = find_token(tokens, i, 'in')
     colon = find_block_start(tokens, i)
     block = Block.find(tokens, i, trim_end=True)
@@ -38,7 +34,7 @@ def _fix_yield(i: int, tokens: List[Token]) -> None:
 
 def _all_isinstance(
         vals: Iterable[Any],
-        tp: Union[Type[Any], Tuple[Type[Any], ...]],
+        tp: type[Any] | tuple[type[Any], ...],
 ) -> bool:
     return all(isinstance(v, tp) for v in vals)
 
@@ -80,19 +76,19 @@ class Scope:
     def __init__(self, node: ast.AST) -> None:
         self.node = node
 
-        self.reads: Set[str] = set()
-        self.writes: Set[str] = set()
+        self.reads: set[str] = set()
+        self.writes: set[str] = set()
 
-        self.yield_from_fors: Set[Offset] = set()
-        self.yield_from_names: Dict[str, Set[Offset]]
+        self.yield_from_fors: set[Offset] = set()
+        self.yield_from_names: dict[str, set[Offset]]
         self.yield_from_names = collections.defaultdict(set)
 
 
 class Visitor(ast.NodeVisitor):
     def __init__(self) -> None:
-        self._scopes: List[Scope] = []
-        self.super_offsets: Set[Offset] = set()
-        self.yield_offsets: Set[Offset] = set()
+        self._scopes: list[Scope] = []
+        self.super_offsets: set[Offset] = set()
+        self.yield_offsets: set[Offset] = set()
 
     @contextlib.contextmanager
     def _scope(self, node: ast.AST) -> Generator[None, None, None]:
@@ -187,7 +183,7 @@ def visit_Module(
         state: State,
         node: ast.Module,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if state.settings.min_version < (3,):
         return
 

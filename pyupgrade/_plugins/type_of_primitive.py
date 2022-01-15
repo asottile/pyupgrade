@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import List
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -23,7 +23,7 @@ NUM_TYPES = {
 
 def _rewrite_type_of_primitive(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         src: str,
 ) -> None:
@@ -38,7 +38,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
         parent: ast.AST,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
             isinstance(node.func, ast.Name) and
