@@ -5,6 +5,7 @@ import ast
 import re
 import sys
 import tokenize
+import difflib
 from typing import Match
 from typing import Sequence
 
@@ -29,6 +30,26 @@ from pyupgrade._string_helpers import unparse_parsed_string
 from pyupgrade._token_helpers import CLOSING
 from pyupgrade._token_helpers import OPENING
 from pyupgrade._token_helpers import remove_brace
+
+try:
+    from colorama import Fore, Back, Style, init
+    init()
+except ImportError:  # fallback so that the imported classes always exist
+    class ColorFallback():
+        __getattr__ = lambda self, name: ''
+    Fore = Back = Style = ColorFallback()
+
+
+def color_diff(diff):
+    for line in diff:
+        if line.startswith('+'):
+            yield Fore.GREEN + line + Fore.RESET
+        elif line.startswith('-'):
+            yield Fore.RED + line + Fore.RESET
+        elif line.startswith('^'):
+            yield Fore.BLUE + line + Fore.RESET
+        else:
+            yield line
 
 
 def inty(s: str) -> bool:
@@ -440,6 +461,9 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     if filename == '-':
         print(contents_text, end='')
     elif contents_text != contents_text_orig:
+        if args.check_only:
+            sys.stdout.writelines(color_diff(difflib.unified_diff(contents_text_orig.splitlines(keepends=True), contents_text.splitlines(keepends=True))))
+            return contents_text != contents_text_orig
         print(f'Rewriting {filename}', file=sys.stderr)
         with open(filename, 'w', encoding='UTF-8', newline='') as f:
             f.write(contents_text)
@@ -457,6 +481,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')
     parser.add_argument('--keep-runtime-typing', action='store_true')
+    parser.add_argument('--check-only', dest='check_only', action='store_true')
     parser.add_argument(
         '--py3-plus', '--py3-only',
         action='store_const', dest='min_version', default=(2, 7), const=(3,),
