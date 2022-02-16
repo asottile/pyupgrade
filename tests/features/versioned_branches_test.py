@@ -446,6 +446,11 @@ def test_fix_py2_block_noop(s):
 
             id='comment after dedented block',
         ),
+        pytest.param(
+            'my_var = 1 if six.PY2 else 2\n',
+            'my_var = 2\n',
+            id='if-expression',
+        ),
     ),
 )
 def test_fix_py2_blocks(s, expected):

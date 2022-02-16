@@ -15,6 +15,8 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._data import Version
 from pyupgrade._token_helpers import Block
+from pyupgrade._token_helpers import CLOSING
+from pyupgrade._token_helpers import OPENING
 
 
 def _find_if_else_block(tokens: list[Token], i: int) -> tuple[Block, Block]:
@@ -51,6 +53,24 @@ def _fix_py2_block(i: int, tokens: list[Token]) -> None:
         j = _find_elif(tokens, i)
         if_block, else_block = _find_if_else_block(tokens, j)
         del tokens[if_block.start:else_block.start]
+
+
+def _fix_py2_block_ifexp(i: int, tokens: list[Token]) -> None:
+    depth = 0
+    end_idx = i
+    print(tokens[i])
+    while depth or tokens[end_idx].src != 'else':
+        if tokens[end_idx].src in OPENING:
+            depth += 1
+        elif tokens[end_idx].src in CLOSING:
+            depth -= 1
+        end_idx += 1
+
+    end_idx += 1
+    while tokens[end_idx].name == 'UNIMPORTANT_WS':
+        end_idx += 1
+
+    del tokens[i:end_idx]
 
 
 def _fix_py3_block_else(i: int, tokens: list[Token]) -> None:
@@ -93,6 +113,58 @@ def _compare_to_3(
     elts = tuple(e.n for e in ast_elts) + (0,)
 
     return elts[:2] == (3, minor) and all(n == 0 for n in elts[2:])
+
+
+@register(ast.IfExp)
+def visit_IfExp(
+        state: State,
+        node: ast.IfExp,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    min_version: Version
+    if state.settings.min_version == (3,):
+        min_version = (3, 0)
+    else:
+        min_version = state.settings.min_version
+    assert len(min_version) >= 2
+
+    if (
+            min_version >= (3,) and (
+                # if six.PY2:
+                is_name_attr(node.test, state.from_imports, 'six', ('PY2',)) or
+                # if not six.PY3:
+                (
+                    isinstance(node.test, ast.UnaryOp) and
+                    isinstance(node.test.op, ast.Not) and
+                    is_name_attr(
+                        node.test.operand,
+                        state.from_imports,
+                        'six',
+                        ('PY3',),
+                    )
+                ) or
+                # sys.version_info == 2 or < (3,)
+                # or < (3, n) or <= (3, n) (with n<m)
+                (
+                    isinstance(node.test, ast.Compare) and
+                    is_name_attr(
+                        node.test.left,
+                        state.from_imports,
+                        'sys',
+                        ('version_info',),
+                    ) and
+                    len(node.test.ops) == 1 and (
+                        _eq(node.test, 2) or
+                        _compare_to_3(node.test, ast.Lt, min_version[1]) or
+                        any(
+                            _compare_to_3(node.test, (ast.Lt, ast.LtE), minor)
+                            for minor in range(min_version[1])
+                        )
+                    )
+                )
+            )
+    ):
+        yield ast_to_offset(node), _fix_py2_block_ifexp
 
 
 @register(ast.If)
