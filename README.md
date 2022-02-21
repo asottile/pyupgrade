@@ -632,6 +632,60 @@ Availability:
 +float
 ```
 
+### Rewrite imports of ABC from `collections`
+
+Availability:
+- `--py3` is passed on the commandline.
+
+```diff
+-from collections import Hashable
++from collections.abc import Hashable
+-from collections import Awaitable
++from collections.abc import Awaitable
+-from collections import Coroutine
++from collections.abc import Coroutine
+-from collections import AsyncIterable
++from collections.abc import AsyncIterable
+-from collections import AsyncIterator
++from collections.abc import AsyncIterator
+-from collections import Iterable
++from collections.abc import Iterable
+-from collections import Iterator
++from collections.abc import Iterator
+-from collections import Reversible
++from collections.abc import Reversible
+-from collections import Sized
++from collections.abc import Sized
+-from collections import Container
++from collections.abc import Container
+-from collections import Collection
++from collections.abc import Collection
+-from collections import MutableSet
++from collections.abc import MutableSet
+-from collections import Mapping
++from collections.abc import Mapping
+-from collections import MutableMapping
++from collections.abc import MutableMapping
+-from collections import Sequence
++from collections.abc import Sequence
+-from collections import MutableSequence
++from collections.abc import MutableSequence
+-from collections import ByteString
++from collections.abc import ByteString
+-from collections import MappingView
++from collections.abc import MappingView
+-from collections import KeysView
++from collections.abc import KeysView
+-from collections import ItemsView
++from collections.abc import ItemsView
+-from collections import ValuesView
++from collections.abc import ValuesView
+-from collections import Generator
++from collections.abc import Generator
+-from collections import AsyncGenerator
++from collections.abc import AsyncGenerator
+```
+
 ### `typing.NamedTuple` / `typing.TypedDict` py36+ syntax
 
 Availability:
