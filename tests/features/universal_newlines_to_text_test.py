@@ -27,6 +27,26 @@ from pyupgrade._main import _fix_plugins
             (3, 7),
             id='universal_newlines not used',
         ),
+        pytest.param(
+            'import subprocess\n'
+            'subprocess.run(\n'
+            '   ["foo"],\n'
+            '   text=True,\n'
+            '   universal_newlines=True\n'
+            ')\n',
+            (3, 7),
+            id='both text and universal_newlines',
+        ),
+        pytest.param(
+            'import subprocess\n'
+            'subprocess.run(\n'
+            '   ["foo"],\n'
+            '   universal_newlines=True,\n'
+            '   **kwargs,\n'
+            ')\n',
+            (3, 7),
+            id='both **kwargs and universal_newlines',
+        ),
     ),
 )
 def test_fix_universal_newlines_to_text_noop(s, version):

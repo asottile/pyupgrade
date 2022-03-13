@@ -79,6 +79,7 @@ def visit_Call(
         stdout_idx = None
         stderr_idx = None
         universal_newlines_idx = None
+        skip_universal_newlines_rewrite = False
         for n, keyword in enumerate(node.keywords):
             if keyword.arg == 'stdout' and is_name_attr(
                 keyword.value,
@@ -96,7 +97,12 @@ def visit_Call(
                 stderr_idx = n
             elif keyword.arg == 'universal_newlines':
                 universal_newlines_idx = n
-        if universal_newlines_idx is not None:
+            elif keyword.arg == 'text' or keyword.arg is None:
+                skip_universal_newlines_rewrite = True
+        if (
+                universal_newlines_idx is not None and
+                not skip_universal_newlines_rewrite
+        ):
             func = functools.partial(
                 _replace_universal_newlines_with_text,
                 arg_idx=len(node.args) + universal_newlines_idx,
