@@ -53,6 +53,7 @@ RECORD_FROM_IMPORTS = frozenset((
     'subprocess',
     'sys',
     'typing',
+    'typing_extensions',
 ))
 
 FUNCS = collections.defaultdict(list)
