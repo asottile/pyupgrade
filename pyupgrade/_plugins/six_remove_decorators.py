@@ -24,7 +24,7 @@ def visit_ClassDef(
             if is_name_attr(
                     decorator,
                     state.from_imports,
-                    'six',
+                    ('six',),
                     ('python_2_unicode_compatible',),
             ):
                 yield ast_to_offset(decorator), remove_decorator

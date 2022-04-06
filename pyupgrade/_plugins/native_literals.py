@@ -36,7 +36,7 @@ def is_a_native_literal_call(
 ) -> bool:
     return (
         (
-            is_name_attr(node.func, from_imports, 'six', SIX_NATIVE_STR) or
+            is_name_attr(node.func, from_imports, ('six',), SIX_NATIVE_STR) or
             isinstance(node.func, ast.Name) and node.func.id == 'str'
         ) and
         not node.keywords and

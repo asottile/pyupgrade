@@ -64,7 +64,7 @@ def visit_Call(
             is_name_attr(
                 node.func,
                 state.from_imports,
-                'functools',
+                ('functools',),
                 ('lru_cache',),
             )
     ):

@@ -26,6 +26,7 @@ from pyupgrade._ast_helpers import ast_parse
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._ast_helpers import contains_await
 from pyupgrade._ast_helpers import has_starargs
+from pyupgrade._ast_helpers import is_name_attr
 from pyupgrade._data import FUNCS
 from pyupgrade._data import Settings
 from pyupgrade._data import Version
@@ -550,21 +551,6 @@ class FindPy36Plus(ast.NodeVisitor):
                     self._from_imports[node.module].add(name.name)
         self.generic_visit(node)
 
-    def _is_attr(self, node: ast.AST, mods: set[str], name: str) -> bool:
-        return (
-            (
-                isinstance(node, ast.Name) and
-                node.id == name and
-                any(name in self._from_imports[mod] for mod in mods)
-            ) or
-            (
-                isinstance(node, ast.Attribute) and
-                node.attr == name and
-                isinstance(node.value, ast.Name) and
-                node.value.id in mods
-            )
-        )
-
     def _parse(self, node: ast.Call) -> tuple[DotFormatPart, ...] | None:
         if not (
                 isinstance(node.func, ast.Attribute) and
@@ -623,8 +609,11 @@ class FindPy36Plus(ast.NodeVisitor):
                 not has_starargs(node.value)
         ):
             if (
-                    self._is_attr(
-                        node.value.func, {'typing'}, 'NamedTuple',
+                    is_name_attr(
+                        node.value.func,
+                        self._from_imports,
+                        ('typing',),
+                        ('NamedTuple',),
                     ) and
                     len(node.value.args) == 2 and
                     not node.value.keywords and
@@ -641,10 +630,11 @@ class FindPy36Plus(ast.NodeVisitor):
             ):
                 self.named_tuples[ast_to_offset(node)] = node.value
             elif (
-                    self._is_attr(
+                    is_name_attr(
                         node.value.func,
-                        {'typing', 'typing_extensions'},
-                        'TypedDict',
+                        self._from_imports,
+                        ('typing', 'typing_extensions'),
+                        ('TypedDict',),
                     ) and
                     len(node.value.args) == 1 and
                     len(node.value.keywords) > 0 and
@@ -655,10 +645,11 @@ class FindPy36Plus(ast.NodeVisitor):
             ):
                 self.kw_typed_dicts[ast_to_offset(node)] = node.value
             elif (
-                    self._is_attr(
+                    is_name_attr(
                         node.value.func,
-                        {'typing', 'typing_extensions'},
-                        'TypedDict',
+                        self._from_imports,
+                        ('typing', 'typing_extensions'),
+                        ('TypedDict',),
                     ) and
                     len(node.value.args) == 2 and
                     (

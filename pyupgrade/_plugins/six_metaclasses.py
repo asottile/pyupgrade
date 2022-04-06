@@ -85,7 +85,7 @@ def visit_ClassDef(
                 is_name_attr(
                     decorator.func,
                     state.from_imports,
-                    'six',
+                    ('six',),
                     ('add_metaclass',),
                 ) and
                 not has_starargs(decorator)
@@ -98,7 +98,7 @@ def visit_ClassDef(
             is_name_attr(
                 node.bases[0].func,
                 state.from_imports,
-                'six',
+                ('six',),
                 ('with_metaclass',),
             ) and
             not has_starargs(node.bases[0])

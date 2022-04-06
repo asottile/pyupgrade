@@ -112,7 +112,12 @@ def visit_If(
     if (
             min_version >= (3,) and (
                 # if six.PY2:
-                is_name_attr(node.test, state.from_imports, 'six', ('PY2',)) or
+                is_name_attr(
+                    node.test,
+                    state.from_imports,
+                    ('six',),
+                    ('PY2',),
+                ) or
                 # if not six.PY3:
                 (
                     isinstance(node.test, ast.UnaryOp) and
@@ -120,7 +125,7 @@ def visit_If(
                     is_name_attr(
                         node.test.operand,
                         state.from_imports,
-                        'six',
+                        ('six',),
                         ('PY3',),
                     )
                 ) or
@@ -131,7 +136,7 @@ def visit_If(
                     is_name_attr(
                         node.test.left,
                         state.from_imports,
-                        'sys',
+                        ('sys',),
                         ('version_info',),
                     ) and
                     len(node.test.ops) == 1 and (
@@ -150,7 +155,12 @@ def visit_If(
     elif (
             min_version >= (3,) and (
                 # if six.PY3:
-                is_name_attr(node.test, state.from_imports, 'six', ('PY3',)) or
+                is_name_attr(
+                    node.test,
+                    state.from_imports,
+                    ('six',),
+                    ('PY3',),
+                ) or
                 # if not six.PY2:
                 (
                     isinstance(node.test, ast.UnaryOp) and
@@ -158,7 +168,7 @@ def visit_If(
                     is_name_attr(
                         node.test.operand,
                         state.from_imports,
-                        'six',
+                        ('six',),
                         ('PY2',),
                     )
                 ) or
@@ -170,7 +180,7 @@ def visit_If(
                     is_name_attr(
                         node.test.left,
                         state.from_imports,
-                        'sys',
+                        ('sys',),
                         ('version_info',),
                     ) and
                     len(node.test.ops) == 1 and (
