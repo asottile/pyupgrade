@@ -72,7 +72,7 @@ def visit_Call(
             is_name_attr(
                 node.func,
                 state.from_imports,
-                'subprocess',
+                ('subprocess',),
                 ('run',),
             )
     ):
@@ -84,14 +84,14 @@ def visit_Call(
             if keyword.arg == 'stdout' and is_name_attr(
                 keyword.value,
                 state.from_imports,
-                'subprocess',
+                ('subprocess',),
                 ('PIPE',),
             ):
                 stdout_idx = n
             elif keyword.arg == 'stderr' and is_name_attr(
                 keyword.value,
                 state.from_imports,
-                'subprocess',
+                ('subprocess',),
                 ('PIPE',),
             ):
                 stderr_idx = n

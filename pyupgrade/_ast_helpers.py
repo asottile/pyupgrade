@@ -21,17 +21,17 @@ def ast_to_offset(node: ast.expr | ast.stmt) -> Offset:
 def is_name_attr(
         node: ast.AST,
         imports: dict[str, set[str]],
-        mod: str,
+        mods: tuple[str, ...],
         names: Container[str],
 ) -> bool:
     return (
         isinstance(node, ast.Name) and
         node.id in names and
-        node.id in imports[mod]
+        any(node.id in imports[mod] for mod in mods)
     ) or (
         isinstance(node, ast.Attribute) and
         isinstance(node.value, ast.Name) and
-        node.value.id == mod and
+        node.value.id in mods and
         node.attr in names
     )
 

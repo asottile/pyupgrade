@@ -155,9 +155,14 @@ def visit_Subscript(
     ):
         return
 
-    if is_name_attr(node.value, state.from_imports, 'typing', ('Optional',)):
+    if is_name_attr(
+            node.value,
+            state.from_imports,
+            ('typing',),
+            ('Optional',),
+    ):
         yield ast_to_offset(node), _fix_optional
-    elif is_name_attr(node.value, state.from_imports, 'typing', ('Union',)):
+    elif is_name_attr(node.value, state.from_imports, ('typing',), ('Union',)):
         if sys.version_info >= (3, 9):  # pragma: >=3.9 cover
             node_slice = node.slice
         elif isinstance(node.slice, ast.Index):  # pragma: <3.9 cover

@@ -21,5 +21,5 @@ def visit_ClassDef(
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if state.settings.min_version >= (3,):
         for base in node.bases:
-            if is_name_attr(base, state.from_imports, 'six', ('Iterator',)):
+            if is_name_attr(base, state.from_imports, ('six',), ('Iterator',)):
                 yield ast_to_offset(base), remove_base_class

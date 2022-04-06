@@ -86,7 +86,7 @@ def visit_Call(
             is_name_attr(
                 node.func,
                 state.from_imports,
-                'six',
+                ('six',),
                 ('iteritems', 'iterkeys', 'itervalues'),
             ) and
             node.args and
@@ -102,7 +102,12 @@ def visit_Call(
         )
         yield ast_to_offset(node), func
     elif (
-            is_name_attr(node.func, state.from_imports, 'six', SIX_CALLS) and
+            is_name_attr(
+                node.func,
+                state.from_imports,
+                ('six',),
+                SIX_CALLS,
+            ) and
             node.args and
             not has_starargs(node)
     ):
@@ -120,7 +125,7 @@ def visit_Call(
             is_name_attr(
                 node.func,
                 state.from_imports,
-                'six',
+                ('six',),
                 ('int2byte',),
             ) and
             node.args and
@@ -136,7 +141,7 @@ def visit_Call(
             is_name_attr(
                 node.func,
                 state.from_imports,
-                'six',
+                ('six',),
                 ('b', 'ensure_binary'),
             ) and
             not node.keywords and
@@ -150,7 +155,7 @@ def visit_Call(
             is_name_attr(
                 node.func,
                 state.from_imports,
-                'six',
+                ('six',),
                 ('raise_from',),
             ) and
             node.args and
@@ -166,7 +171,7 @@ def visit_Call(
             is_name_attr(
                 node.func,
                 state.from_imports,
-                'six',
+                ('six',),
                 ('reraise',),
             )
     ):
@@ -198,7 +203,7 @@ def visit_Call(
                 is_name_attr(
                     node.args[0].value.func,
                     state.from_imports,
-                    'sys',
+                    ('sys',),
                     ('exc_info',),
                 )
         ):
