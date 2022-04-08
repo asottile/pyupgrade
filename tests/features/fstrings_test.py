@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from pyupgrade._main import _fix_py36_plus
+from pyupgrade._data import Settings
+from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
@@ -40,7 +41,7 @@ from pyupgrade._main import _fix_py36_plus
     ),
 )
 def test_fix_fstrings_noop(s):
-    assert _fix_py36_plus(s, min_version=(3, 6)) == s
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 6))) == s
 
 
 @pytest.mark.parametrize(
@@ -66,10 +67,10 @@ def test_fix_fstrings_noop(s):
     ),
 )
 def test_fix_fstrings(s, expected):
-    assert _fix_py36_plus(s, min_version=(3, 6)) == expected
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 6))) == expected
 
 
 def test_fix_fstrings_await_py37():
     s = "async def c(): return '{}'.format(await 1+foo())"
     expected = "async def c(): return f'{await 1+foo()}'"
-    assert _fix_py36_plus(s, min_version=(3, 7)) == expected
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 7))) == expected
