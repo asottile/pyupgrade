@@ -73,7 +73,7 @@ def visit_Call(
                 node.func,
                 state.from_imports,
                 ('subprocess',),
-                ('run',),
+                ('check_output', 'run'),
             )
     ):
         stdout_idx = None
