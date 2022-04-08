@@ -66,6 +66,15 @@ def test_fix_universal_newlines_to_text_noop(s, version):
             id='subprocess.run attribute',
         ),
         pytest.param(
+            'import subprocess\n'
+            'subprocess.check_output(["foo"], universal_newlines=True)\n',
+
+            'import subprocess\n'
+            'subprocess.check_output(["foo"], text=True)\n',
+
+            id='subprocess.check_output attribute',
+        ),
+        pytest.param(
             'from subprocess import run\n'
             'run(["foo"], universal_newlines=True)\n',
 
