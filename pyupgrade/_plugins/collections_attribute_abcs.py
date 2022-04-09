@@ -6,12 +6,12 @@ from typing import Iterable
 
 from tokenize_rt import Offset
 
+from .collections_import_of_abcs import _ABC_NAMES
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import replace_name
-from .collections_import_of_abcs import _ABC_NAMES
 
 
 @register(ast.Attribute)

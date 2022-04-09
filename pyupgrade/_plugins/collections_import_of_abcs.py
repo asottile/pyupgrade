@@ -75,10 +75,12 @@ def _handle_collections_import_of_abcs(
 
     # does not handle importing with 'as', as in "from collections import Mapping as MappingABC"
     # does not handle importing multiline, either by enclosing names in ()'s or using '\' continuations
-    imported_name_tokens = [t for t in itertools.takewhile(lambda tk: tk.name != 'NEWLINE', tokens[j+1:])
-                            if t.name == 'NAME' and t.src != 'import']
-    imported_names = set(t.src for t in imported_name_tokens)
-    if "as" in imported_names:
+    imported_name_tokens = [
+        t for t in itertools.takewhile(lambda tk: tk.name != 'NEWLINE', tokens[j + 1:])
+        if t.name == 'NAME' and t.src != 'import'
+    ]
+    imported_names = {t.src for t in imported_name_tokens}
+    if 'as' in imported_names:
         return
 
     if not _ABC_NAMES & imported_names:
@@ -121,7 +123,7 @@ def _handle_collections_import_of_abcs(
             except IndexError:
                 pass
             else:
-                if tokens[comma_loc-1].src == 'import':
+                if tokens[comma_loc - 1].src == 'import':
                     del tokens[comma_loc]
 
         _remove_spurious_comma_after_import(orig_tokens)
@@ -131,10 +133,12 @@ def _handle_collections_import_of_abcs(
         added_utf8_bytes = sum(t.utf8_byte_offset for t in orig_tokens)
         # not sure why this has to be this way, but it does
         added_newline_src = {'\n': '', '': '\n'}[orig_tokens[-1].src]
-        newline_token = Token(name='NEWLINE',
-                              src=added_newline_src,
-                              line=tokens_line,
-                              utf8_byte_offset=added_utf8_bytes)
+        newline_token = Token(
+            name='NEWLINE',
+            src=added_newline_src,
+            line=tokens_line,
+            utf8_byte_offset=added_utf8_bytes,
+        )
 
         insert_loc = _remove_line(tokens, tokens_line)
         _insert_line(tokens, tokens_line)
@@ -143,15 +147,16 @@ def _handle_collections_import_of_abcs(
             remaining_tokens.insert(
                 0,
                 Token(
-                    name="UNIMPORTANT_WS",
+                    name='UNIMPORTANT_WS',
                     line=remaining_tokens[0].line,
                     utf8_byte_offset=0,
-                    src=" " * remaining_tokens[0].utf8_byte_offset,
-                ))
+                    src=' ' * remaining_tokens[0].utf8_byte_offset,
+                ),
+            )
         tokens[:] = tokens[:insert_loc] + orig_tokens + [newline_token] + abc_tokens + remaining_tokens
 
         # update collections -> collections.abc in abc_tokens
-        jj = find_token(tokens, j+len(orig_tokens), 'collections')
+        jj = find_token(tokens, j + len(orig_tokens), 'collections')
         tokens[jj] = tokens[jj]._replace(src='collections.abc')
 
 

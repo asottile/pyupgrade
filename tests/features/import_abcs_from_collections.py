@@ -73,8 +73,7 @@ from pyupgrade._main import _fix_plugins
         pytest.param(
             'from collections import Counter, MutableMapping, deque',
             'from collections import Counter, deque\n'
-            'from collections.abc import MutableMapping'
-            ,
+            'from collections.abc import MutableMapping',
             id='MutableMapping_with_deque',
         ),
         pytest.param(
@@ -82,8 +81,7 @@ from pyupgrade._main import _fix_plugins
             'pass',
             'from collections import Counter, deque\n'
             'from collections.abc import MutableMapping\n'
-            'pass'
-            ,
+            'pass',
             id='MutableMapping_with_deque_and_pass',
         ),
         pytest.param(
