@@ -786,3 +786,19 @@ Availability:
 -def f(x: 'queue.Queue[int]') -> C:
 +def f(x: queue.Queue[int]) -> C:
 ```
+
+
+### move imports and references to ABCs from `collections` to `collections.abc`
+
+Availability:
+- `--py3-plus` is passed on the commandline.
+
+```diff
+--from collections import deque, Iterable, Counter
+++from collections import deque, Counter
+++from collections.abc import Iterable
+
+--if isinstance(obj, collections.Sequence):
+++if isinstance(obj, collections.abc.Sequence):
+      ...
+```
