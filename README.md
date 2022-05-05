@@ -780,7 +780,6 @@ Availability:
 
 Availability:
 - File imports `from __future__ import annotations`
-- `--py311-plus` is passed on the commandline.
 
 ```diff
 -def f(x: 'queue.Queue[int]') -> C:
