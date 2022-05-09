@@ -162,7 +162,7 @@ def test_typing_named_tuple_noop(s):
             id='indented, but on next line',
         ),
         pytest.param(
-            # mypy treates Tuple[int] and Tuple[int,] the same so in practice
+            # mypy treats Tuple[int] and Tuple[int,] the same so in practice
             # preserving this doesn't really matter
             'C = typing.NamedTuple("C", [("a", Tuple[int,])])',
 

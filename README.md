@@ -390,7 +390,7 @@ Availability:
 +print('py3.6+')
 ```
 
-Note that `if` blocks without an `else` will not be rewriten as it could introduce a syntax error.
+Note that `if` blocks without an `else` will not be rewritten as it could introduce a syntax error.
 
 ### remove `six` compatibility code
 
