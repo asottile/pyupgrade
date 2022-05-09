@@ -88,7 +88,7 @@ from pyupgrade._plugins.legacy import _targets_same
             '\n'
             '        for x, y in z():  # Comment one\n'
             '\n'
-            '            # Commment two\n'
+            '            # Comment two\n'
             '            yield x, y  # Comment three\n'
             '            # Comment four\n'
             '\n\n'
