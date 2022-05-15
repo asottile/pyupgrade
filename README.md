@@ -23,6 +23,7 @@ Sample `.pre-commit-config.yaml`:
     rev: v2.32.1
     hooks:
     -   id: pyupgrade
+        args: [--py310-plus]  # Optional
 ```
 
 ## Implemented features
