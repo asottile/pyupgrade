@@ -40,7 +40,7 @@ def f():
 def test_main_changes_a_file(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write('x = set((1, 2, 3))\n')
-    assert main((f.strpath,)) == 1
+    assert main((f.strpath, '--py3-plus')) == 1
     out, err = capsys.readouterr()
     assert err == f'Rewriting {f.strpath}\n'
     assert f.read() == 'x = {1, 2, 3}\n'
@@ -217,3 +217,11 @@ def test_main_stdin_with_changes(capsys):
         assert main(('-',)) == 1
     out, err = capsys.readouterr()
     assert out == '{1, 2}\n'
+
+
+def test_main_py27_mode_warning(capsys, tmpdir):
+    f = tmpdir.join('t.py').ensure()
+    assert not main((str(f),))
+    out, err = capsys.readouterr()
+    assert out == ''
+    assert err == 'WARNING: pyupgrade will default to --py3-plus in 3.x\n'
