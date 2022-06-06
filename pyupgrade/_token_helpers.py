@@ -420,7 +420,7 @@ def replace_call(
 
     # there are a few edge cases which cause syntax errors when the first
     # argument contains newlines (especially when moved outside of a natural
-    # contiunuation context)
+    # continuation context)
     if _arg_contains_newline(tokens, *args[0]) and 0 not in parens:
         # this attempts to preserve more of the whitespace by using the
         # original non-stripped argument string

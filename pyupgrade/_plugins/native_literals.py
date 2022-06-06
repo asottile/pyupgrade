@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import functools
 from typing import Iterable
 
 from tokenize_rt import Offset
@@ -19,7 +20,7 @@ from pyupgrade._token_helpers import replace_call
 SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
 
 
-def _fix_native_str(i: int, tokens: list[Token]) -> None:
+def _fix_literal(i: int, tokens: list[Token], *, empty: str) -> None:
     j = find_open_paren(tokens, i)
     func_args, end = parse_call_args(tokens, j)
     if any(tok.name == 'NL' for tok in tokens[i:end]):
@@ -27,7 +28,7 @@ def _fix_native_str(i: int, tokens: list[Token]) -> None:
     if func_args:
         replace_call(tokens, i, end, func_args, '{args[0]}')
     else:
-        tokens[i:end] = [tokens[i]._replace(name='STRING', src="''")]
+        tokens[i:end] = [tokens[i]._replace(name='STRING', src=empty)]
 
 
 def is_a_native_literal_call(
@@ -58,4 +59,16 @@ def visit_Call(
             state.settings.min_version >= (3,) and
             is_a_native_literal_call(node, state.from_imports)
     ):
-        yield ast_to_offset(node), _fix_native_str
+        func = functools.partial(_fix_literal, empty="''")
+        yield ast_to_offset(node), func
+    elif (
+            state.settings.min_version >= (3,) and
+            isinstance(node.func, ast.Name) and node.func.id == 'bytes' and
+            not node.keywords and not has_starargs(node) and
+            (
+                len(node.args) == 0 or
+                (len(node.args) == 1 and isinstance(node.args[0], ast.Bytes))
+            )
+    ):
+        func = functools.partial(_fix_literal, empty="b''")
+        yield ast_to_offset(node), func
