@@ -14,6 +14,11 @@ from pyupgrade._main import _fix_plugins
         'str(*a)', 'str("foo", *a)',
         'str(**k)', 'str("foo", **k)',
         'str("foo", encoding="UTF-8")',
+        'bytes("foo", encoding="UTF-8")',
+        'bytes(b"foo"\nb"bar")',
+        'bytes("foo"\n"bar")',
+        'bytes(*a)', 'bytes("foo", *a)',
+        'bytes("foo", **a)',
     ),
 )
 def test_fix_native_literals_noop(s):
@@ -38,6 +43,9 @@ def test_fix_native_literals_noop(s):
 
             id='from import of rewritten name',
         ),
+        ('bytes()', "b''"),
+        ('bytes(b"foo")', 'b"foo"'),
+        ('bytes(b"""\nfoo""")', 'b"""\nfoo"""'),
     ),
 )
 def test_fix_native_literals(s, expected):
