@@ -543,6 +543,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.min_version < (3,):
+        print(
+            'WARNING: pyupgrade will default to --py3-plus in 3.x',
+            file=sys.stderr,
+        )
+
     ret = 0
     for filename in args.filenames:
         ret |= _fix_file(filename, args)
