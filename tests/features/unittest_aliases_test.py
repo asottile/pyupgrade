@@ -63,3 +63,25 @@ def test_fix_unittest_aliases_py27(s, expected):
 def test_fix_unittest_aliases_py3(s, expected):
     ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
     assert ret == expected
+
+
+@pytest.mark.parametrize(
+    ('s', 'expected'),
+    (
+        (
+            'unittest.findTestCases(MyTests)',
+            'unittest.defaultTestLoader.loadTestsFromModule(MyTests)',
+        ),
+        (
+            'unittest.makeSuite(MyTests)',
+            'unittest.defaultTestLoader.loadTestsFromTestCase(MyTests)',
+        ),
+        (
+            'unittest.getTestCaseNames(MyTests)',
+            'unittest.defaultTestLoader.getTestCaseNames(MyTests)',
+        ),
+    ),
+)
+def test_fix_unittest_aliases_py311(s, expected):
+    ret = _fix_plugins(s, settings=Settings(min_version=(3, 11)))
+    assert ret == expected

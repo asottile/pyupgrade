@@ -35,6 +35,12 @@ METHOD_MAPPING_PY35_PLUS = {
     'assertRaisesRegexp': 'assertRaisesRegex',
 }
 
+FUNCTION_MAPPING = {
+    'findTestCases': 'defaultTestLoader.loadTestsFromModule',
+    'makeSuite': 'defaultTestLoader.loadTestsFromTestCase',
+    'getTestCaseNames': 'defaultTestLoader.getTestCaseNames',
+}
+
 
 @register(ast.Call)
 def visit_Call(
@@ -57,5 +63,17 @@ def visit_Call(
             replace_name,
             name=node.func.attr,
             new=f'self.{method_mapping[node.func.attr]}',
+        )
+        yield ast_to_offset(node.func), func
+    elif (
+            isinstance(node.func, ast.Attribute) and
+            isinstance(node.func.value, ast.Name) and
+            node.func.value.id == 'unittest' and
+            node.func.attr in FUNCTION_MAPPING
+    ):
+        func = functools.partial(
+            replace_name,
+            name=node.func.attr,
+            new=f'unittest.{FUNCTION_MAPPING[node.func.attr]}',
         )
         yield ast_to_offset(node.func), func
