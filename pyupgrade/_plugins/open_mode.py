@@ -29,6 +29,11 @@ class FunctionArg(NamedTuple):
     value: ast.expr
 
 
+def _replace_io_open(i: int, tokens: list[Token]) -> None:
+    j = find_open_paren(tokens, i)
+    tokens[i:j] = [tokens[i]._replace(name='NAME', src='open')]
+
+
 def _fix_open_mode(i: int, tokens: list[Token], *, arg_idx: int) -> None:
     j = find_open_paren(tokens, i)
     func_args, end = parse_call_args(tokens, j)
@@ -55,10 +60,23 @@ def visit_Call(
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
-            isinstance(node.func, ast.Name) and
-            node.func.id == 'open' and
-            not has_starargs(node)
+            isinstance(node.func, ast.Attribute) and
+            isinstance(node.func.value, ast.Name) and
+            node.func.value.id == 'io' and
+            node.func.attr == 'open'
     ):
+        yield ast_to_offset(node.func), _replace_io_open
+        is_open_node = True
+    elif (
+            state.settings.min_version >= (3,) and
+            isinstance(node.func, ast.Name) and
+            node.func.id == 'open'
+    ):
+        is_open_node = True
+    else:
+        is_open_node = False
+
+    if is_open_node and not has_starargs(node):
         if len(node.args) >= 2 and isinstance(node.args[1], ast.Str):
             if (
                 node.args[1].s in U_MODE_REPLACE or
