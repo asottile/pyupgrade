@@ -55,8 +55,17 @@ def visit_Call(
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
-            isinstance(node.func, ast.Name) and
-            node.func.id == 'open' and
+            (
+                (
+                    isinstance(node.func, ast.Name) and
+                    node.func.id == 'open'
+                ) or (
+                    isinstance(node.func, ast.Attribute) and
+                    isinstance(node.func.value, ast.Name) and
+                    node.func.value.id == 'io' and
+                    node.func.attr == 'open'
+                )
+            ) and
             not has_starargs(node)
     ):
         if len(node.args) >= 2 and isinstance(node.args[1], ast.Str):
