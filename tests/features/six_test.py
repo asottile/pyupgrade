@@ -382,6 +382,11 @@ def test_fix_six_noop(s):
             '    x).values()',
             id='multiline first argument with comment, trailing comma',
         ),
+        pytest.param(
+            'x = six.moves.map(str, ints)\n',
+            'x = map(str, ints)\n',
+            id='six.moves builtin attrs',
+        ),
     ),
 )
 def test_fix_six(s, expected):
