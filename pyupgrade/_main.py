@@ -80,7 +80,7 @@ def _fix_plugins(contents_text: str, settings: Settings) -> str:
         for callback in callbacks.get(token.offset, ()):
             callback(i, tokens)
 
-    return tokens_to_src(tokens)
+    return tokens_to_src(tokens).lstrip()
 
 
 def _imports_future(contents_text: str, future_name: str) -> bool:
@@ -376,60 +376,6 @@ def _build_import_removals() -> dict[Version, dict[str, tuple[str, ...]]]:
 IMPORT_REMOVALS = _build_import_removals()
 
 
-def _fix_import_removals(
-        tokens: list[Token],
-        start: int,
-        min_version: Version,
-) -> None:
-    i = start + 1
-    name_parts = []
-    while tokens[i].src != 'import':
-        if tokens[i].name in {'NAME', 'OP'}:
-            name_parts.append(tokens[i].src)
-        i += 1
-
-    modname = ''.join(name_parts)
-    if modname not in IMPORT_REMOVALS[min_version]:
-        return
-
-    found: list[int | None] = []
-    i += 1
-    while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
-        if tokens[i].name == 'NAME' or tokens[i].src == '*':
-            # don't touch aliases
-            if (
-                    found and found[-1] is not None and
-                    tokens[found[-1]].src == 'as'
-            ):
-                found[-2:] = [None]
-            else:
-                found.append(i)
-        i += 1
-    # depending on the version of python, some will not emit NEWLINE('') at the
-    # end of a file which does not end with a newline (for example 3.7.0)
-    if tokens[i].name == 'ENDMARKER':  # pragma: no cover
-        i -= 1
-
-    remove_names = IMPORT_REMOVALS[min_version][modname]
-    to_remove = [
-        x for x in found if x is not None and tokens[x].src in remove_names
-    ]
-    if len(to_remove) == len(found):
-        del tokens[start:i + 1]
-    else:
-        for idx in reversed(to_remove):
-            if found[0] == idx:  # look forward until next name and del
-                j = idx + 1
-                while tokens[j].name != 'NAME':
-                    j += 1
-                del tokens[idx:j]
-            else:  # look backward for comma and del
-                j = idx
-                while tokens[j].src != ',':
-                    j -= 1
-                del tokens[j:idx + 1]
-
-
 def _fix_tokens(contents_text: str, min_version: Version) -> str:
     remove_u = (
         min_version >= (3,) or
@@ -464,8 +410,6 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
             del tokens[i]
             assert tokens[i].name == 'NL', tokens[i].name
             del tokens[i]
-        elif token.src == 'from' and token.utf8_byte_offset == 0:
-            _fix_import_removals(tokens, i, min_version)
     return tokens_to_src(tokens).lstrip()
 
 
