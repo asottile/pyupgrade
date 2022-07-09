@@ -6,17 +6,18 @@ from pyupgrade._data import Settings
 from pyupgrade._main import _fix_plugins
 
 
-@pytest.mark.parametrize(
-    's',
-    (
-        # when using open without referencing io we don't need to rewrite
-        'from io import open\n\n'
-        'with open("f.txt") as f:\n'
-        '     print(f.read())\n',
-    ),
-)
-def test_fix_io_open_noop(s):
-    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
+def test_fix_io_open_noop():
+    src = '''\
+from io import open
+with open("f.txt") as f:
+    print(f.read())
+'''
+    expected = '''\
+with open("f.txt") as f:
+    print(f.read())
+'''
+    ret = _fix_plugins(src, settings=Settings(min_version=(3,)))
+    assert ret == expected
 
 
 @pytest.mark.parametrize(

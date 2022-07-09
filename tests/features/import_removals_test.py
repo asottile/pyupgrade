@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from pyupgrade._main import _fix_tokens
+from pyupgrade._data import Settings
+from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
@@ -18,10 +19,16 @@ from pyupgrade._main import _fix_tokens
         ('from six import *', (3,)),
         ('from six.moves import map as notmap', (3,)),
         ('from six.moves import queue as map', (3,)),
+        pytest.param(
+            'if True:\n'
+            '    from six.moves import map\n',
+            (3,),
+            id='import removal not at module scope',
+        ),
     ),
 )
 def test_import_removals_noop(s, min_version):
-    assert _fix_tokens(s, min_version=min_version) == s
+    assert _fix_plugins(s, settings=Settings(min_version=min_version)) == s
 
 
 @pytest.mark.parametrize(
@@ -35,6 +42,7 @@ def test_import_removals_noop(s, min_version):
         ('from builtins import map', (3,), ''),
         ('from builtins import *', (3,), ''),
         ('from six.moves import map', (3,), ''),
+        ('from six.moves.builtins import map', (3,), ''),
         pytest.param(
             'from __future__ import absolute_import, annotations\n',
             (3,),
@@ -122,4 +130,5 @@ def test_import_removals_noop(s, min_version):
     ),
 )
 def test_import_removals(s, min_version, expected):
-    assert _fix_tokens(s, min_version=min_version) == expected
+    ret = _fix_plugins(s, settings=Settings(min_version=min_version))
+    assert ret == expected
