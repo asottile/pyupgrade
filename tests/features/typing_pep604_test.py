@@ -190,7 +190,8 @@ def f(x: int | str) -> None: ...
             'from typing import Union, Sequence\n'
             'def f(x: Union[Union[A, B], Sequence[Union[C, D]]]): pass\n',
 
-            'from typing import Union, Sequence\n'
+            'from typing import Union\n'
+            'from collections.abc import Sequence\n'
             'def f(x: A | B | Sequence[C | D]): pass\n',
 
             id='nested unions',

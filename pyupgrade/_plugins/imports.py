@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import collections
 import functools
 from typing import Iterable
 from typing import Mapping
@@ -8,6 +9,7 @@ from typing import NamedTuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
+from tokenize_rt import UNIMPORTANT_WS
 
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
@@ -37,16 +39,210 @@ REMOVALS = {
     (3, 7): {'__future__': {'generator_stop'}},
 }
 REMOVALS[(3,)]['six.moves.builtins'] = REMOVALS[(3,)]['builtins']
+REPLACE_EXACT = {
+    (3,): {
+        ('collections', 'AsyncGenerator'): 'collections.abc',
+        ('collections', 'AsyncIterable'): 'collections.abc',
+        ('collections', 'AsyncIterator'): 'collections.abc',
+        ('collections', 'Awaitable'): 'collections.abc',
+        ('collections', 'ByteString'): 'collections.abc',
+        ('collections', 'Callable'): 'collections.abc',
+        ('collections', 'Collection'): 'collections.abc',
+        ('collections', 'Container'): 'collections.abc',
+        ('collections', 'Coroutine'): 'collections.abc',
+        ('collections', 'Generator'): 'collections.abc',
+        ('collections', 'Hashable'): 'collections.abc',
+        ('collections', 'ItemsView'): 'collections.abc',
+        ('collections', 'Iterable'): 'collections.abc',
+        ('collections', 'Iterator'): 'collections.abc',
+        ('collections', 'KeysView'): 'collections.abc',
+        ('collections', 'Mapping'): 'collections.abc',
+        ('collections', 'MappingView'): 'collections.abc',
+        ('collections', 'MutableMapping'): 'collections.abc',
+        ('collections', 'MutableSequence'): 'collections.abc',
+        ('collections', 'MutableSet'): 'collections.abc',
+        ('collections', 'Reversible'): 'collections.abc',
+        ('collections', 'Sequence'): 'collections.abc',
+        ('collections', 'Set'): 'collections.abc',
+        ('collections', 'Sized'): 'collections.abc',
+        ('collections', 'ValuesView'): 'collections.abc',
+        ('six', 'BytesIO'): 'io',
+        ('six', 'StringIO'): 'io',
+        ('six', 'wraps'): 'functools',
+        ('six.moves', 'StringIO'): 'io',
+        ('six.moves', 'UserDict'): 'collections',
+        ('six.moves', 'UserList'): 'collections',
+        ('six.moves', 'UserString'): 'collections',
+        ('six.moves', 'filterfalse'): 'itertools',
+        ('six.moves', 'getcwd'): 'os',
+        ('six.moves', 'getcwdb'): 'os',
+        ('six.moves', 'getoutput'): 'subprocess',
+        ('six.moves', 'intern'): 'sys',
+        ('six.moves', 'reduce'): 'functools',
+        ('six.moves', 'zip_longest'): 'itertools',
+        ('six.moves.urllib', 'error'): 'urllib',
+        ('six.moves.urllib', 'parse'): 'urllib',
+        ('six.moves.urllib', 'request'): 'urllib',
+        ('six.moves.urllib', 'response'): 'urllib',
+        ('six.moves.urllib', 'robotparser'): 'urllib',
+    },
+    (3, 6): {
+        ('typing_extensions', 'AsyncIterable'): 'typing',
+        ('typing_extensions', 'AsyncIterator'): 'typing',
+        ('typing_extensions', 'Awaitable'): 'typing',
+        ('typing_extensions', 'ClassVar'): 'typing',
+        ('typing_extensions', 'ContextManager'): 'typing',
+        ('typing_extensions', 'Coroutine'): 'typing',
+        ('typing_extensions', 'DefaultDict'): 'typing',
+        ('typing_extensions', 'NewType'): 'typing',
+        ('typing_extensions', 'TYPE_CHECKING'): 'typing',
+        ('typing_extensions', 'Text'): 'typing',
+        ('typing_extensions', 'Type'): 'typing',
+        ('typing_extensions', 'get_type_hints'): 'typing',
+        ('typing_extensions', 'overload'): 'typing',
+    },
+    (3, 7): {
+        ('mypy_extensions', 'NoReturn'): 'typing',
+        ('typing_extensions', 'AsyncContextManager'): 'typing',
+        ('typing_extensions', 'AsyncGenerator'): 'typing',
+        ('typing_extensions', 'ChainMap'): 'typing',
+        ('typing_extensions', 'Counter'): 'typing',
+        ('typing_extensions', 'Deque'): 'typing',
+    },
+    (3, 8): {
+        ('mypy_extensions', 'TypedDict'): 'typing',
+        ('typing_extensions', 'Final'): 'typing',
+        ('typing_extensions', 'Literal'): 'typing',
+        ('typing_extensions', 'OrderedDict'): 'typing',
+        ('typing_extensions', 'Protocol'): 'typing',
+        ('typing_extensions', 'SupportsIndex'): 'typing',
+        ('typing_extensions', 'TypedDict'): 'typing',
+        ('typing_extensions', 'final'): 'typing',
+        ('typing_extensions', 'get_args'): 'typing',
+        ('typing_extensions', 'get_origin'): 'typing',
+        ('typing_extensions', 'runtime_checkable'): 'typing',
+    },
+    (3, 9): {
+        ('typing', 'AsyncGenerator'): 'collections.abc',
+        ('typing', 'AsyncIterable'): 'collections.abc',
+        ('typing', 'AsyncIterator'): 'collections.abc',
+        ('typing', 'Awaitable'): 'collections.abc',
+        ('typing', 'ByteString'): 'collections.abc',
+        ('typing', 'Callable'): 'collections.abc',
+        ('typing', 'ChainMap'): 'collections',
+        ('typing', 'Collection'): 'collections.abc',
+        ('typing', 'Container'): 'collections.abc',
+        ('typing', 'Coroutine'): 'collections.abc',
+        ('typing', 'Counter'): 'collections',
+        ('typing', 'Generator'): 'collections.abc',
+        ('typing', 'Hashable'): 'collections.abc',
+        ('typing', 'ItemsView'): 'collections.abc',
+        ('typing', 'Iterable'): 'collections.abc',
+        ('typing', 'Iterator'): 'collections.abc',
+        ('typing', 'KeysView'): 'collections.abc',
+        ('typing', 'Mapping'): 'collections.abc',
+        ('typing', 'MappingView'): 'collections.abc',
+        ('typing', 'Match'): 're',
+        ('typing', 'MutableMapping'): 'collections.abc',
+        ('typing', 'MutableSequence'): 'collections.abc',
+        ('typing', 'MutableSet'): 'collections.abc',
+        ('typing', 'OrderedDict'): 'collections',
+        ('typing', 'Pattern'): 're',
+        ('typing', 'Reversible'): 'collections.abc',
+        ('typing', 'Sequence'): 'collections.abc',
+        ('typing', 'Sized'): 'collections.abc',
+        ('typing', 'ValuesView'): 'collections.abc',
+        ('typing.re', 'Match'): 're',
+        ('typing.re', 'Pattern'): 're',
+        ('typing_extensions', 'Annotated'): 'typing',
+    },
+    (3, 10): {
+        ('typing_extensions', 'Concatenate'): 'typing',
+        ('typing_extensions', 'ParamSpec'): 'typing',
+        ('typing_extensions', 'TypeAlias'): 'typing',
+        ('typing_extensions', 'TypeGuard'): 'typing',
+    },
+}
+REPLACE_MODS = {
+    'six.moves.BaseHTTPServer': 'http.server',
+    'six.moves.CGIHTTPServer': 'http.server',
+    'six.moves.SimpleHTTPServer': 'http.server',
+    'six.moves._dummy_thread': '_dummy_thread',
+    'six.moves._thread': '_thread',
+    'six.moves.builtins': 'builtins',
+    'six.moves.cPickle': 'pickle',
+    'six.moves.collections_abc': 'collections.abc',
+    'six.moves.configparser': 'configparser',
+    'six.moves.copyreg': 'copyreg',
+    'six.moves.dbm_gnu': 'dbm.gnu',
+    'six.moves.dbm_ndbm': 'dbm.ndbm',
+    'six.moves.email_mime_base': 'email.mime.base',
+    'six.moves.email_mime_image': 'email.mime.image',
+    'six.moves.email_mime_multipart': 'email.mime.multipart',
+    'six.moves.email_mime_nonmultipart': 'email.mime.nonmultipart',
+    'six.moves.email_mime_text': 'email.mime.text',
+    'six.moves.html_entities': 'html.entities',
+    'six.moves.html_parser': 'html.parser',
+    'six.moves.http_client': 'http.client',
+    'six.moves.http_cookiejar': 'http.cookiejar',
+    'six.moves.http_cookies': 'http.cookies',
+    'six.moves.queue': 'queue',
+    'six.moves.reprlib': 'reprlib',
+    'six.moves.socketserver': 'socketserver',
+    'six.moves.tkinter': 'tkinter',
+    'six.moves.tkinter_colorchooser': 'tkinter.colorchooser',
+    'six.moves.tkinter_commondialog': 'tkinter.commondialog',
+    'six.moves.tkinter_constants': 'tkinter.constants',
+    'six.moves.tkinter_dialog': 'tkinter.dialog',
+    'six.moves.tkinter_dnd': 'tkinter.dnd',
+    'six.moves.tkinter_filedialog': 'tkinter.filedialog',
+    'six.moves.tkinter_font': 'tkinter.font',
+    'six.moves.tkinter_messagebox': 'tkinter.messagebox',
+    'six.moves.tkinter_scrolledtext': 'tkinter.scrolledtext',
+    'six.moves.tkinter_simpledialog': 'tkinter.simpledialog',
+    'six.moves.tkinter_tix': 'tkinter.tix',
+    'six.moves.tkinter_tkfiledialog': 'tkinter.filedialog',
+    'six.moves.tkinter_tksimpledialog': 'tkinter.simpledialog',
+    'six.moves.tkinter_ttk': 'tkinter.ttk',
+    'six.moves.urllib.error': 'urllib.error',
+    'six.moves.urllib.parse': 'urllib.parse',
+    'six.moves.urllib.request': 'urllib.request',
+    'six.moves.urllib.response': 'urllib.response',
+    'six.moves.urllib.robotparser': 'urllib.robotparser',
+    'six.moves.urllib_error': 'urllib.error',
+    'six.moves.urllib_parse': 'urllib.parse',
+    'six.moves.urllib_robotparser': 'urllib.robotparser',
+    'six.moves.xmlrpc_client': 'xmlrpc.client',
+    'six.moves.xmlrpc_server': 'xmlrpc.server',
+    'xml.etree.cElementTree': 'xml.etree.ElementTree',
+}
 # END GENERATED
 
 
 @functools.lru_cache(maxsize=None)
-def _removals(version: tuple[int, ...]) -> Mapping[str, set[str]]:
-    ret = {}
-    for k, v in REMOVALS.items():
-        if k <= version:
-            ret.update(v)
-    return ret
+def _for_version(
+        version: tuple[int, ...],
+) -> tuple[
+        Mapping[str, set[str]],
+        Mapping[tuple[str, str], str],
+        Mapping[str, str],
+]:
+    removals = {}
+    for ver, ver_removals in REMOVALS.items():
+        if ver <= version:
+            removals.update(ver_removals)
+
+    exact = {}
+    for ver, ver_exact in REPLACE_EXACT.items():
+        if ver <= version:
+            exact.update(ver_exact)
+
+    if version >= (3,):
+        mods = REPLACE_MODS
+    else:
+        mods = {}
+
+    return removals, exact, mods
 
 
 def _remove_import(i: int, tokens: list[Token]) -> None:
@@ -57,6 +253,7 @@ class FromImport(NamedTuple):
     mod_start: int
     mod_end: int
     names: tuple[int, ...]
+    end: int
 
 
 def _parse_from_import(i: int, tokens: list[Token]) -> FromImport:
@@ -72,17 +269,19 @@ def _parse_from_import(i: int, tokens: list[Token]) -> FromImport:
         j -= 1
     mod_end = j
 
+    end = find_end(tokens, import_token)
+
     # XXX: does not handle `*` imports
     names = [
         j
-        for j in range(import_token + 1, find_end(tokens, import_token))
+        for j in range(import_token + 1, end)
         if tokens[j].name == 'NAME'
     ]
     for i in reversed(range(len(names))):
         if tokens[names[i]].src == 'as':
             del names[i:i + 2]
 
-    return FromImport(mod_start, mod_end, tuple(names))
+    return FromImport(mod_start, mod_end + 1, tuple(names), end)
 
 
 def _remove_import_partial(
@@ -103,14 +302,72 @@ def _remove_import_partial(
             del tokens[j:end + 1]
 
 
+def _alias_to_s(alias: ast.alias) -> str:
+    if alias.asname:
+        return f'{alias.name} as {alias.asname}'
+    else:
+        return alias.name
+
+
+def _replace_from_modname(
+        i: int,
+        tokens: list[Token],
+        *,
+        modname: str,
+) -> None:
+    parsed = _parse_from_import(i, tokens)
+    tokens[parsed.mod_start:parsed.mod_end] = [Token('CODE', modname)]
+
+
+def _replace_exact(
+        i: int,
+        tokens: list[Token],
+        *,
+        idx_mod_alias: list[tuple[int, str, ast.alias]],
+) -> None:
+    if i == 0:
+        indent = ''
+    elif tokens[i - 1].name in {UNIMPORTANT_WS, 'INDENT'}:
+        if tokens[i - 2].name in {'NL', 'NEWLINE', 'DEDENT'}:
+            indent = tokens[i - 1].src
+        else:  # inline import
+            return
+    elif tokens[i - 1].name not in {'NL', 'NEWLINE', 'DEDENT'}:
+        return  # inline import
+    else:
+        indent = ''
+
+    parsed = _parse_from_import(i, tokens)
+
+    new_imports = collections.defaultdict(list)
+    for _, mod, alias in idx_mod_alias:
+        new_imports[mod].append(_alias_to_s(alias))
+
+    tokens[parsed.end:parsed.end] = sorted(
+        Token('CODE', f'{indent}from {mod} import {", ".join(names)}\n')
+        for mod, names in new_imports.items()
+    )
+    # all names rewritten -- delete import
+    if len(parsed.names) == len(idx_mod_alias):
+        del tokens[i:parsed.end]
+    else:
+        idxs = [idx for idx, _, _ in idx_mod_alias]
+        _remove_import_partial(i, tokens, idxs=idxs)
+
+
 @register(ast.ImportFrom)
 def visit_ImportFrom(
         state: State,
         node: ast.ImportFrom,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    removals = _removals(state.settings.min_version)
-    if node.col_offset == 0 and node.level == 0 and node.module is not None:
+    removals, exact, mods = _for_version(state.settings.min_version)
+
+    # we don't have any relative rewrites
+    if node.level != 0 or node.module is None:
+        return
+
+    if node.col_offset == 0:
         removals_for_mod = removals.get(node.module)
         if removals_for_mod is not None:
             idxs = [
@@ -123,3 +380,24 @@ def visit_ImportFrom(
             elif idxs:
                 func = functools.partial(_remove_import_partial, idxs=idxs)
                 yield ast_to_offset(node), func
+
+    mod = node.module
+
+    idx_mod_alias = []
+    for i, alias in enumerate(node.names):
+        new_mod = exact.get((mod, alias.name))
+        if new_mod is not None:
+            idx_mod_alias.append((i, new_mod, alias))
+
+    if idx_mod_alias:
+        modnames = {mod for _, mod, _ in idx_mod_alias}
+        if len(node.names) == len(idx_mod_alias) and len(modnames) == 1:
+            modname, = modnames
+            func = functools.partial(_replace_from_modname, modname=modname)
+            yield ast_to_offset(node), func
+        else:
+            func = functools.partial(
+                _replace_exact,
+                idx_mod_alias=idx_mod_alias,
+            )
+            yield ast_to_offset(node), func

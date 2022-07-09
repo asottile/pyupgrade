@@ -10,7 +10,7 @@ from pyupgrade._main import _fix_plugins
     's',
     (
         # renaming things for weird reasons
-        'from six import StringIO as text_type\n'
+        'from six import MAXSIZE as text_type\n'
         'isinstance(s, text_type)\n',
         # parenthesized part of attribute
         '(\n'
