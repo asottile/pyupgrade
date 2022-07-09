@@ -10,6 +10,7 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
+from pyupgrade._plugins.imports import REMOVALS
 from pyupgrade._plugins.native_literals import is_a_native_literal_call
 from pyupgrade._token_helpers import replace_name
 
@@ -27,6 +28,7 @@ NAMES = {
     'next': 'next',
     'callable': 'callable',
 }
+NAMES_MOVES = REMOVALS[(3,)]['six.moves']
 NAMES_TYPE_CTX = {
     'class_types': 'type',
     'string_types': 'str',
@@ -74,9 +76,19 @@ def visit_Attribute(
             isinstance(node.value.value, ast.Name) and
             node.value.value.id == 'six' and
             node.value.attr == 'moves' and
-            node.attr in {'xrange', 'range'}
+            node.attr == 'xrange'
     ):
         func = functools.partial(replace_name, name=node.attr, new='range')
+        yield ast_to_offset(node), func
+    elif (
+            state.settings.min_version >= (3,) and
+            isinstance(node.value, ast.Attribute) and
+            isinstance(node.value.value, ast.Name) and
+            node.value.value.id == 'six' and
+            node.value.attr == 'moves' and
+            node.attr in NAMES_MOVES
+    ):
+        func = functools.partial(replace_name, name=node.attr, new=node.attr)
         yield ast_to_offset(node), func
 
 
