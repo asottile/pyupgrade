@@ -69,6 +69,13 @@ def test_import_replaces_noop(s, min_version):
             id='one name rewritten to new module',
         ),
         pytest.param(
+            'from collections import Counter, Mapping',
+            (3,),
+            'from collections import Counter\n'
+            'from collections.abc import Mapping\n',
+            id='one name rewritten to new module, no eol',
+        ),
+        pytest.param(
             'from collections import Counter, Mapping, Sequence\n',
             (3,),
             'from collections import Counter\n'
