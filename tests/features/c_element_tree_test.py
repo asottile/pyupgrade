@@ -20,11 +20,6 @@ from pyupgrade._main import _fix_plugins
             id='does not rewrite multiple imports',
         ),
         pytest.param(
-            'from .xml.etree.cElementTree import XML\n',
-            (3,),
-            id='leave relative imports alone',
-        ),
-        pytest.param(
             'import xml.etree.cElementTree',
             (3,),
             id='import without alias',
@@ -38,16 +33,6 @@ def test_c_element_tree_noop(s, version):
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
-        pytest.param(
-            'from xml.etree.cElementTree import XML\n',
-            'from xml.etree.ElementTree import XML\n',
-            id='relative import func',
-        ),
-        pytest.param(
-            'from xml.etree.cElementTree import XML, Element\n',
-            'from xml.etree.ElementTree import XML, Element\n',
-            id='import multiple objects',
-        ),
         pytest.param(
             'import xml.etree.cElementTree as ET',
             'import xml.etree.ElementTree as ET',

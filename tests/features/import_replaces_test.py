@@ -16,6 +16,11 @@ from pyupgrade._main import _fix_plugins
             id='too old min version',
         ),
         pytest.param(
+            'from .xml.etree.cElementTree import XML\n',
+            (3,),
+            id='leave relative imports alone',
+        ),
+        pytest.param(
             'if True: from six.moves import getcwd, StringIO\n',
             (3,),
             id='play stupid games, win stupid prizes pt1',
@@ -125,6 +130,24 @@ def test_import_replaces_noop(s, min_version):
             (3,),
             'from os import getcwd\n',
             id='replaces and removals and no remaining',
+        ),
+        pytest.param(
+            'from six.moves.queue import Queue\n',
+            (3,),
+            'from queue import Queue\n',
+            id='module replacement',
+        ),
+        pytest.param(
+            'from xml.etree.cElementTree import XML\n',
+            (3,),
+            'from xml.etree.ElementTree import XML\n',
+            id='relative import func',
+        ),
+        pytest.param(
+            'from xml.etree.cElementTree import XML, Element\n',
+            (3,),
+            'from xml.etree.ElementTree import XML, Element\n',
+            id='import multiple objects',
         ),
     ),
 )
