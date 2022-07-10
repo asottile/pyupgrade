@@ -18,7 +18,7 @@ from pyupgrade._main import _fix_plugins
         ('from builtins import str', (2, 7)),
         ('from six import *', (3,)),
         ('from six.moves import map as notmap', (3,)),
-        ('from six.moves import queue as map', (3,)),
+        ('from unrelated import queue as map', (3,)),
         pytest.param(
             'if True:\n'
             '    from six.moves import map\n',
