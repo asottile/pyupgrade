@@ -387,15 +387,16 @@ def visit_ImportFrom(
         if new_mod is not None:
             exact_moves.append((i, new_mod, alias))
 
-    modnames = {mod for _, mod, _ in exact_moves}
-
     if len(removal_idxs) == len(node.names):
         yield ast_to_offset(node), _remove_import
     elif mod in mods:
         func = functools.partial(_replace_from_modname, modname=mods[mod])
         yield ast_to_offset(node), func
-    elif len(exact_moves) == len(node.names) and len(modnames) == 1:
-        modname, = modnames
+    elif (
+            len(exact_moves) == len(node.names) and
+            len({mod for _, mod, _ in exact_moves}) == 1
+    ):
+        _, modname, _ = exact_moves[0]
         func = functools.partial(_replace_from_modname, modname=modname)
         yield ast_to_offset(node), func
     elif removal_idxs and not exact_moves:
