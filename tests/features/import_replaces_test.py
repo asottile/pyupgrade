@@ -30,6 +30,11 @@ from pyupgrade._main import _fix_plugins
             (3,),
             id='play stupid games, win stupid prizes pt2',
         ),
+        pytest.param(
+            'import xml.etree.cElementTree',
+            (3,),
+            id='import without alias',
+        ),
     ),
 )
 def test_import_replaces_noop(s, min_version):
@@ -148,6 +153,18 @@ def test_import_replaces_noop(s, min_version):
             (3,),
             'from xml.etree.ElementTree import XML, Element\n',
             id='import multiple objects',
+        ),
+        pytest.param(
+            'import xml.etree.cElementTree as ET',
+            (3,),
+            'import xml.etree.ElementTree as ET',
+            id='import with alias',
+        ),
+        pytest.param(
+            'import contextlib, xml.etree.cElementTree as ET\n',
+            (3,),
+            'import contextlib, xml.etree.ElementTree as ET\n',
+            id='can rewrite multiple import imports',
         ),
     ),
 )

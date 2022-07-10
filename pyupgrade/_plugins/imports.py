@@ -409,3 +409,53 @@ def visit_ImportFrom(
             exact_moves=exact_moves,
         )
         yield ast_to_offset(node), func
+
+
+def _replace_import(
+        i: int,
+        tokens: list[Token],
+        *,
+        exact_moves: list[tuple[int, str, str]],
+) -> None:
+    end = find_end(tokens, i)
+
+    parts = []
+    start_idx = None
+    end_idx = None
+    for j in range(i + 1, end):
+        if start_idx is None and tokens[j].name == 'NAME':
+            start_idx = j
+            end_idx = j + 1
+        elif start_idx is not None and tokens[j].name == 'NAME':
+            end_idx = j + 1
+        elif tokens[j].src == ',':
+            assert start_idx is not None and end_idx is not None
+            parts.append((start_idx, end_idx))
+            start_idx = end_idx = None
+
+    assert start_idx is not None and end_idx is not None
+    parts.append((start_idx, end_idx))
+
+    for i, new_mod, asname in reversed(exact_moves):
+        new_alias = ast.alias(name=new_mod, asname=asname)
+        tokens[slice(*parts[i])] = [Token('CODE', _alias_to_s(new_alias))]
+
+
+@register(ast.Import)
+def visit_Import(
+        state: State,
+        node: ast.Import,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    _, _, mods = _for_version(state.settings.min_version)
+
+    exact_moves = []
+    for i, alias in enumerate(node.names):
+        if alias.asname is not None:
+            new_mod = mods.get(alias.name)
+            if new_mod is not None:
+                exact_moves.append((i, new_mod, alias.asname))
+
+    if exact_moves:
+        func = functools.partial(_replace_import, exact_moves=exact_moves)
+        yield ast_to_offset(node), func
