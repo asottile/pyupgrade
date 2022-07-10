@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import collections
+import importlib.metadata
+import os.path
+import re
+import sys
+
+import reorder_python_imports
+
+FROM_IMPORT_RE = re.compile(r'^from ([^ ]+) import (.*)$')
+REPLACE_RE = re.compile(r'^([^=]+)=([^:]+)(?::(.*))?$')
+
+
+def _set_inline(v: set[str]) -> str:
+    return f'{{{", ".join(repr(s) for s in sorted(v))}}}'
+
+
+def _dict_set_inline(ver: tuple[int, ...], dct: dict[str, set[str]]) -> str:
+    items_s = ', '.join(f'{k!r}: {_set_inline(v)}' for k, v in dct.items())
+    return f'    {ver!r}: {{{items_s}}},'
+
+
+def _set_fit(v: set[str]) -> str:
+    ret = ''
+
+    vals = sorted(v)
+    pending = f'{" " * 12}{vals[0]!r},'
+
+    for s in vals[1:]:
+        if len(pending) + len(repr(s)) + 2 < 80:
+            pending += f' {s!r},'
+        else:
+            ret += f'{pending}\n'
+            pending = f'{" " * 12}{s!r},'
+
+    ret += f'{pending}\n'
+
+    return f'{{\n{ret}{" " * 8}}}'
+
+
+def _removals() -> dict[tuple[int, ...], dict[str, set[str]]]:
+    removals: dict[tuple[int, ...], dict[str, set[str]]]
+    removals = collections.defaultdict(lambda: collections.defaultdict(set))
+    for k, v in reorder_python_imports.REMOVALS.items():
+        if k < (2, 7):
+            k = (2, 7)
+        elif k <= (3, 6):
+            k = (3,)
+        for s in v:
+            match = FROM_IMPORT_RE.match(s)
+            assert match is not None
+            removals[k][match[1]].add(match[2])
+    return removals
+
+
+def _replacements() -> tuple[
+    dict[tuple[int, ...], dict[tuple[str, str], str]],
+    dict[str, str],
+]:
+    exact: dict[tuple[int, ...], dict[tuple[str, str], str]]
+    exact = collections.defaultdict(dict)
+    mods = {}
+
+    for ver, vals in reorder_python_imports.REPLACES.items():
+        replaces = reorder_python_imports.Replacements.make([
+            reorder_python_imports._validate_replace_import(s)
+            for s in vals
+        ])
+        if replaces.exact:
+            exact[ver].update(replaces.exact)
+        if replaces.mods:
+            mods.update(replaces.mods)
+
+    return exact, mods
+
+
+def main() -> int:
+    version = importlib.metadata.version('reorder-python-imports')
+
+    exact, mods = _replacements()
+
+    # for now, let the mock plugin continue to handle mock stuff
+    exact[(3,)] = {
+        (mod, attr): new
+        for (mod, attr), new in exact[(3,)].items()
+        if mod not in {'mock', 'mock.mock'}
+    }
+
+    print(f'# GENERATED VIA {os.path.basename(sys.argv[0])}')
+    print(f'# Using reorder-python-imports=={version}')
+    print('REMOVALS = {')
+    for ver, dct in sorted(_removals().items()):
+        dct_inline = _dict_set_inline(ver, dct)
+        if len(dct_inline) < 80:
+            print(dct_inline)
+        else:
+            print(f'    {ver!r}: {{')
+            for k, v in sorted(dct.items()):
+                set_line = f'        {k!r}: {_set_inline(v)},'
+                if len(set_line) < 80:
+                    print(set_line)
+                else:
+                    print(f'        {k!r}: {_set_fit(v)},')
+            print('    },')
+    print('}')
+    print("REMOVALS[(3,)]['six.moves.builtins'] = REMOVALS[(3,)]['builtins']")
+    print('REPLACE_EXACT = {')
+    for ver, replaces in sorted(exact.items()):
+        print(f'    {ver}: {{')
+        for replace_k, replace_v in sorted(replaces.items()):
+            print(f'        {replace_k}: {replace_v!r},')
+        print('    },')
+    print('}')
+    print('REPLACE_MODS = {')
+    for mod_from, mod_to in sorted(mods.items()):
+        print(f'    {mod_from!r}: {mod_to!r},')
+    print('}')
+    print('# END GENERATED')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
