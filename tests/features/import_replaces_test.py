@@ -23,12 +23,17 @@ from pyupgrade._main import _fix_plugins
         pytest.param(
             'if True: from six.moves import getcwd, StringIO\n',
             (3,),
-            id='play stupid games, win stupid prizes pt1',
+            id='inline from-import with space',
         ),
         pytest.param(
             'if True:from six.moves import getcwd, StringIO\n',
             (3,),
-            id='play stupid games, win stupid prizes pt2',
+            id='inline from-import without space',
+        ),
+        pytest.param(
+            'if True:import mock, sys\n',
+            (3,),
+            id='inline import-import',
         ),
         pytest.param(
             'import xml.etree.cElementTree',
@@ -136,7 +141,16 @@ def test_mock_noop_keep_mock():
             'if True:\n'
             '    from collections import Counter\n'
             '    from collections.abc import Mapping\n',
-            id='indented import being added',
+            id='indented from-import being added',
+        ),
+        pytest.param(
+            'if True:\n'
+            '    from six.moves import queue, urllib_request\n',
+            (3,),
+            'if True:\n'
+            '    from six.moves import urllib_request\n'
+            '    import queue\n',
+            id='indented import-import being added',
         ),
         pytest.param(
             'if True:\n'

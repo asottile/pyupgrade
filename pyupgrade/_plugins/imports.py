@@ -10,7 +10,6 @@ from typing import NamedTuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
-from tokenize_rt import UNIMPORTANT_WS
 
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
@@ -18,6 +17,7 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_end
 from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
 # Using reorder-python-imports==3.8.0
@@ -336,17 +336,10 @@ def _replace_from_mixed(
         exact_moves: list[tuple[int, str, ast.alias]],
         module_moves: list[tuple[int, str, ast.alias]],
 ) -> None:
-    if i == 0:
-        indent = ''
-    elif tokens[i - 1].name in {UNIMPORTANT_WS, 'INDENT'}:
-        if tokens[i - 2].name in {'NL', 'NEWLINE', 'DEDENT'}:
-            indent = tokens[i - 1].src
-        else:  # inline import
-            return
-    elif tokens[i - 1].name not in {'NL', 'NEWLINE', 'DEDENT'}:
-        return  # inline import
-    else:
-        indent = ''
+    try:
+        indent = indented_amount(i, tokens)
+    except ValueError:
+        return
 
     parsed = _parse_from_import(i, tokens)
 
@@ -362,7 +355,7 @@ def _replace_from_mixed(
         if new_mod:
             added_from_imports[new_mod].append(_alias_to_s(new_alias))
         else:
-            new_imports.append(f'import {_alias_to_s(new_alias)}\n')
+            new_imports.append(f'{indent}import {_alias_to_s(new_alias)}\n')
         bisect.insort(removal_idxs, idx)
 
     new_imports.extend(
@@ -451,6 +444,11 @@ def _replace_import(
         exact_moves: list[tuple[int, str, ast.alias]],
         to_from: list[tuple[int, str, str, ast.alias]],
 ) -> None:
+    try:
+        indent = indented_amount(i, tokens)
+    except ValueError:
+        return
+
     end = find_end(tokens, i)
 
     parts = []
@@ -475,7 +473,7 @@ def _replace_import(
         tokens[slice(*parts[idx])] = [Token('CODE', _alias_to_s(new_alias))]
 
     new_imports = sorted(
-        f'from {new_mod} import '
+        f'{indent}from {new_mod} import '
         f'{_alias_to_s(ast.alias(name=new_sym, asname=alias.asname))}\n'
         for _, new_mod, new_sym, alias in to_from
     )
