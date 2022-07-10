@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import bisect
 import collections
 import functools
 from typing import Iterable
@@ -319,11 +320,12 @@ def _replace_from_modname(
     tokens[parsed.mod_start:parsed.mod_end] = [Token('CODE', modname)]
 
 
-def _replace_exact(
+def _replace_from_mixed(
         i: int,
         tokens: list[Token],
         *,
-        idx_mod_alias: list[tuple[int, str, ast.alias]],
+        removal_idxs: list[int],
+        exact_moves: list[tuple[int, str, ast.alias]],
 ) -> None:
     if i == 0:
         indent = ''
@@ -340,19 +342,19 @@ def _replace_exact(
     parsed = _parse_from_import(i, tokens)
 
     new_imports = collections.defaultdict(list)
-    for _, mod, alias in idx_mod_alias:
+    for idx, mod, alias in exact_moves:
         new_imports[mod].append(_alias_to_s(alias))
+        bisect.insort(removal_idxs, idx)
 
     tokens[parsed.end:parsed.end] = sorted(
         Token('CODE', f'{indent}from {mod} import {", ".join(names)}\n')
         for mod, names in new_imports.items()
     )
     # all names rewritten -- delete import
-    if len(parsed.names) == len(idx_mod_alias):
+    if len(parsed.names) == len(removal_idxs):
         del tokens[i:parsed.end]
     else:
-        idxs = [idx for idx, _, _ in idx_mod_alias]
-        _remove_import_partial(i, tokens, idxs=idxs)
+        _remove_import_partial(i, tokens, idxs=removal_idxs)
 
 
 @register(ast.ImportFrom)
@@ -367,37 +369,39 @@ def visit_ImportFrom(
     if node.level != 0 or node.module is None:
         return
 
+    mod = node.module
+
+    removal_idxs = []
     if node.col_offset == 0:
-        removals_for_mod = removals.get(node.module)
+        removals_for_mod = removals.get(mod)
         if removals_for_mod is not None:
-            idxs = [
+            removal_idxs = [
                 i
                 for i, alias in enumerate(node.names)
                 if not alias.asname and alias.name in removals_for_mod
             ]
-            if len(idxs) == len(node.names):
-                yield ast_to_offset(node), _remove_import
-            elif idxs:
-                func = functools.partial(_remove_import_partial, idxs=idxs)
-                yield ast_to_offset(node), func
 
-    mod = node.module
-
-    idx_mod_alias = []
+    exact_moves = []
     for i, alias in enumerate(node.names):
         new_mod = exact.get((mod, alias.name))
         if new_mod is not None:
-            idx_mod_alias.append((i, new_mod, alias))
+            exact_moves.append((i, new_mod, alias))
 
-    if idx_mod_alias:
-        modnames = {mod for _, mod, _ in idx_mod_alias}
-        if len(node.names) == len(idx_mod_alias) and len(modnames) == 1:
-            modname, = modnames
-            func = functools.partial(_replace_from_modname, modname=modname)
-            yield ast_to_offset(node), func
-        else:
-            func = functools.partial(
-                _replace_exact,
-                idx_mod_alias=idx_mod_alias,
-            )
-            yield ast_to_offset(node), func
+    modnames = {mod for _, mod, _ in exact_moves}
+
+    if len(removal_idxs) == len(node.names):
+        yield ast_to_offset(node), _remove_import
+    elif len(exact_moves) == len(node.names) and len(modnames) == 1:
+        modname, = modnames
+        func = functools.partial(_replace_from_modname, modname=modname)
+        yield ast_to_offset(node), func
+    elif removal_idxs and not exact_moves:
+        func = functools.partial(_remove_import_partial, idxs=removal_idxs)
+        yield ast_to_offset(node), func
+    elif exact_moves:
+        func = functools.partial(
+            _replace_from_mixed,
+            removal_idxs=removal_idxs,
+            exact_moves=exact_moves,
+        )
+        yield ast_to_offset(node), func

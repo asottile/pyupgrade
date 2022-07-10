@@ -113,6 +113,19 @@ def test_import_replaces_noop(s, min_version):
             'import sys\n',
             id='other imports left alone',
         ),
+        pytest.param(
+            'from six.moves import urllib_request, filter, getcwd\n',
+            (3,),
+            'from six.moves import urllib_request\n'
+            'from os import getcwd\n',
+            id='replaces and removals and one remaining',
+        ),
+        pytest.param(
+            'from six.moves import filter, getcwd\n',
+            (3,),
+            'from os import getcwd\n',
+            id='replaces and removals and no remaining',
+        ),
     ),
 )
 def test_import_replaces(s, min_version, expected):
