@@ -67,6 +67,7 @@ def _replacements() -> tuple[
         replaces = reorder_python_imports.Replacements.make([
             reorder_python_imports._validate_replace_import(s)
             for s in vals
+            if 'mock' not in s
         ])
         if replaces.exact:
             exact[ver].update(replaces.exact)
@@ -80,13 +81,6 @@ def main() -> int:
     version = importlib.metadata.version('reorder-python-imports')
 
     exact, mods = _replacements()
-
-    # for now, let the mock plugin continue to handle mock stuff
-    exact[(3,)] = {
-        (mod, attr): new
-        for (mod, attr), new in exact[(3,)].items()
-        if mod not in {'mock', 'mock.mock'}
-    }
 
     print(f'# GENERATED VIA {os.path.basename(sys.argv[0])}')
     print(f'# Using reorder-python-imports=={version}')

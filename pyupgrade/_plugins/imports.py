@@ -223,6 +223,8 @@ REPLACE_MODS = {
 @functools.lru_cache(maxsize=None)
 def _for_version(
         version: tuple[int, ...],
+        *,
+        keep_mock: bool,
 ) -> tuple[
         Mapping[str, set[str]],
         Mapping[tuple[str, str], str],
@@ -238,10 +240,15 @@ def _for_version(
         if ver <= version:
             exact.update(ver_exact)
 
+    mods = {}
     if version >= (3,):
-        mods = REPLACE_MODS
-    else:
-        mods = {}
+        mods.update(REPLACE_MODS)
+        if not keep_mock:
+            exact['mock', 'mock'] = 'unittest'
+            mods.update({
+                'mock': 'unittest.mock',
+                'mock.mock': 'unittest.mock',
+            })
 
     return removals, exact, mods
 
@@ -347,26 +354,26 @@ def _replace_from_mixed(
         added_from_imports[mod].append(_alias_to_s(alias))
         bisect.insort(removal_idxs, idx)
 
-    added_imports = []
+    new_imports = []
     for idx, new_mod, alias in module_moves:
         new_mod, _, new_sym = new_mod.rpartition('.')
         new_alias = ast.alias(name=new_sym, asname=alias.asname)
         if new_mod:
             added_from_imports[new_mod].append(_alias_to_s(new_alias))
         else:
-            added_imports.append(f'import {_alias_to_s(new_alias)}\n')
+            new_imports.append(f'import {_alias_to_s(new_alias)}\n')
         bisect.insort(removal_idxs, idx)
 
-    added_imports.extend(
+    new_imports.extend(
         f'{indent}from {mod} import {", ".join(names)}\n'
         for mod, names in added_from_imports.items()
     )
-    added_imports.sort()
+    new_imports.sort()
 
-    if added_imports and tokens[parsed.end - 1].src != '\n':
-        added_imports.insert(0, '\n')
+    if new_imports and tokens[parsed.end - 1].src != '\n':
+        new_imports.insert(0, '\n')
 
-    tokens[parsed.end:parsed.end] = [Token('CODE', ''.join(added_imports))]
+    tokens[parsed.end:parsed.end] = [Token('CODE', ''.join(new_imports))]
 
     # all names rewritten -- delete import
     if len(parsed.names) == len(removal_idxs):
@@ -381,7 +388,10 @@ def visit_ImportFrom(
         node: ast.ImportFrom,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    removals, exact, mods = _for_version(state.settings.min_version)
+    removals, exact, mods = _for_version(
+        state.settings.min_version,
+        keep_mock=state.settings.keep_mock,
+    )
 
     # we don't have any relative rewrites
     if node.level != 0 or node.module is None:
@@ -413,9 +423,6 @@ def visit_ImportFrom(
 
     if len(removal_idxs) == len(node.names):
         yield ast_to_offset(node), _remove_import
-    elif mod in mods:
-        func = functools.partial(_replace_from_modname, modname=mods[mod])
-        yield ast_to_offset(node), func
     elif (
             len(exact_moves) == len(node.names) and
             len({mod for _, mod, _ in exact_moves}) == 1
@@ -431,13 +438,17 @@ def visit_ImportFrom(
             module_moves=module_moves,
         )
         yield ast_to_offset(node), func
+    elif mod in mods:
+        func = functools.partial(_replace_from_modname, modname=mods[mod])
+        yield ast_to_offset(node), func
 
 
 def _replace_import(
         i: int,
         tokens: list[Token],
         *,
-        exact_moves: list[tuple[int, str, str]],
+        exact_moves: list[tuple[int, str, ast.alias]],
+        to_from: list[tuple[int, str, str, ast.alias]],
 ) -> None:
     end = find_end(tokens, i)
 
@@ -458,9 +469,32 @@ def _replace_import(
     assert start_idx is not None and end_idx is not None
     parts.append((start_idx, end_idx))
 
-    for i, new_mod, asname in reversed(exact_moves):
-        new_alias = ast.alias(name=new_mod, asname=asname)
-        tokens[slice(*parts[i])] = [Token('CODE', _alias_to_s(new_alias))]
+    for idx, new_mod, alias in reversed(exact_moves):
+        new_alias = ast.alias(name=new_mod, asname=alias.asname)
+        tokens[slice(*parts[idx])] = [Token('CODE', _alias_to_s(new_alias))]
+
+    new_imports = sorted(
+        f'from {new_mod} import '
+        f'{_alias_to_s(ast.alias(name=new_sym, asname=alias.asname))}\n'
+        for _, new_mod, new_sym, alias in to_from
+    )
+
+    if new_imports and tokens[end - 1].src != '\n':
+        new_imports.insert(0, '\n')
+
+    tokens[end:end] = [Token('CODE', ''.join(new_imports))]
+
+    if len(to_from) == len(parts):
+        del tokens[i:end]
+    else:
+        for idx, _, _, _ in reversed(to_from):
+            if idx == 0:  # look forward until next name and del
+                del tokens[parts[idx][0]:parts[idx + 1][0]]
+            else:  # look backward for comma and del
+                j = part_end = parts[idx][0]
+                while tokens[j].src != ',':
+                    j -= 1
+                del tokens[j:part_end + 1]
 
 
 @register(ast.Import)
@@ -469,15 +503,27 @@ def visit_Import(
         node: ast.Import,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    _, _, mods = _for_version(state.settings.min_version)
+    _, _, mods = _for_version(
+        state.settings.min_version,
+        keep_mock=state.settings.keep_mock,
+    )
 
+    to_from = []
     exact_moves = []
     for i, alias in enumerate(node.names):
-        if alias.asname is not None:
-            new_mod = mods.get(alias.name)
-            if new_mod is not None:
-                exact_moves.append((i, new_mod, alias.asname))
+        new_mod = mods.get(alias.name)
+        if new_mod is not None:
+            alias_base, _, _ = alias.name.partition('.')
+            new_mod_base, _, new_sym = new_mod.rpartition('.')
+            if new_mod_base and new_sym == alias_base:
+                to_from.append((i, new_mod_base, new_sym, alias))
+            elif alias.asname is not None:
+                exact_moves.append((i, new_mod, alias))
 
-    if exact_moves:
-        func = functools.partial(_replace_import, exact_moves=exact_moves)
+    if to_from or exact_moves:
+        func = functools.partial(
+            _replace_import,
+            exact_moves=exact_moves,
+            to_from=to_from,
+        )
         yield ast_to_offset(node), func
