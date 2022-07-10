@@ -264,51 +264,46 @@ class FromImport(NamedTuple):
     names: tuple[int, ...]
     end: int
 
+    @classmethod
+    def parse(cls, i: int, tokens: list[Token]) -> FromImport:
+        j = i + 1
+        # XXX: does not handle explicit relative imports
+        while tokens[j].name != 'NAME':
+            j += 1
+        mod_start = j
 
-def _parse_from_import(i: int, tokens: list[Token]) -> FromImport:
-    j = i + 1
-    # XXX: does not handle explicit relative imports
-    while tokens[j].name != 'NAME':
-        j += 1
-    mod_start = j
+        import_token = find_token(tokens, j, 'import')
+        j = import_token - 1
+        while tokens[j].name != 'NAME':
+            j -= 1
+        mod_end = j
 
-    import_token = find_token(tokens, j, 'import')
-    j = import_token - 1
-    while tokens[j].name != 'NAME':
-        j -= 1
-    mod_end = j
+        end = find_end(tokens, import_token)
 
-    end = find_end(tokens, import_token)
+        # XXX: does not handle `*` imports
+        names = [
+            j
+            for j in range(import_token + 1, end)
+            if tokens[j].name == 'NAME'
+        ]
+        for i in reversed(range(len(names))):
+            if tokens[names[i]].src == 'as':
+                del names[i:i + 2]
 
-    # XXX: does not handle `*` imports
-    names = [
-        j
-        for j in range(import_token + 1, end)
-        if tokens[j].name == 'NAME'
-    ]
-    for i in reversed(range(len(names))):
-        if tokens[names[i]].src == 'as':
-            del names[i:i + 2]
+        return cls(mod_start, mod_end + 1, tuple(names), end)
 
-    return FromImport(mod_start, mod_end + 1, tuple(names), end)
+    def replace_modname(self, tokens: list[Token], modname: str) -> None:
+        tokens[self.mod_start:self.mod_end] = [Token('CODE', modname)]
 
-
-def _remove_import_partial(
-        i: int,
-        tokens: list[Token],
-        *,
-        idxs: list[int],
-) -> None:
-    parsed = _parse_from_import(i, tokens)
-
-    for idx in reversed(idxs):
-        if idx == 0:  # look forward until next name and del
-            del tokens[parsed.names[idx]:parsed.names[idx + 1]]
-        else:  # look backward for comma and del
-            j = end = parsed.names[idx]
-            while tokens[j].src != ',':
-                j -= 1
-            del tokens[j:end + 1]
+    def remove_parts(self, tokens: list[Token], idxs: list[int]) -> None:
+        for idx in reversed(idxs):
+            if idx == 0:  # look forward until next name and del
+                del tokens[self.names[idx]:self.names[idx + 1]]
+            else:  # look backward for comma and del
+                j = end = self.names[idx]
+                while tokens[j].src != ',':
+                    j -= 1
+                del tokens[j:end + 1]
 
 
 def _alias_to_s(alias: ast.alias) -> str:
@@ -324,8 +319,7 @@ def _replace_from_modname(
         *,
         modname: str,
 ) -> None:
-    parsed = _parse_from_import(i, tokens)
-    tokens[parsed.mod_start:parsed.mod_end] = [Token('CODE', modname)]
+    FromImport.parse(i, tokens).replace_modname(tokens, modname)
 
 
 def _replace_from_mixed(
@@ -341,7 +335,7 @@ def _replace_from_mixed(
     except ValueError:
         return
 
-    parsed = _parse_from_import(i, tokens)
+    parsed = FromImport.parse(i, tokens)
 
     added_from_imports = collections.defaultdict(list)
     for idx, mod, alias in exact_moves:
@@ -373,7 +367,7 @@ def _replace_from_mixed(
     if len(parsed.names) == len(removal_idxs):
         del tokens[i:parsed.end]
     else:
-        _remove_import_partial(i, tokens, idxs=removal_idxs)
+        parsed.remove_parts(tokens, removal_idxs)
 
 
 @register(ast.ImportFrom)
