@@ -20,7 +20,7 @@ from pyupgrade._token_helpers import find_end
 from pyupgrade._token_helpers import find_token
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.6.0
+# Using reorder-python-imports==3.8.0
 REMOVALS = {
     (2, 7): {'__future__': {'generators', 'nested_scopes', 'with_statement'}},
     (3,): {
@@ -67,6 +67,7 @@ REPLACE_EXACT = {
         ('collections', 'Set'): 'collections.abc',
         ('collections', 'Sized'): 'collections.abc',
         ('collections', 'ValuesView'): 'collections.abc',
+        ('pipes', 'quote'): 'shlex',
         ('six', 'BytesIO'): 'io',
         ('six', 'StringIO'): 'io',
         ('six', 'wraps'): 'functools',
