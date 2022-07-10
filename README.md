@@ -322,6 +322,31 @@ Availability:
 -from builtins import object  # python-future
 ```
 
+### import replacements
+
+Availability:
+- `--py3-plus` (and others) will replace imports
+
+see also [reorder-python-imports](https://github.com/asottile/reorder_python_imports#removing--rewriting-obsolete-six-imports)
+
+some examples:
+
+```diff
+-from collections import deque, Mapping
++from collections import deque
++from collections.abc import Mapping
+```
+
+```diff
+-from typing import Sequence
++from collections.abc import Sequence
+```
+
+```diff
+-from typing_extensions import Concatenate
++from typing import Concatenate
+```
+
 ### rewrite `mock` imports
 
 Availability:
