@@ -56,6 +56,12 @@ def test_import_replaces_noop(s, min_version):
             id='one-name replacement',
         ),
         pytest.param(
+            'from collections import Mapping as MAP\n',
+            (3,),
+            'from collections.abc import Mapping as MAP\n',
+            id='one-name replacement with alias',
+        ),
+        pytest.param(
             'from collections import Mapping, Sequence\n',
             (3,),
             'from collections.abc import Mapping, Sequence\n',
@@ -74,6 +80,22 @@ def test_import_replaces_noop(s, min_version):
             'from collections import Counter\n'
             'from collections.abc import Mapping\n',
             id='one name rewritten to new module, no eol',
+        ),
+        pytest.param(
+            'from collections import (Counter, \n'
+            '                         Mapping)\n',
+            (3,),
+            'from collections import (Counter)\n'
+            'from collections.abc import Mapping\n',
+            id='one name rewritten with parens',
+        ),
+        pytest.param(
+            'from collections import Counter, \\\n'
+            '                         Mapping\n',
+            (3,),
+            'from collections import Counter\n'
+            'from collections.abc import Mapping\n',
+            id='one name rewritten with backslash',
         ),
         pytest.param(
             'from collections import Counter, Mapping, Sequence\n',
