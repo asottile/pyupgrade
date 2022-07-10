@@ -515,3 +515,17 @@ def replace_list_comp_brackets(i: int, tokens: list[Token]) -> None:
     end = find_closing_bracket(tokens, start)
     tokens[end] = Token('OP', ')')
     tokens[start] = Token('OP', '(')
+
+
+def indented_amount(i: int, tokens: list[Token]) -> str:
+    if i == 0:
+        return ''
+    elif i >= 2 and tokens[i - 1].name in {UNIMPORTANT_WS, 'INDENT'}:
+        if tokens[i - 2].name in {'NL', 'NEWLINE', 'DEDENT'}:
+            return tokens[i - 1].src
+        else:  # inline import
+            raise ValueError('not at beginning of line')
+    elif tokens[i - 1].name not in {'NL', 'NEWLINE', 'DEDENT'}:
+        raise ValueError('not at beginning of line')
+    else:
+        return ''
