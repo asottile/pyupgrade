@@ -363,6 +363,9 @@ def _replace_from_mixed(
     )
     added_imports.sort()
 
+    if added_imports and tokens[parsed.end - 1].src != '\n':
+        added_imports.insert(0, '\n')
+
     tokens[parsed.end:parsed.end] = [Token('CODE', ''.join(added_imports))]
 
     # all names rewritten -- delete import
