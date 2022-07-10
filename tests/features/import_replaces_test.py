@@ -46,6 +46,17 @@ def test_import_replaces_noop(s, min_version):
     assert _fix_plugins(s, settings=Settings(min_version=min_version)) == s
 
 
+def test_mock_noop_keep_mock():
+    """This would've been rewritten if keep_mock were False"""
+    s = (
+        'from mock import patch\n'
+        '\n'
+        'patch("func")'
+    )
+    settings = Settings(min_version=(3,), keep_mock=True)
+    assert _fix_plugins(s, settings=settings) == s
+
+
 @pytest.mark.parametrize(
     ('s', 'min_version', 'expected'),
     (
@@ -218,6 +229,45 @@ def test_import_replaces_noop(s, min_version):
             (3,),
             'import contextlib, xml.etree.ElementTree as ET\n',
             id='can rewrite multiple import imports',
+        ),
+        pytest.param(
+            'import mock\n',
+            (3,),
+            'from unittest import mock\n',
+            id='rewrites mock import',
+        ),
+        pytest.param(
+            'import mock.mock\n',
+            (3,),
+            'from unittest import mock\n',
+            id='rewrites mock.mock import',
+        ),
+        pytest.param(
+            'import contextlib, mock, sys\n',
+            (3,),
+            'import contextlib, sys\n'
+            'from unittest import mock\n',
+            id='mock rewriting multiple imports in middle',
+        ),
+        pytest.param(
+            'import mock, sys\n',
+            (3,),
+            'import sys\n'
+            'from unittest import mock\n',
+            id='mock rewriting multiple imports at beginning',
+        ),
+        pytest.param(
+            'import mock, sys',
+            (3,),
+            'import sys\n'
+            'from unittest import mock\n',
+            id='adds import-import no eol',
+        ),
+        pytest.param(
+            'from mock import mock\n',
+            (3,),
+            'from unittest import mock\n',
+            id='mock import mock import',
         ),
     ),
 )
