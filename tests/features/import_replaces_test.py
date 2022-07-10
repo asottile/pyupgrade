@@ -35,6 +35,11 @@ from pyupgrade._main import _fix_plugins
             (3,),
             id='import without alias',
         ),
+        pytest.param(
+            'from xml.etree import cElementTree',
+            (3,),
+            id='from import of module without alias',
+        ),
     ),
 )
 def test_import_replaces_noop(s, min_version):
@@ -153,6 +158,25 @@ def test_import_replaces_noop(s, min_version):
             (3,),
             'from xml.etree.ElementTree import XML, Element\n',
             id='import multiple objects',
+        ),
+        pytest.param(
+            'from six.moves import queue\n',
+            (3,),
+            'import queue\n',
+            id='from import a module to an import-import',
+        ),
+        pytest.param(
+            'from six.moves import queue, map, getcwd\n',
+            (3,),
+            'from os import getcwd\n'
+            'import queue\n',
+            id='removal, rename, module rename',
+        ),
+        pytest.param(
+            'from xml.etree import cElementTree as ET\n',
+            (3,),
+            'from xml.etree import ElementTree as ET\n',
+            id='from import a module but aliased',
         ),
         pytest.param(
             'import xml.etree.cElementTree as ET',

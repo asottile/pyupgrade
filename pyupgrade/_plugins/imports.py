@@ -326,6 +326,7 @@ def _replace_from_mixed(
         *,
         removal_idxs: list[int],
         exact_moves: list[tuple[int, str, ast.alias]],
+        module_moves: list[tuple[int, str, ast.alias]],
 ) -> None:
     if i == 0:
         indent = ''
@@ -341,15 +342,29 @@ def _replace_from_mixed(
 
     parsed = _parse_from_import(i, tokens)
 
-    new_imports = collections.defaultdict(list)
+    added_from_imports = collections.defaultdict(list)
     for idx, mod, alias in exact_moves:
-        new_imports[mod].append(_alias_to_s(alias))
+        added_from_imports[mod].append(_alias_to_s(alias))
         bisect.insort(removal_idxs, idx)
 
-    tokens[parsed.end:parsed.end] = sorted(
-        Token('CODE', f'{indent}from {mod} import {", ".join(names)}\n')
-        for mod, names in new_imports.items()
+    added_imports = []
+    for idx, new_mod, alias in module_moves:
+        new_mod, _, new_sym = new_mod.rpartition('.')
+        new_alias = ast.alias(name=new_sym, asname=alias.asname)
+        if new_mod:
+            added_from_imports[new_mod].append(_alias_to_s(new_alias))
+        else:
+            added_imports.append(f'import {_alias_to_s(new_alias)}\n')
+        bisect.insort(removal_idxs, idx)
+
+    added_imports.extend(
+        f'{indent}from {mod} import {", ".join(names)}\n'
+        for mod, names in added_from_imports.items()
     )
+    added_imports.sort()
+
+    tokens[parsed.end:parsed.end] = [Token('CODE', ''.join(added_imports))]
+
     # all names rewritten -- delete import
     if len(parsed.names) == len(removal_idxs):
         del tokens[i:parsed.end]
@@ -387,6 +402,12 @@ def visit_ImportFrom(
         if new_mod is not None:
             exact_moves.append((i, new_mod, alias))
 
+    module_moves = []
+    for i, alias in enumerate(node.names):
+        new_mod = mods.get(f'{node.module}.{alias.name}')
+        if new_mod is not None and (alias.asname or alias.name == new_mod):
+            module_moves.append((i, new_mod, alias))
+
     if len(removal_idxs) == len(node.names):
         yield ast_to_offset(node), _remove_import
     elif mod in mods:
@@ -399,14 +420,12 @@ def visit_ImportFrom(
         _, modname, _ = exact_moves[0]
         func = functools.partial(_replace_from_modname, modname=modname)
         yield ast_to_offset(node), func
-    elif removal_idxs and not exact_moves:
-        func = functools.partial(_remove_import_partial, idxs=removal_idxs)
-        yield ast_to_offset(node), func
-    elif exact_moves:
+    elif removal_idxs or exact_moves or module_moves:
         func = functools.partial(
             _replace_from_mixed,
             removal_idxs=removal_idxs,
             exact_moves=exact_moves,
+            module_moves=module_moves,
         )
         yield ast_to_offset(node), func
 
