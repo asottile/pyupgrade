@@ -391,6 +391,9 @@ def visit_ImportFrom(
 
     if len(removal_idxs) == len(node.names):
         yield ast_to_offset(node), _remove_import
+    elif mod in mods:
+        func = functools.partial(_replace_from_modname, modname=mods[mod])
+        yield ast_to_offset(node), func
     elif len(exact_moves) == len(node.names) and len(modnames) == 1:
         modname, = modnames
         func = functools.partial(_replace_from_modname, modname=modname)

@@ -21,20 +21,6 @@ def _replace_celementtree_with_elementtree(
     tokens[j] = tokens[j]._replace(src='ElementTree')
 
 
-@register(ast.ImportFrom)
-def visit_ImportFrom(
-        state: State,
-        node: ast.ImportFrom,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    if (
-            state.settings.min_version >= (3,) and
-            node.module == 'xml.etree.cElementTree' and
-            node.level == 0
-    ):
-        yield ast_to_offset(node), _replace_celementtree_with_elementtree
-
-
 @register(ast.Import)
 def visit_Import(
         state: State,
