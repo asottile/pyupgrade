@@ -517,11 +517,15 @@ def replace_list_comp_brackets(i: int, tokens: list[Token]) -> None:
     tokens[start] = Token('OP', '(')
 
 
+def has_space_before(i: int, tokens: list[Token]) -> bool:
+    return i >= 1 and tokens[i - 1].name in {UNIMPORTANT_WS, 'INDENT'}
+
+
 def indented_amount(i: int, tokens: list[Token]) -> str:
     if i == 0:
         return ''
-    elif i >= 2 and tokens[i - 1].name in {UNIMPORTANT_WS, 'INDENT'}:
-        if tokens[i - 2].name in {'NL', 'NEWLINE', 'DEDENT'}:
+    elif has_space_before(i, tokens):
+        if i >= 2 and tokens[i - 2].name in {'NL', 'NEWLINE', 'DEDENT'}:
             return tokens[i - 1].src
         else:  # inline import
             raise ValueError('not at beginning of line')

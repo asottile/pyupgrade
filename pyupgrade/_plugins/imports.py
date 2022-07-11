@@ -17,6 +17,7 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_end
 from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
@@ -259,6 +260,7 @@ def _remove_import(i: int, tokens: list[Token]) -> None:
 
 
 class FromImport(NamedTuple):
+    start: int
     mod_start: int
     mod_end: int
     names: tuple[int, ...]
@@ -266,6 +268,11 @@ class FromImport(NamedTuple):
 
     @classmethod
     def parse(cls, i: int, tokens: list[Token]) -> FromImport:
+        if has_space_before(i, tokens):
+            start = i - 1
+        else:
+            start = i
+
         j = i + 1
         # XXX: does not handle explicit relative imports
         while tokens[j].name != 'NAME':
@@ -290,7 +297,10 @@ class FromImport(NamedTuple):
             if tokens[names[i]].src == 'as':
                 del names[i:i + 2]
 
-        return cls(mod_start, mod_end + 1, tuple(names), end)
+        return cls(start, mod_start, mod_end + 1, tuple(names), end)
+
+    def remove_self(self, tokens: list[Token]) -> None:
+        del tokens[self.start:self.end]
 
     def replace_modname(self, tokens: list[Token], modname: str) -> None:
         tokens[self.mod_start:self.mod_end] = [Token('CODE', modname)]
@@ -365,7 +375,7 @@ def _replace_from_mixed(
 
     # all names rewritten -- delete import
     if len(parsed.names) == len(removal_idxs):
-        del tokens[i:parsed.end]
+        parsed.remove_self(tokens)
     else:
         parsed.remove_parts(tokens, removal_idxs)
 
@@ -443,6 +453,10 @@ def _replace_import(
     except ValueError:
         return
 
+    if has_space_before(i, tokens):
+        start = i - 1
+    else:
+        start = i
     end = find_end(tokens, i)
 
     parts = []
@@ -478,7 +492,7 @@ def _replace_import(
     tokens[end:end] = [Token('CODE', ''.join(new_imports))]
 
     if len(to_from) == len(parts):
-        del tokens[i:end]
+        del tokens[start:end]
     else:
         for idx, _, _, _ in reversed(to_from):
             if idx == 0:  # look forward until next name and del

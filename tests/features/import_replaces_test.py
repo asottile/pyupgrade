@@ -136,6 +136,14 @@ def test_mock_noop_keep_mock():
         ),
         pytest.param(
             'if True:\n'
+            '    from xml.etree import cElementTree as ET\n',
+            (3,),
+            'if True:\n'
+            '    from xml.etree import ElementTree as ET\n',
+            id='indented and full import replaced',
+        ),
+        pytest.param(
+            'if True:\n'
             '    from collections import Mapping, Counter\n',
             (3,),
             'if True:\n'
@@ -151,6 +159,14 @@ def test_mock_noop_keep_mock():
             '    from six.moves import urllib_request\n'
             '    import queue\n',
             id='indented import-import being added',
+        ),
+        pytest.param(
+            'if True:\n'
+            '    import mock\n',
+            (3,),
+            'if True:\n'
+            '    from unittest import mock\n',
+            id='indented import-import rewritten',
         ),
         pytest.param(
             'if True:\n'
