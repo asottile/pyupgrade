@@ -45,6 +45,11 @@ from pyupgrade._main import _fix_plugins
             (3,),
             id='from import of module without alias',
         ),
+        pytest.param(
+            'from typing import Callable\n',
+            (3, 9),
+            id='skip rewriting of Callable in 3.9 since it is broken',
+        ),
     ),
 )
 def test_import_replaces_noop(s, min_version):
@@ -282,6 +287,12 @@ def test_mock_noop_keep_mock():
             (3,),
             'from unittest import mock\n',
             id='mock import mock import',
+        ),
+        pytest.param(
+            'from typing import Callable\n',
+            (3, 10),
+            'from collections.abc import Callable\n',
+            id='typing.Callable is rewritable in 3.10+ only',
         ),
     ),
 )

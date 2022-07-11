@@ -20,7 +20,7 @@ from pyupgrade._token_helpers import find_token
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.8.0
+# Using reorder-python-imports==3.8.1
 REMOVALS = {
     (2, 7): {'__future__': {'generators', 'nested_scopes', 'with_statement'}},
     (3,): {
@@ -130,7 +130,6 @@ REPLACE_EXACT = {
         ('typing', 'AsyncIterator'): 'collections.abc',
         ('typing', 'Awaitable'): 'collections.abc',
         ('typing', 'ByteString'): 'collections.abc',
-        ('typing', 'Callable'): 'collections.abc',
         ('typing', 'ChainMap'): 'collections',
         ('typing', 'Collection'): 'collections.abc',
         ('typing', 'Container'): 'collections.abc',
@@ -159,6 +158,7 @@ REPLACE_EXACT = {
         ('typing_extensions', 'Annotated'): 'typing',
     },
     (3, 10): {
+        ('typing', 'Callable'): 'collections.abc',
         ('typing_extensions', 'Concatenate'): 'typing',
         ('typing_extensions', 'ParamSpec'): 'typing',
         ('typing_extensions', 'TypeAlias'): 'typing',
