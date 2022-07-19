@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.8.1
+# Using reorder-python-imports==3.8.2
 REMOVALS = {
     (2, 7): {'__future__': {'generators', 'nested_scopes', 'with_statement'}},
     (3,): {
@@ -102,7 +102,6 @@ REPLACE_EXACT = {
         ('typing_extensions', 'Text'): 'typing',
         ('typing_extensions', 'Type'): 'typing',
         ('typing_extensions', 'get_type_hints'): 'typing',
-        ('typing_extensions', 'overload'): 'typing',
     },
     (3, 7): {
         ('mypy_extensions', 'NoReturn'): 'typing',
@@ -111,6 +110,7 @@ REPLACE_EXACT = {
         ('typing_extensions', 'ChainMap'): 'typing',
         ('typing_extensions', 'Counter'): 'typing',
         ('typing_extensions', 'Deque'): 'typing',
+        ('typing_extensions', 'NoReturn'): 'typing',
     },
     (3, 8): {
         ('mypy_extensions', 'TypedDict'): 'typing',
@@ -119,10 +119,6 @@ REPLACE_EXACT = {
         ('typing_extensions', 'OrderedDict'): 'typing',
         ('typing_extensions', 'Protocol'): 'typing',
         ('typing_extensions', 'SupportsIndex'): 'typing',
-        ('typing_extensions', 'TypedDict'): 'typing',
-        ('typing_extensions', 'final'): 'typing',
-        ('typing_extensions', 'get_args'): 'typing',
-        ('typing_extensions', 'get_origin'): 'typing',
         ('typing_extensions', 'runtime_checkable'): 'typing',
     },
     (3, 9): {
@@ -162,8 +158,13 @@ REPLACE_EXACT = {
         ('typing', 'Callable'): 'collections.abc',
         ('typing_extensions', 'Concatenate'): 'typing',
         ('typing_extensions', 'ParamSpec'): 'typing',
+        ('typing_extensions', 'ParamSpecArgs'): 'typing',
+        ('typing_extensions', 'ParamSpecKwargs'): 'typing',
         ('typing_extensions', 'TypeAlias'): 'typing',
         ('typing_extensions', 'TypeGuard'): 'typing',
+        ('typing_extensions', 'get_args'): 'typing',
+        ('typing_extensions', 'get_origin'): 'typing',
+        ('typing_extensions', 'is_typeddict'): 'typing',
     },
 }
 REPLACE_MODS = {
