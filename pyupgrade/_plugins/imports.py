@@ -233,10 +233,11 @@ def _for_version(
         Mapping[tuple[str, str], str],
         Mapping[str, str],
 ]:
-    removals = {}
+    removals = collections.defaultdict(set)
     for ver, ver_removals in REMOVALS.items():
         if ver <= version:
-            removals.update(ver_removals)
+            for base, names in ver_removals.items():
+                removals[base].update(names)
 
     exact = {}
     for ver, ver_exact in REPLACE_EXACT.items():
