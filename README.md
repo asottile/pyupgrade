@@ -10,7 +10,9 @@ versions of the language.
 
 ## Installation
 
-`pip install pyupgrade`
+```bash
+pip install pyupgrade
+```
 
 ## As a pre-commit hook
 
