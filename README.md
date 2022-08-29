@@ -27,6 +27,16 @@ Sample `.pre-commit-config.yaml`:
     -   id: pyupgrade
 ```
 
+## Only diff
+
+The following command will exit with non-zero exit code if there are changes
+to be applied. The difference between the input file and the conversion will
+be shown as output:
+
+```
+pyupgrade --py36-plus - <file.py | diff file.py -
+```
+
 ## Implemented features
 
 ### Set literals
