@@ -171,6 +171,45 @@ def test_typing_named_tuple_noop(s):
 
             id='actually a tuple in generic argument',
         ),
+        pytest.param(
+            'from typing import NamedTuple\n'
+            'C = NamedTuple(  # 1\n'
+            '    # 2\n'
+            '    "C",  # 3\n'
+            '    # 4\n'
+            '    [("x", "int")],  # 5\n'
+            '    # 6\n'
+            ')  # 7\n',
+
+            'from typing import NamedTuple\n'
+            'class C(NamedTuple):\n'
+            '    # 1\n'
+            '    # 2\n'
+            '    # 3\n'
+            '    # 4\n'
+            "    x: 'int'  # 5\n"
+            '    # 6\n'
+            '    # 7\n',
+
+            id='preserves comments in all positions',
+        ),
+        pytest.param(
+            'from typing import NamedTuple, Optional\n'
+            'DeferredNode = NamedTuple(\n'
+            '    "DeferredNode",\n'
+            '    [\n'
+            '        ("active_typeinfo", Optional[int]),  # this member (and\n'
+            '                                             # its semantics)\n'
+            '    ]\n'
+            ')\n',
+
+            'from typing import NamedTuple, Optional\n'
+            'class DeferredNode(NamedTuple):\n'
+            '    active_typeinfo: Optional[int]  # this member (and\n'
+            '    # its semantics)\n',
+
+            id='preserves comments without alignment',
+        ),
     ),
 )
 def test_fix_typing_named_tuple(s, expected):
@@ -265,6 +304,26 @@ def test_typing_typed_dict_noop(s):
             '    a: int\n',
 
             id='TypedDict from dict literal with total',
+        ),
+        pytest.param(
+            'import typing\n'
+            'D = typing.TypedDict("D", {\n'
+            '    # first comment\n'
+            '    "a": int,  # inline comment\n'
+            '    # second comment\n'
+            '    "b": str,\n'
+            '    # third comment\n'
+            '}, total=False)\n',
+
+            'import typing\n'
+            'class D(typing.TypedDict, total=False):\n'
+            '    # first comment\n'
+            '    a: int  # inline comment\n'
+            '    # second comment\n'
+            '    b: str\n'
+            '    # third comment\n',
+
+            id='preserves comments',
         ),
         pytest.param(
             'from typing_extensions import TypedDict\n'
