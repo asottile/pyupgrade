@@ -58,19 +58,6 @@ Sample `.pre-commit-config.yaml`:
 ```
 
 
-### Generator expressions for some built-in functions (pep 289)
-
-```diff
--min([i for i in range(3)])
-+min(i for i in range(3))
--max([i for i in range(3)])
-+max(i for i in range(3))
--sum([i for i in range(3)])
-+sum(i for i in range(3))
--''.join([str(i) for i in range(3)])
-+''.join(str(i) for i in range(3))
-```
-
 ### Python2.7+ Format Specifiers
 
 ```diff

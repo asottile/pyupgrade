@@ -510,13 +510,6 @@ def find_comprehension_opening_bracket(i: int, tokens: list[Token]) -> int:
         return i
 
 
-def replace_list_comp_brackets(i: int, tokens: list[Token]) -> None:
-    start = find_comprehension_opening_bracket(i, tokens)
-    end = find_closing_bracket(tokens, start)
-    tokens[end] = Token('OP', ')')
-    tokens[start] = Token('OP', '(')
-
-
 def has_space_before(i: int, tokens: list[Token]) -> bool:
     return i >= 1 and tokens[i - 1].name in {UNIMPORTANT_WS, 'INDENT'}
 
