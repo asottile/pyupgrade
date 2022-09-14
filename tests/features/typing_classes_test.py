@@ -297,6 +297,16 @@ def test_typing_typed_dict_noop(s):
         ),
         pytest.param(
             'import typing\n'
+            'D = typing.TypedDict("D", {"a": typing.Literal["b", b"c"]})\n',
+
+            'import typing\n'
+            'class D(typing.TypedDict):\n'
+            "    a: typing.Literal['b', b'c']\n",
+
+            id='with Literal of bytes',
+        ),
+        pytest.param(
+            'import typing\n'
             'D = typing.TypedDict("D", {"a": int}, total=False)\n',
 
             'import typing\n'

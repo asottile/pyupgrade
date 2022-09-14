@@ -38,7 +38,7 @@ def _unparse(node: ast.expr) -> str:
         else:
             slice_s = _unparse(node_slice)
         return f'{_unparse(node.value)}[{slice_s}]'
-    elif isinstance(node, ast.Str):
+    elif isinstance(node, (ast.Str, ast.Bytes)):
         return repr(node.s)
     elif isinstance(node, ast.Ellipsis):
         return '...'
