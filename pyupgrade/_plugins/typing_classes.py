@@ -66,10 +66,30 @@ def _typed_class_replacement(
     # NT = NamedTuple("nt", [("a", int)])
     # ^i                                 ^end
     end = i + 1
+    comments = []
     while end < len(tokens) and tokens[end].name != 'NEWLINE':
+        token = tokens[end]
+        if token.name == 'COMMENT':
+            comments.append(token)
         end += 1
 
-    attrs = '\n'.join(f'{indent}{k}: {_unparse(v)}' for k, v in types.items())
+    parts = []
+    for k, v in types.items():
+        while comments and (v.lineno, v.col_offset) > comments[0].offset:
+            comment = comments.pop(0)
+            parts.append(f'{indent}{comment.src}')
+
+        member = f'{indent}{k}: {_unparse(v)}'
+
+        if comments and v.lineno == comments[0].line:
+            comment = comments.pop(0)
+            member += f'  {comment.src}'
+
+        parts.append(member)
+
+    parts.extend(f'{indent}{x.src}' for x in comments)
+
+    attrs = '\n'.join(parts)
     return end, attrs
 
 
