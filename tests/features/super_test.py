@@ -20,6 +20,19 @@ from pyupgrade._main import Settings
         'class C(Base):\n'
         '    def f(self):\n'
         '        super(Base, self).f()\n',
+        'class Outer:\n'  # common nesting
+        '    class C(Base):\n'
+        '        def f(self):\n'
+        '            super(C, self).f()\n',
+        'class Outer:\n'  # higher levels of nesting
+        '    class Inner:\n'
+        '        class C(Base):\n'
+        '            def f(self):\n'
+        '                super(Inner.C, self).f()\n',
+        'class Outer:\n'  # super arg1 nested in unrelated name
+        '    class C(Base):\n'
+        '        def f(self):\n'
+        '            super(some_module.Outer.C, self).f()\n',
 
         # super outside of a class (technically legal!)
         'def f(self):\n'
@@ -87,11 +100,35 @@ def test_fix_super_noop(s):
             'class Outer:\n'
             '    class C(Base):\n'
             '        def f(self):\n'
-            '            super (C, self).f()\n',
+            '            super (Outer.C, self).f()\n',
             'class Outer:\n'
             '    class C(Base):\n'
             '        def f(self):\n'
             '            super().f()\n',
+        ),
+        (
+            'def f():\n'
+            '    class Outer:\n'
+            '        class C(Base):\n'
+            '            def f(self):\n'
+            '                super(Outer.C, self).f()\n',
+            'def f():\n'
+            '    class Outer:\n'
+            '        class C(Base):\n'
+            '            def f(self):\n'
+            '                super().f()\n',
+        ),
+        (
+            'class A:\n'
+            '    class B:\n'
+            '        class C:\n'
+            '            def f(self):\n'
+            '                super(A.B.C, self).f()\n',
+            'class A:\n'
+            '    class B:\n'
+            '        class C:\n'
+            '            def f(self):\n'
+            '                super().f()\n',
         ),
         (
             'class C(Base):\n'
