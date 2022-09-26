@@ -131,19 +131,42 @@ class Visitor(ast.NodeVisitor):
                 isinstance(node.func, ast.Name) and
                 node.func.id == 'super' and
                 len(node.args) == 2 and
-                isinstance(node.args[0], ast.Name) and
                 isinstance(node.args[1], ast.Name) and
                 # there are at least two scopes
                 len(self._scopes) >= 2 and
-                # the second to last scope is the class in arg1
-                isinstance(self._scopes[-2].node, ast.ClassDef) and
-                node.args[0].id == self._scopes[-2].node.name and
                 # the last scope is a function where the first arg is arg2
                 isinstance(self._scopes[-1].node, FUNC_TYPES) and
                 self._scopes[-1].node.args.args and
                 node.args[1].id == self._scopes[-1].node.args.args[0].arg
         ):
-            self.super_offsets.add(ast_to_offset(node))
+            args = node.args[0]
+            scope = len(self._scopes) - 2
+            current_scope = self._scopes[scope]
+            # if in nested classes, all names in arg1 must match the scopes
+            while (
+                    isinstance(args, ast.Attribute) and
+                    scope > 0 and
+                    isinstance(current_scope.node, ast.ClassDef) and
+                    args.attr == current_scope.node.name
+            ):
+                args = args.value
+                scope -= 1
+                current_scope = self._scopes[scope]
+            # now check if it is outer most class and its name match
+            if (
+                    isinstance(args, ast.Name) and
+                    isinstance(current_scope.node, ast.ClassDef) and
+                    args.id == current_scope.node.name and
+                    # an enclosing scope cannot be a class
+                    (
+                        scope == 0 or
+                        not isinstance(
+                            self._scopes[scope - 1].node,
+                            ast.ClassDef,
+                        )
+                    )
+            ):
+                self.super_offsets.add(ast_to_offset(node))
 
         self.generic_visit(node)
 
