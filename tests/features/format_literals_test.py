@@ -32,6 +32,11 @@ def test_format_literals_noop(s):
     assert _fix_tokens(s, min_version=(2, 7)) == s
 
 
+def test_format_literals_noop_keep_format_indices():
+    s = '"{0}".format(1)'
+    assert _fix_tokens(s, min_version=(2, 7), keep_format_indices=True) == s
+
+
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (

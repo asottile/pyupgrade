@@ -55,6 +55,7 @@ def visit_Call(
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3,) and
+            not state.settings.keep_open_mode and
             (
                 (
                     isinstance(node.func, ast.Name) and

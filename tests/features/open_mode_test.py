@@ -28,6 +28,13 @@ def test_fix_open_mode_noop(s):
     assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
 
 
+def test_open_mode_noop_keep_open_mode():
+    """This would've been rewritten if keep_mock were False"""
+    s = 'open("foo", mode="r")'
+    settings = Settings(min_version=(3,), keep_open_mode=True)
+    assert _fix_plugins(s, settings=settings) == s
+
+
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (

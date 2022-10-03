@@ -29,6 +29,7 @@ class Settings(NamedTuple):
     keep_percent_format: bool = False
     keep_mock: bool = False
     keep_runtime_typing: bool = False
+    keep_open_mode: bool = False
 
 
 class State(NamedTuple):

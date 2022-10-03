@@ -376,7 +376,11 @@ def _build_import_removals() -> dict[Version, dict[str, tuple[str, ...]]]:
 IMPORT_REMOVALS = _build_import_removals()
 
 
-def _fix_tokens(contents_text: str, min_version: Version) -> str:
+def _fix_tokens(
+    contents_text: str,
+    min_version: Version,
+    keep_format_indices: bool = False,
+) -> str:
     remove_u = (
         min_version >= (3,) or
         _imports_future(contents_text, 'unicode_literals')
@@ -396,7 +400,12 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
             tokens[i] = _fix_escape_sequences(tokens[i])
         elif token.src == '(':
             _fix_extraneous_parens(tokens, i)
-        elif token.src == 'format' and i > 0 and tokens[i - 1].src == '.':
+        elif (
+                not keep_format_indices and
+                token.src == 'format' and
+                i > 0 and
+                tokens[i - 1].src == '.'
+        ):
             _fix_format_literal(tokens, i - 2)
         elif token.src == 'encode' and i > 0 and tokens[i - 1].src == '.':
             _fix_encode_to_binary(tokens, i)
@@ -433,9 +442,14 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
             keep_percent_format=args.keep_percent_format,
             keep_mock=args.keep_mock,
             keep_runtime_typing=args.keep_runtime_typing,
+            keep_open_mode=args.keep_open_mode,
         ),
     )
-    contents_text = _fix_tokens(contents_text, min_version=args.min_version)
+    contents_text = _fix_tokens(
+        contents_text,
+        min_version=args.min_version,
+        keep_format_indices=args.keep_format_indices,
+    )
 
     if filename == '-':
         print(contents_text, end='')
@@ -457,6 +471,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')
     parser.add_argument('--keep-runtime-typing', action='store_true')
+    parser.add_argument('--keep-open-mode', action='store_true')
+    parser.add_argument('--keep-format-indices', action='store_true')
     parser.add_argument(
         '--py3-plus', '--py3-only',
         action='store_const', dest='min_version', default=(2, 7), const=(3,),

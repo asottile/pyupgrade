@@ -60,6 +60,9 @@ Sample `.pre-commit-config.yaml`:
 
 ### Python2.7+ Format Specifiers
 
+Availability:
+- Unless `--keep-format-indices` is passed.
+
 ```diff
 -'{0} {1}'.format(1, 2)
 +'{} {}'.format(1, 2)
@@ -550,6 +553,8 @@ Availability:
 
 Availability:
 - `--py3-plus` is passed on the commandline.
+  - Unless `--keep-open-mode` is passed.
+
 
 ```diff
 -open("foo", "U")
