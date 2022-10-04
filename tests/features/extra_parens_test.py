@@ -20,7 +20,7 @@ from pyupgrade._main import _fix_tokens
     ),
 )
 def test_fix_extra_parens_noop(s):
-    assert _fix_tokens(s, min_version=(2, 7)) == s
+    assert _fix_tokens(s) == s
 
 
 @pytest.mark.parametrize(
@@ -61,4 +61,4 @@ def test_fix_extra_parens_noop(s):
     ),
 )
 def test_fix_extra_parens(s, expected):
-    assert _fix_tokens(s, min_version=(2, 7)) == expected
+    assert _fix_tokens(s) == expected

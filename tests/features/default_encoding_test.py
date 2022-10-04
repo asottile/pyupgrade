@@ -36,7 +36,7 @@ from pyupgrade._main import _fix_plugins
     ),
 )
 def test_fix_encode(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
 
 
@@ -56,4 +56,4 @@ def test_fix_encode(s, expected):
     ),
 )
 def test_fix_encode_noop(s):
-    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
+    assert _fix_plugins(s, settings=Settings()) == s

@@ -42,7 +42,7 @@ from pyupgrade._main import _fix_plugins
     ),
 )
 def test_fix_six_noop(s):
-    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
+    assert _fix_plugins(s, settings=Settings()) == s
 
 
 @pytest.mark.parametrize(
@@ -390,7 +390,7 @@ def test_fix_six_noop(s):
     ),
 )
 def test_fix_six(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
 
 
@@ -406,7 +406,7 @@ def test_fix_six(s, expected):
     ),
 )
 def test_fix_six_py38_plus(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
 
 
@@ -458,5 +458,5 @@ def test_fix_six_py38_plus(s, expected):
     ),
 )
 def test_fix_base_classes(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected

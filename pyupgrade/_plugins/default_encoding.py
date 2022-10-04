@@ -29,7 +29,6 @@ def visit_Call(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            state.settings.min_version >= (3,) and
             isinstance(node.func, ast.Attribute) and
             isinstance(node.func.value, (ast.Str, ast.JoinedStr)) and
             node.func.attr == 'encode' and

@@ -27,7 +27,7 @@ from pyupgrade._main import _fix_tokens
     ),
 )
 def test_fix_escape_sequences_noop(s):
-    assert _fix_tokens(s, min_version=(2, 7)) == s
+    assert _fix_tokens(s) == s
 
 
 @pytest.mark.parametrize(
@@ -37,8 +37,8 @@ def test_fix_escape_sequences_noop(s):
         (r'"\d"', r'r"\d"'),
         # when there are valid escape sequences, need to use backslashes
         (r'"\n\d"', r'"\n\\d"'),
-        # `ur` is not a valid string prefix in python3.x
-        (r'u"\d"', r'u"\\d"'),
+        # this gets un-u'd and raw'd
+        (r'u"\d"', r'r"\d"'),
         # `rb` is not a valid string prefix in python2.x
         (r'b"\d"', r'br"\d"'),
         # 8 and 9 aren't valid octal digits
@@ -56,4 +56,4 @@ def test_fix_escape_sequences_noop(s):
     ),
 )
 def test_fix_escape_sequences(s, expected):
-    assert _fix_tokens(s, min_version=(2, 7)) == expected
+    assert _fix_tokens(s) == expected

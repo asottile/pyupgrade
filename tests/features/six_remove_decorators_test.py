@@ -42,5 +42,5 @@ from pyupgrade._main import _fix_plugins
     ),
 )
 def test_fix_six_remove_decorators(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected

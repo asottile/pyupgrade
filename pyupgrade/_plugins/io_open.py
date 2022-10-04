@@ -25,7 +25,6 @@ def visit_Call(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            state.settings.min_version >= (3,) and
             isinstance(node.func, ast.Attribute) and
             isinstance(node.func.value, ast.Name) and
             node.func.value.id == 'io' and

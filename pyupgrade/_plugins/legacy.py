@@ -207,9 +207,6 @@ def visit_Module(
         node: ast.Module,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    if state.settings.min_version < (3,):
-        return
-
     visitor = Visitor()
     visitor.visit(node)
 

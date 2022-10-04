@@ -10,8 +10,7 @@ from pyupgrade._main import _fix_tokens
     (
         # Don't touch syntax errors
         '"{0}"format(1)',
-        # Don't touch py27 format strings
-        "'{}'.format(1)",
+        pytest.param("'{}'.format(1)", id='already upgraded'),
         # Don't touch invalid format strings
         "'{'.format(1)", "'}'.format(1)",
         # Don't touch non-format strings
@@ -29,7 +28,7 @@ from pyupgrade._main import _fix_tokens
     ),
 )
 def test_format_literals_noop(s):
-    assert _fix_tokens(s, min_version=(2, 7)) == s
+    assert _fix_tokens(s) == s
 
 
 @pytest.mark.parametrize(
@@ -82,4 +81,4 @@ def test_format_literals_noop(s):
     ),
 )
 def test_format_literals(s, expected):
-    assert _fix_tokens(s, min_version=(2, 7)) == expected
+    assert _fix_tokens(s) == expected

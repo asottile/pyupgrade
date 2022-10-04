@@ -58,7 +58,7 @@ Sample `.pre-commit-config.yaml`:
 ```
 
 
-### Python2.7+ Format Specifiers
+### Format Specifiers
 
 ```diff
 -'{0} {1}'.format(1, 2)
@@ -83,10 +83,6 @@ Availability:
 
 ### Unicode literals
 
-Availability:
-- File imports `from __future__ import unicode_literals`
-- `--py3-plus` is passed on the commandline.
-
 ```diff
 -u'foo'
 +'foo'
@@ -105,9 +101,8 @@ Availability:
  # strings with mixed valid / invalid sequences get escaped
 -'\n\d'
 +'\n\\d'
- # `ur` is not a valid string prefix in python3
 -u'\d'
-+u'\\d'
++r'\d'
  # this fixes a syntax error in python3.3+
 -'\N'
 +r'\N'
@@ -131,22 +126,6 @@ of those comparisons is implementation specific (due to common object caching).
 +x == 'foo'
 ```
 
-### `ur` string literals
-
-`ur'...'` literals are not valid in python 3.x
-
-```diff
--ur'foo'
-+u'foo'
--ur'\s'
-+u'\\s'
- # unicode escapes are left alone
--ur'\u2603'
-+u'\u2603'
--ur'\U0001f643'
-+u'\U0001f643'
-```
-
 ### `.encode()` to bytes literals
 
 ```diff
@@ -160,26 +139,6 @@ of those comparisons is implementation specific (due to common object caching).
 +b'foo'
 -'\xa0'.encode('latin1')
 +b'\xa0'
-```
-
-### Long literals
-
-```diff
--5L
-+5
--5l
-+5
--123456789123456789123456789L
-+123456789123456789123456789
-```
-
-### Octal literals
-
-```diff
--0755
-+0o755
--05
-+5
 ```
 
 ### extraneous parens in `print(...)`
@@ -204,9 +163,6 @@ A fix for [python-modernize/python-modernize#178]
 
 Rewrites [deprecated unittest method aliases](https://docs.python.org/3/library/unittest.html#deprecated-aliases) to their non-deprecated forms.
 
-Availability:
-- More deprecated aliases are rewritten with `--py3-plus`
-
 ```diff
  from unittest import TestCase
 
@@ -221,9 +177,6 @@ Availability:
 
 ### `super()` calls
 
-Availability:
-- `--py3-plus` is passed on the commandline.
-
 ```diff
  class C(Base):
      def f(self):
@@ -232,9 +185,6 @@ Availability:
 ```
 
 ### "new style" classes
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 #### rewrites class declaration
 
@@ -254,9 +204,6 @@ Availability:
 
 ### forced `str("native")` literals
 
-Availability:
-- `--py3-plus` is passed on the commandline.
-
 ```diff
 -str()
 +''
@@ -266,18 +213,12 @@ Availability:
 
 ### `.encode("utf-8")`
 
-Availability:
-- `--py3-plus` is passed on the commandline.
-
 ```diff
 -"foo".encode("utf-8")
 +"foo".encode()
 ```
 
 ### `# coding: ...` comment
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 as of [PEP 3120], the default encoding for python source is UTF-8
 
@@ -291,9 +232,8 @@ as of [PEP 3120], the default encoding for python source is UTF-8
 ### `__future__` import removal
 
 Availability:
-- by default removes `nested_scopes`, `generators`, `with_statement`
-- `--py3-plus` will also remove `absolute_import` / `division` /
-  `print_function` / `unicode_literals`
+- by default removes `nested_scopes`, `generators`, `with_statement`,
+  `absolute_import`, `division`, `print_function`, `unicode_literals`
 - `--py37-plus` will also remove `generator_stop`
 
 ```diff
@@ -301,9 +241,6 @@ Availability:
 ```
 
 ### Remove unnecessary py3-compat imports
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 ```diff
 -from io import open
@@ -314,7 +251,7 @@ Availability:
 ### import replacements
 
 Availability:
-- `--py3-plus` (and others) will replace imports
+- `--py36-plus` (and others) will replace imports
 
 see also [reorder-python-imports](https://github.com/asottile/reorder_python_imports#removing--rewriting-obsolete-six-imports)
 
@@ -339,7 +276,6 @@ some examples:
 ### rewrite `mock` imports
 
 Availability:
-- `--py3-plus` is passed on the commandline.
 - [Unless `--keep-mock` is passed on the commandline](https://github.com/asottile/pyupgrade/issues/314).
 
 ```diff
@@ -348,9 +284,6 @@ Availability:
 ```
 
 ### `yield` => `yield from`
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 ```diff
  def f():
@@ -363,9 +296,6 @@ Availability:
 ```
 
 ### Python2 and old Python3.x blocks
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 ```diff
  import sys
@@ -407,9 +337,6 @@ Availability:
 Note that `if` blocks without an `else` will not be rewritten as it could introduce a syntax error.
 
 ### remove `six` compatibility code
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 ```diff
 -six.text_type
@@ -536,9 +463,6 @@ Availability:
 
 ### `open` alias
 
-Availability:
-- `--py3-plus` is passed on the commandline.
-
 ```diff
 -with io.open('f.txt') as f:
 +with open('f.txt') as f:
@@ -547,9 +471,6 @@ Availability:
 
 
 ### redundant `open` modes
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 ```diff
 -open("foo", "U")
@@ -570,9 +491,6 @@ Availability:
 
 
 ### `OSError` aliases
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 ```diff
  # also understands:
@@ -596,9 +514,6 @@ Availability:
 
 ### `typing.Text` str alias
 
-Availability:
-- `--py3-plus` is passed on the commandline.
-
 ```diff
 -def f(x: Text) -> None:
 +def f(x: str) -> None:
@@ -608,9 +523,6 @@ Availability:
 
 ### Unpacking list comprehensions
 
-Availability:
-- `--py3-plus` is passed on the commandline.
-
 ```diff
 -foo, bar, baz = [fn(x) for x in items]
 +foo, bar, baz = (fn(x) for x in items)
@@ -618,9 +530,6 @@ Availability:
 
 
 ### Rewrite `xml.etree.cElementTree` to `xml.etree.ElementTree`
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 ```diff
 -import xml.etree.cElementTree as ET
@@ -631,9 +540,6 @@ Availability:
 
 
 ### Rewrite `type` of primitive
-
-Availability:
-- `--py3-plus` is passed on the commandline.
 
 ```diff
 -type('')

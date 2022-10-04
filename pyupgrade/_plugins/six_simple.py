@@ -51,7 +51,6 @@ def visit_Attribute(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            state.settings.min_version >= (3,) and
             isinstance(node.value, ast.Name) and
             node.value.id == 'six' and
             node.attr in NAMES
@@ -71,7 +70,6 @@ def visit_Attribute(
         func = functools.partial(replace_name, name=node.attr, new=new)
         yield ast_to_offset(node), func
     elif (
-            state.settings.min_version >= (3,) and
             isinstance(node.value, ast.Attribute) and
             isinstance(node.value.value, ast.Name) and
             node.value.value.id == 'six' and
@@ -81,7 +79,6 @@ def visit_Attribute(
         func = functools.partial(replace_name, name=node.attr, new='range')
         yield ast_to_offset(node), func
     elif (
-            state.settings.min_version >= (3,) and
             isinstance(node.value, ast.Attribute) and
             isinstance(node.value.value, ast.Name) and
             node.value.value.id == 'six' and
@@ -99,7 +96,6 @@ def visit_Name(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            state.settings.min_version >= (3,) and
             node.id in state.from_imports['six'] and
             node.id in NAMES
     ):
@@ -118,7 +114,6 @@ def visit_Name(
         func = functools.partial(replace_name, name=node.id, new=new)
         yield ast_to_offset(node), func
     elif (
-            state.settings.min_version >= (3,) and
             node.id in state.from_imports['six.moves'] and
             node.id in {'xrange', 'range'}
     ):

@@ -9,66 +9,57 @@ from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
-    ('s', 'version'),
+    's',
     (
         pytest.param(
             'from typing import Literal\n'
             'x: "str"\n',
-            (2, 7),
             id='missing __future__ import',
         ),
         pytest.param(
             'from __future__ import annotations\n'
             'x: Literal["foo", "bar"]\n',
-            (3,),
             id='Literal',
         ),
         pytest.param(
             'from __future__ import annotations\n'
             'x = TypeVar("x", "str")\n',
-            (3,),
             id='TypeVar',
         ),
         pytest.param(
             'from __future__ import annotations\n'
             'x = cast(x, "str")\n',
-            (3,),
             id='cast',
         ),
         pytest.param(
             'from __future__ import annotations\n'
             'X = List["MyClass"]\n',
-            (3,),
             id='Alias',
         ),
         pytest.param(
             'from __future__ import annotations\n'
             'X: MyCallable("X")\n',
-            (3,),
             id='Custom callable',
         ),
         pytest.param(
             'from __future__ import annotations\n'
             'def foo(x, *args, **kwargs): ...\n',
-            (3,),
             id='Untyped',
         ),
         pytest.param(
             'from __future__ import annotations\n'
             'def foo(*, inplace): ...\n',
-            (3,),
             id='Kwonly, untyped',
         ),
         pytest.param(
             'from __future__ import annotations\n'
             'x: Annotated[1:2] = ...\n',
-            (3,),
             id='Annotated with invalid slice',
         ),
     ),
 )
-def test_fix_typing_pep563_noop(s, version):
-    assert _fix_plugins(s, settings=Settings(min_version=version)) == s
+def test_fix_typing_pep563_noop(s):
+    assert _fix_plugins(s, settings=Settings()) == s
 
 
 @pytest.mark.parametrize(

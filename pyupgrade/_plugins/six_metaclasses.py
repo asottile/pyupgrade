@@ -76,9 +76,6 @@ def visit_ClassDef(
         node: ast.ClassDef,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    if state.settings.min_version < (3,):
-        return
-
     for decorator in node.decorator_list:
         if (
                 isinstance(decorator, ast.Call) and

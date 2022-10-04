@@ -16,7 +16,7 @@ with open("f.txt") as f:
 with open("f.txt") as f:
     print(f.read())
 '''
-    ret = _fix_plugins(src, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(src, settings=Settings())
     assert ret == expected
 
 
@@ -35,5 +35,5 @@ with open("f.txt") as f:
     ),
 )
 def test_fix_io_open(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected

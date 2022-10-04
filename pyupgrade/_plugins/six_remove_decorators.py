@@ -19,12 +19,11 @@ def visit_ClassDef(
         node: ast.ClassDef,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    if state.settings.min_version >= (3,):
-        for decorator in node.decorator_list:
-            if is_name_attr(
-                    decorator,
-                    state.from_imports,
-                    ('six',),
-                    ('python_2_unicode_compatible',),
-            ):
-                yield ast_to_offset(decorator), remove_decorator
+    for decorator in node.decorator_list:
+        if is_name_attr(
+                decorator,
+                state.from_imports,
+                ('six',),
+                ('python_2_unicode_compatible',),
+        ):
+            yield ast_to_offset(decorator), remove_decorator

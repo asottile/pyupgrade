@@ -12,8 +12,7 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import replace_name
 
-
-METHOD_MAPPING_PY27 = {
+METHOD_MAPPING = {
     'assertEquals': 'assertEqual',
     'failUnlessEqual': 'assertEqual',
     'failIfEqual': 'assertNotEqual',
@@ -23,10 +22,6 @@ METHOD_MAPPING_PY27 = {
     'failUnlessRaises': 'assertRaises',
     'failUnlessAlmostEqual': 'assertAlmostEqual',
     'failIfAlmostEqual': 'assertNotAlmostEqual',
-}
-
-METHOD_MAPPING_PY35_PLUS = {
-    **METHOD_MAPPING_PY27,
     'assertNotEquals': 'assertNotEqual',
     'assertAlmostEquals': 'assertAlmostEqual',
     'assertNotAlmostEquals': 'assertNotAlmostEqual',
@@ -48,21 +43,16 @@ def visit_Call(
         node: ast.Call,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    if state.settings.min_version >= (3,):
-        method_mapping = METHOD_MAPPING_PY35_PLUS
-    else:
-        method_mapping = METHOD_MAPPING_PY27
-
     if (
             isinstance(node.func, ast.Attribute) and
             isinstance(node.func.value, ast.Name) and
             node.func.value.id == 'self' and
-            node.func.attr in method_mapping
+            node.func.attr in METHOD_MAPPING
     ):
         func = functools.partial(
             replace_name,
             name=node.func.attr,
-            new=f'self.{method_mapping[node.func.attr]}',
+            new=f'self.{METHOD_MAPPING[node.func.attr]}',
         )
         yield ast_to_offset(node.func), func
     elif (

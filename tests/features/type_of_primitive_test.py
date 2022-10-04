@@ -7,28 +7,21 @@ from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
-    ('s', 'version'),
+    's',
     (
         pytest.param(
-            'type("")\n',
-            (2, 7),
-            id='not python 3+',
-        ),
-        pytest.param(
             'type(None)\n',
-            (3,),
             id='NoneType',
         ),
         pytest.param(
             'foo = "foo"\n'
             'type(foo)\n',
-            (3,),
             id='String assigned to variable',
         ),
     ),
 )
-def test_fix_type_of_primitive_noop(s, version):
-    assert _fix_plugins(s, settings=Settings(min_version=version)) == s
+def test_fix_type_of_primitive_noop(s):
+    assert _fix_plugins(s, settings=Settings()) == s
 
 
 @pytest.mark.parametrize(
@@ -72,5 +65,5 @@ def test_fix_type_of_primitive_noop(s, version):
     ),
 )
 def test_fix_type_of_primitive(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected

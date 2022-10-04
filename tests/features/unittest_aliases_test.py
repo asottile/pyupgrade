@@ -15,16 +15,10 @@ from pyupgrade._main import _fix_plugins
             '        self.assertEqual(1, 1)\n',
             id='not a deprecated alias',
         ),
-        pytest.param(
-            'class ExampleTests:\n'
-            '    def test_something(self):\n'
-            '        self.assertNotEquals(1, 2)\n',
-            id='not python 3+',
-        ),
     ),
 )
 def test_fix_unittest_aliases_noop(s):
-    assert _fix_plugins(s, settings=Settings(min_version=(2, 7))) == s
+    assert _fix_plugins(s, settings=Settings()) == s
 
 
 @pytest.mark.parametrize(
@@ -39,16 +33,6 @@ def test_fix_unittest_aliases_noop(s):
             '    def test_something(self):\n'
             '        self.assertEqual(1, 1)\n',
         ),
-    ),
-)
-def test_fix_unittest_aliases_py27(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(2, 7)))
-    assert ret == expected
-
-
-@pytest.mark.parametrize(
-    ('s', 'expected'),
-    (
         (
             'class ExampleTests:\n'
             '    def test_something(self):\n'
@@ -60,8 +44,8 @@ def test_fix_unittest_aliases_py27(s, expected):
         ),
     ),
 )
-def test_fix_unittest_aliases_py3(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+def test_fix_unittest_aliases(s, expected):
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
 
 

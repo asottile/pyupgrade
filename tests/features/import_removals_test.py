@@ -13,9 +13,6 @@ from pyupgrade._main import _fix_plugins
         ('from foo import bar', (3,)),
         ('from __future__ import unknown', (3,)),
         ('from __future__ import annotations', (3,)),
-        ('from __future__ import division', (2, 7)),
-        ('from six.moves import map', (2, 7)),
-        ('from builtins import str', (2, 7)),
         ('from six import *', (3,)),
         ('from six.moves import map as notmap', (3,)),
         ('from unrelated import queue as map', (3,)),
@@ -34,11 +31,11 @@ def test_import_removals_noop(s, min_version):
 @pytest.mark.parametrize(
     ('s', 'min_version', 'expected'),
     (
-        ('from __future__ import generators\n', (2, 7), ''),
-        ('from __future__ import generators', (2, 7), ''),
+        ('from __future__ import generators\n', (3,), ''),
+        ('from __future__ import generators', (3,), ''),
         ('from __future__ import division\n', (3,), ''),
         ('from __future__ import division\n', (3, 6), ''),
-        ('from __future__ import (generators,)', (2, 7), ''),
+        ('from __future__ import (generators,)', (3,), ''),
         ('from __future__ import print_function', (3, 8), ''),
         ('from builtins import map', (3,), ''),
         ('from builtins import *', (3,), ''),
@@ -112,7 +109,7 @@ def test_import_removals_noop(s, min_version):
             'from __future__ import with_statement\n'
             '\n'
             'import os.path\n',
-            (2, 7),
+            (3,),
             'import os.path\n',
             id='remove top-file whitespace',
         ),

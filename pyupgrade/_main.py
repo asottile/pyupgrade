@@ -20,7 +20,6 @@ from tokenize_rt import UNIMPORTANT_WS
 from pyupgrade._ast_helpers import ast_parse
 from pyupgrade._data import FUNCS
 from pyupgrade._data import Settings
-from pyupgrade._data import Version
 from pyupgrade._data import visit
 from pyupgrade._string_helpers import DotFormatPart
 from pyupgrade._string_helpers import is_codec
@@ -81,33 +80,6 @@ def _fix_plugins(contents_text: str, settings: Settings) -> str:
             callback(i, tokens)
 
     return tokens_to_src(tokens).lstrip()
-
-
-def _imports_future(contents_text: str, future_name: str) -> bool:
-    try:
-        ast_obj = ast_parse(contents_text)
-    except SyntaxError:
-        return False
-
-    for node in ast_obj.body:
-        # Docstring
-        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
-            continue
-        elif isinstance(node, ast.ImportFrom):
-            if (
-                node.level == 0 and
-                node.module == '__future__' and
-                any(name.name == future_name for name in node.names)
-            ):
-                return True
-            elif node.module == '__future__':
-                continue
-            else:
-                return False
-        else:
-            return False
-
-    return False
 
 
 # https://docs.python.org/3/reference/lexical_analysis.html
@@ -171,36 +143,6 @@ def _remove_u_prefix(token: Token) -> Token:
     else:
         new_prefix = prefix.replace('u', '').replace('U', '')
         return token._replace(src=new_prefix + rest)
-
-
-def _fix_ur_literals(token: Token) -> Token:
-    prefix, rest = parse_string_literal(token.src)
-    if prefix.lower() != 'ur':
-        return token
-    else:
-        def cb(match: Match[str]) -> str:
-            escape = match.group()
-            if escape[1].lower() == 'u':
-                return escape
-            else:
-                return '\\' + match.group()
-
-        rest = ESCAPE_RE.sub(cb, rest)
-        prefix = prefix.replace('r', '').replace('R', '')
-        return token._replace(src=prefix + rest)
-
-
-def _fix_long(src: str) -> str:
-    return src.rstrip('lL')
-
-
-def _fix_octal(s: str) -> str:
-    if not s.startswith('0') or not s.isdigit() or s == len(s) * '0':
-        return s
-    elif len(s) == 2:
-        return s[1:]
-    else:
-        return '0o' + s[1:]
 
 
 def _fix_extraneous_parens(tokens: list[Token], i: int) -> None:
@@ -334,66 +276,14 @@ def _fix_encode_to_binary(tokens: list[Token], i: int) -> None:
     del tokens[victims]
 
 
-def _build_import_removals() -> dict[Version, dict[str, tuple[str, ...]]]:
-    ret = {}
-    future: tuple[tuple[Version, tuple[str, ...]], ...] = (
-        ((2, 7), ('nested_scopes', 'generators', 'with_statement')),
-        (
-            (3,), (
-                'absolute_import', 'division', 'print_function',
-                'unicode_literals',
-            ),
-        ),
-        ((3, 6), ()),
-        ((3, 7), ('generator_stop',)),
-        ((3, 8), ()),
-        ((3, 9), ()),
-        ((3, 10), ()),
-        ((3, 11), ()),
-    )
-
-    prev: tuple[str, ...] = ()
-    for min_version, names in future:
-        prev += names
-        ret[min_version] = {'__future__': prev}
-    # see reorder_python_imports
-    for k, v in ret.items():
-        if k >= (3,):
-            v.update({
-                'builtins': (
-                    'ascii', 'bytes', 'chr', 'dict', 'filter', 'hex', 'input',
-                    'int', 'list', 'map', 'max', 'min', 'next', 'object',
-                    'oct', 'open', 'pow', 'range', 'round', 'str', 'super',
-                    'zip', '*',
-                ),
-                'io': ('open',),
-                'six': ('callable', 'next'),
-                'six.moves': ('filter', 'input', 'map', 'range', 'zip'),
-            })
-    return ret
-
-
-IMPORT_REMOVALS = _build_import_removals()
-
-
-def _fix_tokens(contents_text: str, min_version: Version) -> str:
-    remove_u = (
-        min_version >= (3,) or
-        _imports_future(contents_text, 'unicode_literals')
-    )
-
+def _fix_tokens(contents_text: str) -> str:
     try:
         tokens = src_to_tokens(contents_text)
     except tokenize.TokenError:
         return contents_text
     for i, token in reversed_enumerate(tokens):
-        if token.name == 'NUMBER':
-            tokens[i] = token._replace(src=_fix_long(_fix_octal(token.src)))
-        elif token.name == 'STRING':
-            tokens[i] = _fix_ur_literals(tokens[i])
-            if remove_u:
-                tokens[i] = _remove_u_prefix(tokens[i])
-            tokens[i] = _fix_escape_sequences(tokens[i])
+        if token.name == 'STRING':
+            tokens[i] = _fix_escape_sequences(_remove_u_prefix(tokens[i]))
         elif token.src == '(':
             _fix_extraneous_parens(tokens, i)
         elif token.src == 'format' and i > 0 and tokens[i - 1].src == '.':
@@ -401,7 +291,6 @@ def _fix_tokens(contents_text: str, min_version: Version) -> str:
         elif token.src == 'encode' and i > 0 and tokens[i - 1].src == '.':
             _fix_encode_to_binary(tokens, i)
         elif (
-                min_version >= (3,) and
                 token.utf8_byte_offset == 0 and
                 token.line < 3 and
                 token.name == 'COMMENT' and
@@ -435,7 +324,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
             keep_runtime_typing=args.keep_runtime_typing,
         ),
     )
-    contents_text = _fix_tokens(contents_text, min_version=args.min_version)
+    contents_text = _fix_tokens(contents_text)
 
     if filename == '-':
         print(contents_text, end='')
@@ -459,7 +348,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--keep-runtime-typing', action='store_true')
     parser.add_argument(
         '--py3-plus', '--py3-only',
-        action='store_const', dest='min_version', default=(2, 7), const=(3,),
+        action='store_const', dest='min_version', default=(3,), const=(3,),
     )
     parser.add_argument(
         '--py36-plus',
@@ -486,12 +375,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         action='store_const', dest='min_version', const=(3, 11),
     )
     args = parser.parse_args(argv)
-
-    if args.min_version < (3,):
-        print(
-            'WARNING: pyupgrade will default to --py3-plus in 3.x',
-            file=sys.stderr,
-        )
 
     ret = 0
     for filename in args.filenames:

@@ -110,42 +110,40 @@ def visit_If(
     assert len(min_version) >= 2
 
     if (
-            min_version >= (3,) and (
-                # if six.PY2:
+            # if six.PY2:
+            is_name_attr(
+                node.test,
+                state.from_imports,
+                ('six',),
+                ('PY2',),
+            ) or
+            # if not six.PY3:
+            (
+                isinstance(node.test, ast.UnaryOp) and
+                isinstance(node.test.op, ast.Not) and
                 is_name_attr(
-                    node.test,
+                    node.test.operand,
                     state.from_imports,
                     ('six',),
-                    ('PY2',),
-                ) or
-                # if not six.PY3:
-                (
-                    isinstance(node.test, ast.UnaryOp) and
-                    isinstance(node.test.op, ast.Not) and
-                    is_name_attr(
-                        node.test.operand,
-                        state.from_imports,
-                        ('six',),
-                        ('PY3',),
-                    )
-                ) or
-                # sys.version_info == 2 or < (3,)
-                # or < (3, n) or <= (3, n) (with n<m)
-                (
-                    isinstance(node.test, ast.Compare) and
-                    is_name_attr(
-                        node.test.left,
-                        state.from_imports,
-                        ('sys',),
-                        ('version_info',),
-                    ) and
-                    len(node.test.ops) == 1 and (
-                        _eq(node.test, 2) or
-                        _compare_to_3(node.test, ast.Lt, min_version[1]) or
-                        any(
-                            _compare_to_3(node.test, (ast.Lt, ast.LtE), minor)
-                            for minor in range(min_version[1])
-                        )
+                    ('PY3',),
+                )
+            ) or
+            # sys.version_info == 2 or < (3,)
+            # or < (3, n) or <= (3, n) (with n<m)
+            (
+                isinstance(node.test, ast.Compare) and
+                is_name_attr(
+                    node.test.left,
+                    state.from_imports,
+                    ('sys',),
+                    ('version_info',),
+                ) and
+                len(node.test.ops) == 1 and (
+                    _eq(node.test, 2) or
+                    _compare_to_3(node.test, ast.Lt, min_version[1]) or
+                    any(
+                        _compare_to_3(node.test, (ast.Lt, ast.LtE), minor)
+                        for minor in range(min_version[1])
                     )
                 )
             )
@@ -153,44 +151,42 @@ def visit_If(
         if node.orelse and not isinstance(node.orelse[0], ast.If):
             yield ast_to_offset(node), _fix_py2_block
     elif (
-            min_version >= (3,) and (
-                # if six.PY3:
+            # if six.PY3:
+            is_name_attr(
+                node.test,
+                state.from_imports,
+                ('six',),
+                ('PY3',),
+            ) or
+            # if not six.PY2:
+            (
+                isinstance(node.test, ast.UnaryOp) and
+                isinstance(node.test.op, ast.Not) and
                 is_name_attr(
-                    node.test,
+                    node.test.operand,
                     state.from_imports,
                     ('six',),
-                    ('PY3',),
-                ) or
-                # if not six.PY2:
-                (
-                    isinstance(node.test, ast.UnaryOp) and
-                    isinstance(node.test.op, ast.Not) and
-                    is_name_attr(
-                        node.test.operand,
-                        state.from_imports,
-                        ('six',),
-                        ('PY2',),
-                    )
-                ) or
-                # sys.version_info == 3 or >= (3,) or > (3,)
-                # sys.version_info >= (3, n) (with n<=m)
-                # or sys.version_info > (3, n) (with n<m)
-                (
-                    isinstance(node.test, ast.Compare) and
-                    is_name_attr(
-                        node.test.left,
-                        state.from_imports,
-                        ('sys',),
-                        ('version_info',),
-                    ) and
-                    len(node.test.ops) == 1 and (
-                        _eq(node.test, 3) or
-                        _compare_to_3(node.test, (ast.Gt, ast.GtE)) or
-                        _compare_to_3(node.test, ast.GtE, min_version[1]) or
-                        any(
-                            _compare_to_3(node.test, (ast.Gt, ast.GtE), minor)
-                            for minor in range(min_version[1])
-                        )
+                    ('PY2',),
+                )
+            ) or
+            # sys.version_info == 3 or >= (3,) or > (3,)
+            # sys.version_info >= (3, n) (with n<=m)
+            # or sys.version_info > (3, n) (with n<m)
+            (
+                isinstance(node.test, ast.Compare) and
+                is_name_attr(
+                    node.test.left,
+                    state.from_imports,
+                    ('sys',),
+                    ('version_info',),
+                ) and
+                len(node.test.ops) == 1 and (
+                    _eq(node.test, 3) or
+                    _compare_to_3(node.test, (ast.Gt, ast.GtE)) or
+                    _compare_to_3(node.test, ast.GtE, min_version[1]) or
+                    any(
+                        _compare_to_3(node.test, (ast.Gt, ast.GtE), minor)
+                        for minor in range(min_version[1])
                     )
                 )
             )

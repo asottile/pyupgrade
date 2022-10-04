@@ -25,7 +25,6 @@ def visit_Attribute(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            state.settings.min_version >= (3,) and
             not state.settings.keep_mock and
             isinstance(node.value, ast.Name) and
             node.value.id == 'mock' and

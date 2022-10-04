@@ -34,4 +34,4 @@ from pyupgrade._main import _fix_plugins
     ),
 )
 def test_fix_mock(s, expected):
-    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == expected
+    assert _fix_plugins(s, settings=Settings()) == expected
