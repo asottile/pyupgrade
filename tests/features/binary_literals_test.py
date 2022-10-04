@@ -27,7 +27,7 @@ from pyupgrade._main import _fix_tokens
     ),
 )
 def test_binary_literals_noop(s):
-    assert _fix_tokens(s, min_version=(2, 7)) == s
+    assert _fix_tokens(s) == s
 
 
 @pytest.mark.parametrize(
@@ -50,18 +50,7 @@ def test_binary_literals_noop(s):
             '    b"bar"\n'
             ')\n',
         ),
-        (
-            'f(\n'
-            '    U"foo"\n'
-            '    ur"bar".encode()\n'
-            ')\n',
-
-            'f(\n'
-            '    b"foo"\n'
-            '    br"bar"\n'
-            ')\n',
-        ),
     ),
 )
 def test_binary_literals(s, expected):
-    assert _fix_tokens(s, min_version=(2, 7)) == expected
+    assert _fix_tokens(s) == expected

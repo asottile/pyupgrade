@@ -11,11 +11,6 @@ from pyupgrade._main import _fix_plugins
     (
         pytest.param('from a import b', (3,), id='unrelated import'),
         pytest.param(
-            'from collections import Mapping\n',
-            (2, 7),
-            id='too old min version',
-        ),
-        pytest.param(
             'from .xml.etree.cElementTree import XML\n',
             (3,),
             id='leave relative imports alone',
@@ -63,7 +58,7 @@ def test_mock_noop_keep_mock():
         '\n'
         'patch("func")'
     )
-    settings = Settings(min_version=(3,), keep_mock=True)
+    settings = Settings(keep_mock=True)
     assert _fix_plugins(s, settings=settings) == s
 
 

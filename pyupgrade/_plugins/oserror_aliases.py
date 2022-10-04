@@ -107,7 +107,7 @@ def visit_Raise(
         node: ast.Raise,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    if state.settings.min_version >= (3,) and node.exc is not None:
+    if node.exc is not None:
         yield from _oserror_alias_cbs(node.exc, state.from_imports)
         if isinstance(node.exc, ast.Call):
             yield from _oserror_alias_cbs(node.exc.func, state.from_imports)
@@ -119,19 +119,18 @@ def visit_Try(
         node: ast.Try,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    if state.settings.min_version >= (3,):
-        for handler in node.handlers:
-            if (
-                    isinstance(handler.type, ast.Tuple) and
-                    any(
-                        _is_oserror_alias(elt, state.from_imports)
-                        for elt in handler.type.elts
-                    )
-            ):
-                func = functools.partial(
-                    _fix_oserror_except,
-                    from_imports=state.from_imports,
+    for handler in node.handlers:
+        if (
+                isinstance(handler.type, ast.Tuple) and
+                any(
+                    _is_oserror_alias(elt, state.from_imports)
+                    for elt in handler.type.elts
                 )
-                yield ast_to_offset(handler.type), func
-            elif handler.type is not None:
-                yield from _oserror_alias_cbs(handler.type, state.from_imports)
+        ):
+            func = functools.partial(
+                _fix_oserror_except,
+                from_imports=state.from_imports,
+            )
+            yield ast_to_offset(handler.type), func
+        elif handler.type is not None:
+            yield from _oserror_alias_cbs(handler.type, state.from_imports)

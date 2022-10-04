@@ -6,40 +6,27 @@ from pyupgrade._main import _fix_tokens
 
 
 @pytest.mark.parametrize(
-    ('s', 'min_version'),
+    's',
     (
-        # Syntax errors are unchanged
-        ('(', (2, 7)),
-        # Without py3-plus, no replacements
-        ("u''", (2, 7)),
+        pytest.param('(', id='syntax errors are unchanged'),
         # Regression: string containing newline
-        ('"""with newline\n"""', (3,)),
+        pytest.param('"""with newline\n"""', id='string containing newline'),
         pytest.param(
             'def f():\n'
             '    return"foo"\n',
-            (3,),
             id='Regression: no space between return and string',
         ),
     ),
 )
-def test_unicode_literals_noop(s, min_version):
-    assert _fix_tokens(s, min_version=min_version) == s
+def test_unicode_literals_noop(s):
+    assert _fix_tokens(s) == s
 
 
 @pytest.mark.parametrize(
-    ('s', 'min_version', 'expected'),
+    ('s', 'expected'),
     (
-        # With py3-plus, it removes u prefix
-        ("u''", (3,), "''"),
-        # Importing unicode_literals also cause it to remove it
-        (
-            'from __future__ import unicode_literals\n'
-            'u""\n',
-            (2, 7),
-            'from __future__ import unicode_literals\n'
-            '""\n',
-        ),
+        pytest.param("u''", "''", id='it removes u prefix'),
     ),
 )
-def test_unicode_literals(s, min_version, expected):
-    assert _fix_tokens(s, min_version=min_version) == expected
+def test_unicode_literals(s, expected):
+    assert _fix_tokens(s) == expected

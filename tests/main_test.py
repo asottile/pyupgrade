@@ -40,7 +40,7 @@ def f():
 def test_main_changes_a_file(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write('x = set((1, 2, 3))\n')
-    assert main((f.strpath, '--py3-plus')) == 1
+    assert main((f.strpath,)) == 1
     out, err = capsys.readouterr()
     assert err == f'Rewriting {f.strpath}\n'
     assert f.read() == 'x = {1, 2, 3}\n'
@@ -67,13 +67,6 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
     assert out == f'{f.strpath} is non-utf-8 (not supported)\n'
 
 
-def test_main_py27_syntaxerror_coding(tmpdir):
-    f = tmpdir.join('f.py')
-    f.write('# -*- coding: utf-8\nset((1, 2))\n')
-    assert main((f.strpath,)) == 1
-    assert f.read() == '# -*- coding: utf-8\n{1, 2}\n'
-
-
 def test_keep_percent_format(tmpdir):
     f = tmpdir.join('f.py')
     f.write('"%s" % (1,)')
@@ -86,18 +79,16 @@ def test_keep_percent_format(tmpdir):
 def test_keep_mock(tmpdir):
     f = tmpdir.join('f.py')
     f.write('from mock import patch\n')
-    assert main((f.strpath, '--py3-plus', '--keep-mock')) == 0
+    assert main((f.strpath, '--keep-mock')) == 0
     assert f.read() == 'from mock import patch\n'
-    assert main((f.strpath, '--py3-plus')) == 1
+    assert main((f.strpath,)) == 1
     assert f.read() == 'from unittest.mock import patch\n'
 
 
 def test_py3_plus_argument_unicode_literals(tmpdir):
     f = tmpdir.join('f.py')
     f.write('u""')
-    assert main((f.strpath,)) == 0
-    assert f.read() == 'u""'
-    assert main((f.strpath, '--py3-plus')) == 1
+    assert main((f.strpath,)) == 1
     assert f.read() == '""'
 
 
@@ -108,13 +99,7 @@ def test_py3_plus_super(tmpdir):
         '    def f(self):\n'
         '        super(C, self).f()\n',
     )
-    assert main((f.strpath,)) == 0
-    assert f.read() == (
-        'class C(Base):\n'
-        '    def f(self):\n'
-        '        super(C, self).f()\n'
-    )
-    assert main((f.strpath, '--py3-plus')) == 1
+    assert main((f.strpath,)) == 1
     assert f.read() == (
         'class C(Base):\n'
         '    def f(self):\n'
@@ -125,18 +110,14 @@ def test_py3_plus_super(tmpdir):
 def test_py3_plus_new_style_classes(tmpdir):
     f = tmpdir.join('f.py')
     f.write('class C(object): pass\n')
-    assert main((f.strpath,)) == 0
-    assert f.read() == 'class C(object): pass\n'
-    assert main((f.strpath, '--py3-plus')) == 1
+    assert main((f.strpath,)) == 1
     assert f.read() == 'class C: pass\n'
 
 
 def test_py3_plus_oserror(tmpdir):
     f = tmpdir.join('f.py')
     f.write('raise EnvironmentError(1, 2)\n')
-    assert main((f.strpath,)) == 0
-    assert f.read() == 'raise EnvironmentError(1, 2)\n'
-    assert main((f.strpath, '--py3-plus')) == 1
+    assert main((f.strpath,)) == 1
     assert f.read() == 'raise OSError(1, 2)\n'
 
 
@@ -153,7 +134,6 @@ def test_py37_plus_removes_annotations(tmpdir):
     f = tmpdir.join('f.py')
     f.write('from __future__ import generator_stop\nx = 1\n')
     assert main((f.strpath,)) == 0
-    assert main((f.strpath, '--py3-plus')) == 0
     assert main((f.strpath, '--py36-plus')) == 0
     assert main((f.strpath, '--py37-plus')) == 1
     assert f.read() == 'x = 1\n'
@@ -168,7 +148,6 @@ def test_py38_plus_removes_no_arg_decorators(tmpdir):
         '   ...',
     )
     assert main((f.strpath,)) == 0
-    assert main((f.strpath, '--py3-plus')) == 0
     assert main((f.strpath, '--py36-plus')) == 0
     assert main((f.strpath, '--py37-plus')) == 0
     assert main((f.strpath, '--py38-plus')) == 1
@@ -217,11 +196,3 @@ def test_main_stdin_with_changes(capsys):
         assert main(('-',)) == 1
     out, err = capsys.readouterr()
     assert out == '{1, 2}\n'
-
-
-def test_main_py27_mode_warning(capsys, tmpdir):
-    f = tmpdir.join('t.py').ensure()
-    assert not main((str(f),))
-    out, err = capsys.readouterr()
-    assert out == ''
-    assert err == 'WARNING: pyupgrade will default to --py3-plus in 3.x\n'

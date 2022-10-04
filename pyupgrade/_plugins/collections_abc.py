@@ -25,7 +25,6 @@ def visit_Attribute(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            state.settings.min_version >= (3,) and
             isinstance(node.value, ast.Name) and
             node.value.id == 'collections' and
             node.attr in COLLECTIONS_ABC_ATTRS

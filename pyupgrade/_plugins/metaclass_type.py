@@ -25,7 +25,6 @@ def visit_Assign(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            state.settings.min_version >= (3,) and
             len(node.targets) == 1 and
             isinstance(node.targets[0], ast.Name) and
             node.targets[0].col_offset == 0 and

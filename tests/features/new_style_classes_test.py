@@ -16,7 +16,7 @@ from pyupgrade._main import _fix_plugins
     ),
 )
 def test_fix_classes_noop(s):
-    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
+    assert _fix_plugins(s, settings=Settings()) == s
 
 
 @pytest.mark.parametrize(
@@ -104,5 +104,5 @@ def test_fix_classes_noop(s):
     ),
 )
 def test_fix_classes(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected

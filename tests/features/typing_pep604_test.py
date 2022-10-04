@@ -74,8 +74,7 @@ from __future__ import annotations
 from typing import Union
 def f(x: Union[int, str]) -> None: ...
 '''
-    settings = Settings(min_version=(3,), keep_runtime_typing=True)
-    assert _fix_plugins(s, settings=settings) == s
+    assert _fix_plugins(s, settings=Settings(keep_runtime_typing=True)) == s
 
 
 def test_keep_runtime_typing_ignored_in_py310():
@@ -241,7 +240,7 @@ def test_fix_pep604_types(s, expected):
     ),
 )
 def test_fix_generic_types_future_annotations(s, expected):
-    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == expected
+    assert _fix_plugins(s, settings=Settings()) == expected
 
 
 # TODO: test multi-line as well

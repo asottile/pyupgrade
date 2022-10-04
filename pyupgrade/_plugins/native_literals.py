@@ -55,14 +55,10 @@ def visit_Call(
         node: ast.Call,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    if (
-            state.settings.min_version >= (3,) and
-            is_a_native_literal_call(node, state.from_imports)
-    ):
+    if is_a_native_literal_call(node, state.from_imports):
         func = functools.partial(_fix_literal, empty="''")
         yield ast_to_offset(node), func
     elif (
-            state.settings.min_version >= (3,) and
             isinstance(node.func, ast.Name) and node.func.id == 'bytes' and
             not node.keywords and not has_starargs(node) and
             (

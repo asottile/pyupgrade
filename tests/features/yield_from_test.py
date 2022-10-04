@@ -145,7 +145,7 @@ from pyupgrade._plugins.legacy import _targets_same
     ),
 )
 def test_fix_yield_from(s, expected):
-    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == expected
+    assert _fix_plugins(s, settings=Settings()) == expected
 
 
 @pytest.mark.parametrize(
@@ -216,7 +216,7 @@ def test_fix_yield_from(s, expected):
     ),
 )
 def test_fix_yield_from_noop(s):
-    assert _fix_plugins(s, settings=Settings(min_version=(3,))) == s
+    assert _fix_plugins(s, settings=Settings()) == s
 
 
 def test_targets_same():

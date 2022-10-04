@@ -44,9 +44,7 @@ def _removals() -> dict[tuple[int, ...], dict[str, set[str]]]:
     removals: dict[tuple[int, ...], dict[str, set[str]]]
     removals = collections.defaultdict(lambda: collections.defaultdict(set))
     for k, v in reorder_python_imports.REMOVALS.items():
-        if k < (2, 7):
-            k = (2, 7)
-        elif k <= (3, 6):
+        if k <= (3, 6):
             k = (3,)
         for s in v:
             match = FROM_IMPORT_RE.match(s)

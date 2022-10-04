@@ -45,8 +45,7 @@ from __future__ import annotations
 from typing import List
 def f(x: List[str]) -> None: ...
 '''
-    settings = Settings(min_version=(3,), keep_runtime_typing=True)
-    assert _fix_plugins(s, settings=settings) == s
+    assert _fix_plugins(s, settings=Settings(keep_runtime_typing=True)) == s
 
 
 def test_keep_runtime_typing_ignored_in_py39():
@@ -138,5 +137,5 @@ def test_fix_generic_types(s, expected):
     ),
 )
 def test_fix_generic_types_future_annotations(s, expected):
-    ret = _fix_plugins(s, settings=Settings(min_version=(3,)))
+    ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
