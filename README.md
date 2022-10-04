@@ -476,17 +476,17 @@ Note that `if` blocks without an `else` will not be rewritten as it could introd
 -open("foo", "U")
 +open("foo")
 -open("foo", "Ur")
-+open("foo")
++open("foo", "r")
 -open("foo", "Ub")
 +open("foo", "rb")
 -open("foo", "rUb")
 +open("foo", "rb")
--open("foo", "r")
-+open("foo")
 -open("foo", "rt")
-+open("foo")
--open("f", "r", encoding="UTF-8")
++open("foo", "r")
+-open("f", "U", encoding="UTF-8")
 +open("f", encoding="UTF-8")
+-open("foo", "wt")
++open("foo", "w")
 ```
 
 

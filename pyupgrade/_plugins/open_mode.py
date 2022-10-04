@@ -18,10 +18,14 @@ from pyupgrade._token_helpers import delete_argument
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import parse_call_args
 
-U_MODE_REMOVE = frozenset(('U', 'Ur', 'rU', 'r', 'rt', 'tr'))
+T_MODE_REMOVE_T = frozenset(('rt', 'tr', 'tw', 'wt'))
+U_MODE_REMOVE = frozenset('U')
 U_MODE_REPLACE_R = frozenset(('Ub', 'bU'))
-U_MODE_REMOVE_U = frozenset(('rUb', 'Urb', 'rbU', 'Ubr', 'bUr', 'brU'))
-U_MODE_REPLACE = U_MODE_REPLACE_R | U_MODE_REMOVE_U
+U_MODE_REMOVE_U = frozenset((
+    'rUb', 'Ur', 'Urb', 'rbU', 'rU', 'Ubr', 'bUr',
+    'brU',
+))
+MODE_REPLACE = T_MODE_REMOVE_T | U_MODE_REPLACE_R | U_MODE_REMOVE_U
 
 
 class FunctionArg(NamedTuple):
@@ -42,6 +46,9 @@ def _fix_open_mode(i: int, tokens: list[Token], *, arg_idx: int) -> None:
         tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
     elif mode_stripped in U_MODE_REMOVE_U:
         new_mode = mode.replace('U', '')
+        tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
+    elif mode_stripped in T_MODE_REMOVE_T:
+        new_mode = mode.replace('t', '')
         tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
     else:
         raise AssertionError(f'unreachable: {mode!r}')
@@ -69,7 +76,7 @@ def visit_Call(
     ):
         if len(node.args) >= 2 and isinstance(node.args[1], ast.Str):
             if (
-                node.args[1].s in U_MODE_REPLACE or
+                node.args[1].s in MODE_REPLACE or
                 (len(node.args) == 2 and node.args[1].s in U_MODE_REMOVE)
             ):
                 func = functools.partial(
@@ -91,7 +98,7 @@ def visit_Call(
                 isinstance(mode.value, ast.Str) and
                 (
                     mode.value.s in U_MODE_REMOVE or
-                    mode.value.s in U_MODE_REPLACE
+                    mode.value.s in MODE_REPLACE
                 )
             ):
                 func = functools.partial(
