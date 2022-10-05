@@ -19,5 +19,5 @@ jobs:
     os: windows
 - template: job--python-tox.yml@asottile
   parameters:
-    toxenvs: [py37, py38, py39]
+    toxenvs: [py37, py38, py39, py310]
     os: linux
