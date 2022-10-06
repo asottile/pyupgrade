@@ -32,9 +32,6 @@ def _fix_set_empty_literal(i: int, tokens: list[Token]) -> None:
             brace_stack.pop()
         elif token in BRACES:
             brace_stack.append(token)
-        elif '\n' in token:
-            # Contains a newline, could cause a SyntaxError, bail
-            return
         j += 1
 
     # Remove the inner tokens
