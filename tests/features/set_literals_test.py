@@ -11,9 +11,6 @@ from pyupgrade._main import _fix_plugins
     (
         # Don't touch empty set literals
         'set()',
-        # Don't touch set(empty literal) with newlines in them (may create
-        # syntax errors)
-        'set((\n))',
         # Don't touch weird looking function calls -- use autopep8 or such
         # first
         'set (())', 'set ((1, 2))',
@@ -92,6 +89,7 @@ def test_fix_sets_noop(s):
             '        99, 100,\n'
             '}\n',
         ),
+        pytest.param('set((\n))', 'set()', id='empty literal with newline'),
     ),
 )
 def test_sets(s, expected):
