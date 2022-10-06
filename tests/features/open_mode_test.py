@@ -4,6 +4,18 @@ import pytest
 
 from pyupgrade._data import Settings
 from pyupgrade._main import _fix_plugins
+from pyupgrade._plugins.open_mode import _permute
+from pyupgrade._plugins.open_mode import _plus
+
+
+def test_plus():
+    assert _plus(('a',)) == ('a', 'a+')
+    assert _plus(('a', 'b')) == ('a', 'b', 'a+', 'b+')
+
+
+def test_permute():
+    assert _permute('ab') == ('ab', 'ba')
+    assert _permute('abc') == ('abc', 'acb', 'bac', 'bca', 'cab', 'cba')
 
 
 @pytest.mark.parametrize(
@@ -18,8 +30,6 @@ from pyupgrade._main import _fix_plugins
         'open("foo", qux="r")',
         'open("foo", 3)',
         'open(mode="r")',
-        # TODO: could maybe be rewritten to remove t?
-        'open("foo", "wt")',
         # don't remove this, they meant to use `encoding=`
         'open("foo", "r", "utf-8")',
     ),
@@ -70,6 +80,11 @@ def test_fix_open_mode_noop(s):
             'open("foo")',
             id='io.open also rewrites modes in a single pass',
         ),
+        ('open("foo", "wt")', 'open("foo", "w")'),
+        ('open("foo", "xt")', 'open("foo", "x")'),
+        ('open("foo", "at")', 'open("foo", "a")'),
+        ('open("foo", "wt+")', 'open("foo", "w+")'),
+        ('open("foo", "rt+")', 'open("foo", "r+")'),
     ),
 )
 def test_fix_open_mode(s, expected):

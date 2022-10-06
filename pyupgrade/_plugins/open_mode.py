@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import functools
+import itertools
 from typing import Iterable
 from typing import NamedTuple
 
@@ -18,10 +19,20 @@ from pyupgrade._token_helpers import delete_argument
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import parse_call_args
 
-U_MODE_REMOVE = frozenset(('U', 'Ur', 'rU', 'r', 'rt', 'tr'))
-U_MODE_REPLACE_R = frozenset(('Ub', 'bU'))
-U_MODE_REMOVE_U = frozenset(('rUb', 'Urb', 'rbU', 'Ubr', 'bUr', 'brU'))
-U_MODE_REPLACE = U_MODE_REPLACE_R | U_MODE_REMOVE_U
+
+def _plus(args: tuple[str, ...]) -> tuple[str, ...]:
+    return args + tuple(f'{arg}+' for arg in args)
+
+
+def _permute(*args: str) -> tuple[str, ...]:
+    return tuple(''.join(p) for s in args for p in itertools.permutations(s))
+
+
+MODE_REMOVE = frozenset(_permute('U', 'r', 'rU', 'rt'))
+MODE_REPLACE_R = frozenset(_permute('Ub'))
+MODE_REMOVE_T = frozenset(_plus(_permute('at', 'rt', 'wt', 'xt')))
+MODE_REMOVE_U = frozenset(_permute('rUb'))
+MODE_REPLACE = MODE_REPLACE_R | MODE_REMOVE_T | MODE_REMOVE_U
 
 
 class FunctionArg(NamedTuple):
@@ -35,12 +46,15 @@ def _fix_open_mode(i: int, tokens: list[Token], *, arg_idx: int) -> None:
     mode = tokens_to_src(tokens[slice(*func_args[arg_idx])])
     mode_stripped = mode.split('=')[-1]
     mode_stripped = ast.literal_eval(mode_stripped.strip())
-    if mode_stripped in U_MODE_REMOVE:
+    if mode_stripped in MODE_REMOVE:
         delete_argument(arg_idx, tokens, func_args)
-    elif mode_stripped in U_MODE_REPLACE_R:
+    elif mode_stripped in MODE_REPLACE_R:
         new_mode = mode.replace('U', 'r')
         tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
-    elif mode_stripped in U_MODE_REMOVE_U:
+    elif mode_stripped in MODE_REMOVE_T:
+        new_mode = mode.replace('t', '')
+        tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
+    elif mode_stripped in MODE_REMOVE_U:
         new_mode = mode.replace('U', '')
         tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
     else:
@@ -69,13 +83,10 @@ def visit_Call(
     ):
         if len(node.args) >= 2 and isinstance(node.args[1], ast.Str):
             if (
-                node.args[1].s in U_MODE_REPLACE or
-                (len(node.args) == 2 and node.args[1].s in U_MODE_REMOVE)
+                node.args[1].s in MODE_REPLACE or
+                (len(node.args) == 2 and node.args[1].s in MODE_REMOVE)
             ):
-                func = functools.partial(
-                    _fix_open_mode,
-                    arg_idx=1,
-                )
+                func = functools.partial(_fix_open_mode, arg_idx=1)
                 yield ast_to_offset(node), func
         elif node.keywords and (len(node.keywords) + len(node.args) > 1):
             mode = next(
@@ -90,8 +101,8 @@ def visit_Call(
                 mode is not None and
                 isinstance(mode.value, ast.Str) and
                 (
-                    mode.value.s in U_MODE_REMOVE or
-                    mode.value.s in U_MODE_REPLACE
+                    mode.value.s in MODE_REMOVE or
+                    mode.value.s in MODE_REPLACE
                 )
             ):
                 func = functools.partial(

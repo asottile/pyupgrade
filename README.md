@@ -487,6 +487,8 @@ Note that `if` blocks without an `else` will not be rewritten as it could introd
 +open("foo")
 -open("f", "r", encoding="UTF-8")
 +open("f", encoding="UTF-8")
+-open("f", "wt")
++open("f", "w")
 ```
 
 
