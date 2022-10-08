@@ -23,9 +23,15 @@ def test_fix_type_bases_object_noop(src, expected):
     (
         ('A = type("A", (object,), {})', 'A = type("A", (), {})'),
         ('B = type("B", (object, tuple), {})', 'B = type("B", (tuple,), {})'),
-        ('C = type("C", (object, foo, bar), {})', 'C = type("C", (foo, bar), {})'),
+        (
+            'C = type("C", (object, foo, bar), {})',
+            'C = type("C", (foo, bar), {})',
+        ),
         ('D = type("D", (tuple, object), {})', 'D = type("D", (tuple,), {})'),
-        ('E = type("E", (foo, bar, object), {})', 'E = type("E", (foo, bar), {})'),
+        (
+            'E = type("E", (foo, bar, object), {})',
+            'E = type("E", (foo, bar), {})',
+        ),
     ),
 )
 def test_fix_type_bases_object(s, expected):
