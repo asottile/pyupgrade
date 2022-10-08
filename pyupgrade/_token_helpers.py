@@ -352,6 +352,60 @@ def remove_base_class(i: int, tokens: list[Token]) -> None:
         del tokens[left:last_part + 1]
 
 
+def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
+    # look forward and backward to find commas / parens
+    brace_stack = []
+    j = i
+    while tokens[j].src != ',':
+        if tokens[j].src == ')':
+            brace_stack.append(j)
+        j += 1
+    right = j
+
+    # if there's a close-paren after a trailing comma
+    j = right + 1
+    if not brace_stack and tokens[j].src != ')':
+        while tokens[j].name != 'NAME':
+            j += 1
+        right = j
+
+    if brace_stack:
+        last_part = brace_stack[-1]
+    else:
+        last_part = i
+
+    j = i
+
+    while tokens[j].src not in {',', '('}:
+        j -= 1
+    left = j
+
+    # single base, remove the entire bases
+    if tokens[left].src == '(' and tokens[right].src == ',':
+        del tokens[left + 1:right + 1]
+    # multiple bases, base is first
+    elif tokens[left].src == '(' and tokens[right].src != ')':
+        # only one base will be left, (tuple) -> (tuple,)
+        if sum(
+            1 if token.name == 'NAME' else 0
+            for token in tokens[left:find_closing_bracket(tokens, left)]
+        ) == 2:
+            tokens.insert(right + 1, Token('OP', ','))
+        del tokens[left + 1:right]
+    # multiple bases, base is not first
+    else:
+        type_call_open = find_open_paren(tokens, 0)
+        bases_open = find_open_paren(tokens, type_call_open)
+        # only one base will be left, (tuple) -> (tuple,)
+        if sum(
+            1 if token.name == 'NAME' else 0
+            for token in tokens[bases_open:last_part]
+        ) == 2:
+            del tokens[left + 1:last_part]
+        else:
+            del tokens[left:last_part]
+
+
 def remove_decorator(i: int, tokens: list[Token]) -> None:
     while tokens[i - 1].src != '@':
         i -= 1
