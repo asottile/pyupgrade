@@ -707,3 +707,10 @@ Availability:
 -def f(x: 'queue.Queue[int]') -> C:
 +def f(x: queue.Queue[int]) -> C:
 ```
+
+
+### remove inheriting from object when creating classes with `type()`
+```diff
+-A = type("A", (object,), {})
++A = type("A", (), {})
+```
