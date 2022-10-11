@@ -391,7 +391,15 @@ def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
             for token in tokens[left:find_closing_bracket(tokens, left)]
         ) == 2:
             tokens.insert(right + 1, Token('OP', ','))
-        del tokens[left + 1:right]
+        # we should preserve the newline
+        if tokens[left + 1].name == 'NL':
+            # we should also preserve indents
+            if tokens[left + 2].name == 'UNIMPORTANT_WS':
+                del tokens[left + 3:right]
+            else:
+                del tokens[left + 2:right]
+        else:
+            del tokens[left + 1:right]
     # multiple bases, base is not first
     else:
         type_call_open = find_open_paren(tokens, 0)
