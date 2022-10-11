@@ -120,6 +120,16 @@ def test_fix_type_bases_object_noop(src):
             'Q = type(\n    "Q",\n    (foo, bar),\n    {}\n)',
             id='newline and indent, object in the middle',
         ),
+        pytest.param(
+            'R = type("R", (object,tuple), {})',
+            'R = type("R", (tuple,), {})',
+            id='no spaces, object first',
+        ),
+        pytest.param(
+            'S = type("S", (tuple,object), {})',
+            'S = type("S", (tuple,), {})',
+            id='no spaces, object last',
+        ),
     ),
 )
 def test_fix_type_bases_object(s, expected):

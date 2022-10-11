@@ -34,8 +34,11 @@ def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
                         # preserve newlines
                         if tokens[next_arg_start].name == 'NL':
                             del tokens[base_start:next_arg_start]
+                        # no spaces
+                        elif tokens[next_arg_start].name == 'NAME':
+                            del tokens[base_start:next_arg_start]
                         else:
-                            del tokens[base_start:bases[1][0] + 1]
+                            del tokens[base_start:next_arg_start + 1]
                     # (object,) -> ()
                     else:
                         del tokens[base_start:base_end + 1]
