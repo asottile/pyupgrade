@@ -7,15 +7,12 @@ from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
-    ('src', 'expected'),
-    (
-        ('A = type("A", (), {})', 'A = type("A", (), {})'),
-        ('B = type("B", (int,), {}', 'B = type("B", (int,), {}'),
-    ),
+    'src',
+    ['A = type("A", (), {})', 'B = type("B", (int,), {}'],
 )
-def test_fix_type_bases_object_noop(src, expected):
+def test_fix_type_bases_object_noop(src):
     ret = _fix_plugins(src, settings=Settings())
-    assert ret == expected
+    assert ret == src
 
 
 @pytest.mark.parametrize(
