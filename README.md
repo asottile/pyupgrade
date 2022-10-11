@@ -195,7 +195,7 @@ Rewrites [deprecated unittest method aliases](https://docs.python.org/3/library/
 +class C(B): pass
 ```
 
-#### remove inheriting from object when creating classes with `type()`
+#### rewrites creating classes with `type()`
 ```diff
 -A = type("A", (object,), {})
 +A = type("A", (), {})
