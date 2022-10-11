@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.8.3
+# Using reorder-python-imports==3.8.4
 REMOVALS = {
     (3,): {
         '__future__': {
@@ -156,7 +156,6 @@ REPLACE_EXACT = {
     (3, 10): {
         ('typing', 'Callable'): 'collections.abc',
         ('typing_extensions', 'Concatenate'): 'typing',
-        ('typing_extensions', 'ParamSpec'): 'typing',
         ('typing_extensions', 'ParamSpecArgs'): 'typing',
         ('typing_extensions', 'ParamSpecKwargs'): 'typing',
         ('typing_extensions', 'TypeAlias'): 'typing',
