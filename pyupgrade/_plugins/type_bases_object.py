@@ -12,75 +12,77 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket
 from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import remove_base_class
+
+
+def _should_move_right_edge(src: str) -> bool:
+    return src != ')'
+
+
+def _not_right_edge(token: Token) -> bool:
+    return token.src != ')' and token.name != 'NAME'
+
+
+def _last_part_function(i: int, src: str) -> int:
+    return i if src == ',' else i + 1
+
+
+def _remove_bases(tokens: list[Token], left: int, right: int) -> None:
+    del tokens[left + 1:right + 1]
+
+
+def _multiple_first(tokens: list[Token], left: int, right: int) -> None:
+    # only one base will be left, (tuple) -> (tuple,)
+    if sum(
+            1 if token.name == 'NAME' else 0
+            for token in tokens[left:find_closing_bracket(tokens, left)]
+    ) == 2:
+        tokens.insert(right + 1, Token('OP', ','))
+    # we should preserve the newline
+    if tokens[left + 1].name == 'NL':
+        # we should also preserve indents
+        if tokens[left + 2].name == 'UNIMPORTANT_WS':
+            del tokens[left + 3:right]
+        else:
+            del tokens[left + 2:right]
+    else:
+        del tokens[left + 1:right]
+
+
+def _multiple_last(tokens: list[Token], left: int, last_part: int) -> None:
+    type_call_open = find_open_paren(tokens, 0)
+    bases_open = find_open_paren(tokens, type_call_open + 1)
+    # only one base will be left, (tuple) -> (tuple,)
+    if sum(
+            1 if token.name == 'NAME' else 0
+            for token in tokens[bases_open:last_part + 1]
+    ) == 2:
+        del tokens[left + 1:last_part]
+    # we should preserve indents
+    elif tokens[last_part - 1].name == 'UNIMPORTANT_WS':
+        # we should also preserve the newline
+        if tokens[last_part - 2].name == 'NL':
+            del tokens[left:last_part - 2]
+        else:
+            del tokens[left:last_part - 1]
+    else:
+        del tokens[left:last_part]
 
 
 def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
-    # look forward and backward to find commas / parens
-    brace_stack = []
-    j = i
-    while tokens[j].src != ',':
-        if tokens[j].src == ')':
-            brace_stack.append(j)
-        j += 1
-    right = j
-
-    # if there's a close-paren after a trailing comma
-    j = right + 1
-    if not brace_stack and tokens[j].src != ')':
-        while tokens[j].src != ')' and tokens[j].name != 'NAME':
-            j += 1
-        right = j
-
-    if brace_stack:
-        last_part = brace_stack[-1]
-    else:  # for trailing commas
-        last_part = i if tokens[i].src == ',' else i + 1
-
-    j = i
-
-    while tokens[j].src not in {',', '('}:
-        j -= 1
-    left = j
-
-    # single base, remove the entire bases
-    if tokens[left].src == '(' and tokens[right].src == ',':
-        del tokens[left + 1:right + 1]
-    # multiple bases, base is first
-    elif tokens[left].src == '(' and tokens[right].src != ')':
-        # only one base will be left, (tuple) -> (tuple,)
-        if sum(
-            1 if token.name == 'NAME' else 0
-            for token in tokens[left:find_closing_bracket(tokens, left)]
-        ) == 2:
-            tokens.insert(right + 1, Token('OP', ','))
-        # we should preserve the newline
-        if tokens[left + 1].name == 'NL':
-            # we should also preserve indents
-            if tokens[left + 2].name == 'UNIMPORTANT_WS':
-                del tokens[left + 3:right]
-            else:
-                del tokens[left + 2:right]
-        else:
-            del tokens[left + 1:right]
-    # multiple bases, base is not first
-    else:
-        type_call_open = find_open_paren(tokens, 0)
-        bases_open = find_open_paren(tokens, type_call_open + 1)
-        # only one base will be left, (tuple) -> (tuple,)
-        if sum(
-            1 if token.name == 'NAME' else 0
-            for token in tokens[bases_open:last_part + 1]
-        ) == 2:
-            del tokens[left + 1:last_part]
-        # we should preserve indents
-        elif tokens[last_part - 1].name == 'UNIMPORTANT_WS':
-            # we should also preserve the newline
-            if tokens[last_part - 2].name == 'NL':
-                del tokens[left:last_part - 2]
-            else:
-                del tokens[left:last_part - 1]
-        else:
-            del tokens[left:last_part]
+    remove_base_class(
+        i,
+        tokens,
+        should_move_right_edge=_should_move_right_edge,
+        not_right_edge=_not_right_edge,
+        last_part_function=_last_part_function,
+        do_brace_stack_pop_loop=False,
+        remove_bases=_remove_bases,
+        single_base_char=',',
+        multiple_first_char=')',
+        multiple_first=_multiple_first,
+        multiple_last=_multiple_last,
+    )
 
 
 @register(ast.Call)

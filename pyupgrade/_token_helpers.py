@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import keyword
 import sys
+from typing import Callable
 from typing import NamedTuple
 from typing import Sequence
 
@@ -301,7 +302,20 @@ def remove_brace(tokens: list[Token], i: int) -> None:
         del tokens[i]
 
 
-def remove_base_class(i: int, tokens: list[Token]) -> None:
+def remove_base_class(
+        i: int,
+        tokens: list[Token],
+        *,
+        should_move_right_edge: Callable[[str], bool] = lambda src: src == ')',
+        not_right_edge: Callable[[Token], bool] = lambda token: True,
+        last_part_function: Callable[[int, str], int] = lambda i, s: i,
+        do_brace_stack_pop_loop: bool = True,
+        remove_bases: Callable[[list[Token], int, int], None] | None = None,
+        single_base_char: str = ':',
+        multiple_first_char: str = ':',
+        multiple_first: Callable[[list[Token], int, int], None] | None = None,
+        multiple_last: Callable[[list[Token], int, int], None] | None = None,
+) -> None:
     # look forward and backward to find commas / parens
     brace_stack = []
     j = i
@@ -318,38 +332,48 @@ def remove_base_class(i: int, tokens: list[Token]) -> None:
         j = right + 1
         while tokens[j].name in NON_CODING_TOKENS:
             j += 1
-        if tokens[j].src == ')':
-            while tokens[j].src != ':':
+        if should_move_right_edge(tokens[j].src):
+            while tokens[j].src != ':' and not_right_edge(tokens[j]):
                 j += 1
             right = j
 
     if brace_stack:
         last_part = brace_stack[-1]
     else:
-        last_part = i
+        last_part = last_part_function(i, tokens[i].src)
 
     j = i
-    while brace_stack:
-        if tokens[j].src == '(':
-            brace_stack.pop()
-        j -= 1
+    if do_brace_stack_pop_loop:
+        while brace_stack:
+            if tokens[j].src == '(':
+                brace_stack.pop()
+            j -= 1
 
     while tokens[j].src not in {',', '('}:
         j -= 1
     left = j
 
     # single base, remove the entire bases
-    if tokens[left].src == '(' and tokens[right].src == ':':
-        del tokens[left:right]
+    if tokens[left].src == '(' and tokens[right].src == single_base_char:
+        if remove_bases is not None:
+            remove_bases(tokens, left, right)
+        else:
+            del tokens[left:right]
     # multiple bases, base is first
-    elif tokens[left].src == '(' and tokens[right].src != ':':
-        # if there's space / comment afterwards remove that too
-        while tokens[right + 1].name in {UNIMPORTANT_WS, 'COMMENT'}:
-            right += 1
-        del tokens[left + 1:right + 1]
+    elif tokens[left].src == '(' and tokens[right].src != multiple_first_char:
+        if multiple_first is not None:
+            multiple_first(tokens, left, right)
+        else:
+            # if there's space / comment afterwards remove that too
+            while tokens[right + 1].name in {UNIMPORTANT_WS, 'COMMENT'}:
+                right += 1
+            del tokens[left + 1:right + 1]
     # multiple bases, base is not first
     else:
-        del tokens[left:last_part + 1]
+        if multiple_last is not None:
+            multiple_last(tokens, left, last_part)
+        else:
+            del tokens[left:last_part + 1]
 
 
 def remove_decorator(i: int, tokens: list[Token]) -> None:
