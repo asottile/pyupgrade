@@ -51,6 +51,9 @@ def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
                             del tokens[base_start - 1:base_end - 2]
                         else:
                             del tokens[base_start - 1:base_end]
+                # handle object in the middle
+                else:
+                    del tokens[base_start:base_end + 1]
                 return
 
 

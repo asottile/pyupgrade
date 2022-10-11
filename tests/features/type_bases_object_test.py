@@ -103,6 +103,23 @@ def test_fix_type_bases_object_noop(src):
                'newline and also inside classes tuple, '
                'object last',
         ),
+        pytest.param(
+            'O = type("O", (foo, object, bar), {})',
+            'O = type("O", (foo, bar), {})',
+            id='object in the middle',
+        ),
+        pytest.param(
+            'P = type(    \n"P",\n    (\n        foo,\n        object,'
+            '\n        bar\n    ),\n    {}\n)',
+            'P = type(    \n"P",\n    (\n        foo,\n        bar\n    '
+            '),\n    {}\n)',
+            id='newline and also inside classes tuple, object in the middle',
+        ),
+        pytest.param(
+            'Q = type(\n    "Q",\n    (foo, object, bar),\n    {}\n)',
+            'Q = type(\n    "Q",\n    (foo, bar),\n    {}\n)',
+            id='newline and indent, object in the middle',
+        ),
     ),
 )
 def test_fix_type_bases_object(s, expected):
