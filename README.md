@@ -195,6 +195,12 @@ Rewrites [deprecated unittest method aliases](https://docs.python.org/3/library/
 +class C(B): pass
 ```
 
+#### remove inheriting from object when creating classes with `type()`
+```diff
+-A = type("A", (object,), {})
++A = type("A", (), {})
+```
+
 #### removes `__metaclass__ = type` declaration
 
 ```diff
@@ -706,11 +712,4 @@ Availability:
 ```diff
 -def f(x: 'queue.Queue[int]') -> C:
 +def f(x: queue.Queue[int]) -> C:
-```
-
-
-### remove inheriting from object when creating classes with `type()`
-```diff
--A = type("A", (object,), {})
-+A = type("A", (), {})
 ```
