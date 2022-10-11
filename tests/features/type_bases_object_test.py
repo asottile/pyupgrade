@@ -18,16 +18,30 @@ def test_fix_type_bases_object_noop(src):
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
-        ('A = type("A", (object,), {})', 'A = type("A", (), {})'),
-        ('B = type("B", (object, tuple), {})', 'B = type("B", (tuple,), {})'),
-        (
+        pytest.param(
+            'A = type("A", (object,), {})',
+            'A = type("A", (), {})',
+            id='only object base class',
+        ),
+        pytest.param(
+            'B = type("B", (object, tuple), {})',
+            'B = type("B", (tuple,), {})',
+            id='two base classes, object first',
+        ),
+        pytest.param(
             'C = type("C", (object, foo, bar), {})',
             'C = type("C", (foo, bar), {})',
+            id='three base classes, object first',
         ),
-        ('D = type("D", (tuple, object), {})', 'D = type("D", (tuple,), {})'),
-        (
+        pytest.param(
+            'D = type("D", (tuple, object), {})',
+            'D = type("D", (tuple,), {})',
+            id='two base classes, object last',
+        ),
+        pytest.param(
             'E = type("E", (foo, bar, object), {})',
             'E = type("E", (foo, bar), {})',
+            id='three base classes, object last',
         ),
     ),
 )
