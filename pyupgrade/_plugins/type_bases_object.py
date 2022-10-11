@@ -24,9 +24,8 @@ def visit_Call(
         len(node.args) > 1 and
         isinstance(node.args[1], ast.Tuple) and
         any(
-            elt.id == 'object'
+            isinstance(elt, ast.Name) and elt.id == 'object'
             for elt in node.args[1].elts
-            if isinstance(elt, ast.Name)
         )
     ):
         for base in node.args[1].elts:
