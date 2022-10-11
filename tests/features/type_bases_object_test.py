@@ -59,6 +59,22 @@ def test_fix_type_bases_object_noop(src):
             'classA,\n        classB\n    ),\n    {}\n)',
             id='newline and  also inside classes tuple',
         ),
+        pytest.param(
+            'H = type(\n    "H",\n    (tuple, object),\n    {}\n)',
+            'H = type(\n    "H",\n    (tuple,),\n    {}\n)',
+            id='newline and indent, two base classes, object last',
+        ),
+        pytest.param(
+            'I = type(\n    "I",\n    (\n        class1,\n'
+            '        class2,\n        class3,\n        class4,\n        class5'
+            ',\n        class6,\n        class7,\n        class8,\n        '
+            'class9,\n        classA,\n        object\n    ),\n    {}\n)',
+            'I = type(\n    "I",\n    (\n        class1,\n        class2,\n'
+            '        class3,\n        class4,\n        class5,\n        class6'
+            ',\n        class7,\n        class8,\n        class9,\n        '
+            'classA\n    ),\n    {}\n)',
+            id='newline and also inside classes tuple, object last',
+        ),
     ),
 )
 def test_fix_type_bases_object(s, expected):

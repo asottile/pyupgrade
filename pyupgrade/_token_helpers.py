@@ -410,6 +410,13 @@ def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
             for token in tokens[bases_open:last_part]
         ) == 2:
             del tokens[left + 1:last_part]
+        # we should preserve indents
+        elif tokens[last_part - 1].name == 'UNIMPORTANT_WS':
+            # we should also preserve the newline
+            if tokens[last_part - 2].name == 'NL':
+                del tokens[left:last_part - 2]
+            else:
+                del tokens[left:last_part - 1]
         else:
             del tokens[left:last_part]
 
