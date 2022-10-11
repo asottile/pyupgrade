@@ -365,14 +365,14 @@ def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
     # if there's a close-paren after a trailing comma
     j = right + 1
     if not brace_stack and tokens[j].src != ')':
-        while tokens[j].name != 'NAME':
+        while tokens[j].src != ')' and tokens[j].name != 'NAME':
             j += 1
         right = j
 
     if brace_stack:
         last_part = brace_stack[-1]
-    else:
-        last_part = i
+    else:  # for trailing commas
+        last_part = i if tokens[i].src == ',' else i + 1
 
     j = i
 
@@ -403,11 +403,11 @@ def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
     # multiple bases, base is not first
     else:
         type_call_open = find_open_paren(tokens, 0)
-        bases_open = find_open_paren(tokens, type_call_open)
+        bases_open = find_open_paren(tokens, type_call_open + 1)
         # only one base will be left, (tuple) -> (tuple,)
         if sum(
             1 if token.name == 'NAME' else 0
-            for token in tokens[bases_open:last_part]
+            for token in tokens[bases_open:last_part + 1]
         ) == 2:
             del tokens[left + 1:last_part]
         # we should preserve indents
