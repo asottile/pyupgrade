@@ -19,7 +19,7 @@ def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
     type_start = find_open_paren(tokens, 0)
     bases_start = find_open_paren(tokens, type_start + 1)
     bases, end = parse_call_args(tokens, bases_start)
-    for base_start, base_end in bases:
+    for base_start, base_end in bases:  # pragma: no cover
         for token in tokens[base_start:base_end]:
             if token.src == 'object':
                 object_index = bases.index((base_start, base_end))
