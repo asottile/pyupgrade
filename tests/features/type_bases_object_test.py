@@ -130,6 +130,11 @@ def test_fix_type_bases_object_noop(src):
             'S = type("S", (tuple,), {})',
             id='no spaces, object last',
         ),
+        pytest.param(
+            'U = type("U", (tuple, object,), {})',
+            'U = type("U", (tuple,), {})',
+            id='trailing comma, object last, two classes',
+        ),
     ),
 )
 def test_fix_type_bases_object(s, expected):

@@ -46,7 +46,12 @@ def remove_base_class_from_type_call(i: int, tokens: list[Token]) -> None:
                 elif object_index == len(bases) - 1:
                     # (tuple, object[,]) -> (tuple,)
                     if len(bases) == 2:
-                        del tokens[base_start:base_end]
+                        # remove the trailing comma,
+                        # there is one after the first base
+                        if tokens[base_end].src == ',':
+                            del tokens[base_start:base_end + 1]
+                        else:
+                            del tokens[base_start:base_end]
                     # (foo, bar, ..., object[,]) -> (foo, bar, ...[,])
                     else:
                         if tokens[base_end - 1].name == UNIMPORTANT_WS and \
