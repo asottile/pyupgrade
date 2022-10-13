@@ -4,16 +4,21 @@ import ast
 import functools
 from typing import Iterable
 
+from tokenize_rt import Offset
+from tokenize_rt import Token
+
 from pyupgrade._ast_helpers import ast_to_offset
-from pyupgrade._data import State, TokenFunc, register
-from pyupgrade._token_helpers import (find_open_paren, parse_call_args,
-                                      replace_argument)
-from tokenize_rt import Offset, Token
+from pyupgrade._data import register
+from pyupgrade._data import State
+from pyupgrade._data import TokenFunc
+from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import parse_call_args
+from pyupgrade._token_helpers import replace_argument
 
 
 def _is_type_check(node: ast.AST | None) -> bool:
     return (
-        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {"isinstance", "issubclass"}
+        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {'isinstance', 'issubclass'}
     )
 
 
@@ -43,6 +48,6 @@ def visit_Call(
                     # do not support expressions other then type names
                     return
                 new_value.append(expr.id)
-            union_type = " | ".join(new_value)
+            union_type = ' | '.join(new_value)
             func = functools.partial(_replace_to_union, new=union_type)
             yield ast_to_offset(node), func

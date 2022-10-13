@@ -6,7 +6,6 @@ from pyupgrade._data import Settings
 from pyupgrade._main import _fix_plugins
 
 
-
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (
@@ -32,4 +31,3 @@ from pyupgrade._main import _fix_plugins
 )
 def test_fix_typecheck_pep604(s, expected):
     assert _fix_plugins(s, settings=Settings(min_version=(3, 10))) == expected
-
