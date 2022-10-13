@@ -2,3 +2,5 @@
 *.pyc
 /.coverage
 /.tox
+/venv
+.python-version
