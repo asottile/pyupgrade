@@ -18,9 +18,9 @@ from pyupgrade._token_helpers import replace_argument
 
 def _is_type_check(node: ast.AST | None) -> bool:
     return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id in {'isinstance', 'issubclass'}
+        isinstance(node, ast.Call) and
+        isinstance(node.func, ast.Name) and
+        node.func.id in {'isinstance', 'issubclass'}
     )
 
 
