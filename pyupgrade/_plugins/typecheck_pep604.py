@@ -6,14 +6,19 @@ from typing import Iterable
 
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import State, TokenFunc, register
-from pyupgrade._token_helpers import (find_open_paren, parse_call_args,
-                                      replace_argument)
+from pyupgrade._token_helpers import (
+    find_open_paren,
+    parse_call_args,
+    replace_argument,
+)
 from tokenize_rt import Offset, Token
 
 
 def _is_type_check(node: ast.AST | None) -> bool:
     return (
-        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {"isinstance", "issubclass"}
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in {"isinstance", "issubclass"}
     )
 
 
