@@ -11,17 +11,10 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
+from pyupgrade._plugins.six_simple import is_type_check
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_argument
-
-
-def _is_type_check(node: ast.AST | None) -> bool:
-    return (
-        isinstance(node, ast.Call) and
-        isinstance(node.func, ast.Name) and
-        node.func.id in {'isinstance', 'issubclass'}
-    )
 
 
 def _replace_to_union(i: int, tokens: list[Token], *, new: str) -> None:
@@ -41,7 +34,7 @@ def visit_Call(
     node: ast.Call,
     parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    if state.settings.min_version >= (3, 10) and _is_type_check(node):
+    if state.settings.min_version >= (3, 10) and is_type_check(node):
         type_args = node.args[1]
         if isinstance(type_args, ast.Tuple) and len(type_args.elts) > 1:
             new_value = []
