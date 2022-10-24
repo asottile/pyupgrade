@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.8.4
+# Using reorder-python-imports==3.9.0
 REMOVALS = {
     (3,): {
         '__future__': {
@@ -163,6 +163,25 @@ REPLACE_EXACT = {
         ('typing_extensions', 'get_args'): 'typing',
         ('typing_extensions', 'get_origin'): 'typing',
         ('typing_extensions', 'is_typeddict'): 'typing',
+    },
+    (3, 11): {
+        ('typing_extensions', 'Any'): 'typing',
+        ('typing_extensions', 'LiteralString'): 'typing',
+        ('typing_extensions', 'NamedTuple'): 'typing',
+        ('typing_extensions', 'Never'): 'typing',
+        ('typing_extensions', 'NotRequired'): 'typing',
+        ('typing_extensions', 'Required'): 'typing',
+        ('typing_extensions', 'Self'): 'typing',
+        ('typing_extensions', 'TypedDict'): 'typing',
+        ('typing_extensions', 'Unpack'): 'typing',
+        ('typing_extensions', 'assert_never'): 'typing',
+        ('typing_extensions', 'assert_type'): 'typing',
+        ('typing_extensions', 'clear_overloads'): 'typing',
+        ('typing_extensions', 'dataclass_transform'): 'typing',
+        ('typing_extensions', 'final'): 'typing',
+        ('typing_extensions', 'get_overloads'): 'typing',
+        ('typing_extensions', 'overload'): 'typing',
+        ('typing_extensions', 'reveal_type'): 'typing',
     },
 }
 REPLACE_MODS = {
