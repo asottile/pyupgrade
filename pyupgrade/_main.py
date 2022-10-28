@@ -322,6 +322,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
             keep_percent_format=args.keep_percent_format,
             keep_mock=args.keep_mock,
             keep_runtime_typing=args.keep_runtime_typing,
+            disable_redundant_open_mode=args.disable_redundant_open_mode,
         ),
     )
     contents_text = _fix_tokens(contents_text)
@@ -346,6 +347,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')
     parser.add_argument('--keep-runtime-typing', action='store_true')
+    parser.add_argument('--disable-redundant-open-mode', action='store_true')
     parser.add_argument(
         '--py3-plus', '--py3-only',
         action='store_const', dest='min_version', default=(3,), const=(3,),

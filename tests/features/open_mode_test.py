@@ -38,6 +38,13 @@ def test_fix_open_mode_noop(s):
     assert _fix_plugins(s, settings=Settings()) == s
 
 
+def test_disable_redundant_open_mode_noop():
+    s = '''\
+with open("foobar.txt", "r")
+'''
+    assert _fix_plugins(s, settings=Settings(disable_redundant_open_mode=True)) == s
+
+
 @pytest.mark.parametrize(
     ('s', 'expected'),
     (

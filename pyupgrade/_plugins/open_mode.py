@@ -67,6 +67,8 @@ def visit_Call(
         node: ast.Call,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
+    if state.settings.disable_redundant_open_mode:
+        return
     if (
             (
                 (
