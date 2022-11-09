@@ -144,16 +144,17 @@ def visit_Subscript(
     if not _supported_version(state):
         return
 
-    # prevent rewriting forward annotations
-    if (
-            (sys.version_info >= (3, 9) and _any_arg_is_str(node.slice)) or
-            (
-                sys.version_info < (3, 9) and
-                isinstance(node.slice, ast.Index) and
-                _any_arg_is_str(node.slice.value)
-            )
-    ):
-        return
+    # don't rewrite forward annotations (unless we know they will be dequoted)
+    if 'annotations' not in state.from_imports['__future__']:
+        if (
+                (sys.version_info >= (3, 9) and _any_arg_is_str(node.slice)) or
+                (
+                    sys.version_info < (3, 9) and
+                    isinstance(node.slice, ast.Index) and
+                    _any_arg_is_str(node.slice.value)
+                )
+        ):
+            return
 
     if is_name_attr(
             node.value,
