@@ -186,6 +186,17 @@ def f(x: int | str) -> None: ...
             id='Optional rewrite multi-line',
         ),
         pytest.param(
+            'from __future__ import annotations\n'
+            'from typing import Optional\n'
+            'x: Optional["str"]\n',
+
+            'from __future__ import annotations\n'
+            'from typing import Optional\n'
+            'x: str | None\n',
+
+            id='Optional rewrite with forward reference',
+        ),
+        pytest.param(
             'from typing import Union, Sequence\n'
             'def f(x: Union[Union[A, B], Sequence[Union[C, D]]]): pass\n',
 
