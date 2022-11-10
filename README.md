@@ -665,19 +665,6 @@ Availability:
 ```
 
 
-### remove unnecessary abspath
-
-Availability:
-- `--py39-plus` is passed on the commandline.
-
-```diff
- from os.path import abspath
-
--abspath(__file__)
-+__file__
-```
-
-
 ### pep 604 typing rewrites
 
 Availability:
