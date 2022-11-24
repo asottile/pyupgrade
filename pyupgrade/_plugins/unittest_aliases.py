@@ -59,7 +59,9 @@ def visit_Call(
             isinstance(node.func, ast.Attribute) and
             isinstance(node.func.value, ast.Name) and
             node.func.value.id == 'unittest' and
-            node.func.attr in FUNCTION_MAPPING
+            node.func.attr in FUNCTION_MAPPING and
+            len(node.args) == 1 and
+            len(node.keywords) == 0
     ):
         func = functools.partial(
             replace_name,

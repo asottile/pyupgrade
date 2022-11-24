@@ -7,7 +7,7 @@ from pyupgrade._main import _fix_plugins
 
 
 @pytest.mark.parametrize(
-    ('s',),
+    's',
     (
         pytest.param(
             'class ExampleTests:\n'
@@ -15,6 +15,13 @@ from pyupgrade._main import _fix_plugins
             '        self.assertEqual(1, 1)\n',
             id='not a deprecated alias',
         ),
+        # https://github.com/asottile/pyupgrade/issues/749
+        'unittest.findTestCases(Tests, "arg")',
+        'unittest.findTestCases(Tests, prefix="arg")',
+        'unittest.makeSuite(Tests, "arg")',
+        'unittest.makeSuite(Tests, prefix="arg")',
+        'unittest.getTestCaseNames(Tests, "arg")',
+        'unittest.getTestCaseNames(Tests, prefix="arg")',
     ),
 )
 def test_fix_unittest_aliases_noop(s):
