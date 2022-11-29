@@ -64,6 +64,11 @@ def test_fix_fstrings_noop(s):
             r'f"\N{snowman} {a}"',
             id='named escape sequences',
         ),
+        pytest.param(
+            'u"foo{}".format(1)',
+            'f"foo{1}"',
+            id='u-prefixed format',
+        ),
     ),
 )
 def test_fix_fstrings(s, expected):
