@@ -4,6 +4,7 @@ import ast
 from typing import Iterable
 
 from tokenize_rt import Offset
+from tokenize_rt import parse_string_literal
 from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 
@@ -43,7 +44,12 @@ def _to_fstring(
 
     parts = []
     i = 0
-    for s, name, spec, conv in parse_format('f' + src):
+
+    # need to remove `u` prefix so it isn't invalid syntax
+    prefix, rest = parse_string_literal(src)
+    new_src = 'f' + prefix.translate({ord('u'): None, ord('U'): None}) + rest
+
+    for s, name, spec, conv in parse_format(new_src):
         if name is not None:
             k, dot, rest = name.partition('.')
             name = ''.join((params[k or str(i)], dot, rest))
