@@ -694,3 +694,16 @@ Availability:
 -def f(x: 'queue.Queue[int]') -> C:
 +def f(x: queue.Queue[int]) -> C:
 ```
+
+
+### use `datetime.UTC` alias
+
+Availability:
+- `--py311-plus` is passed on the commandline.
+
+```diff
+ import datetime
+
+-datetime.timezone.utc
++datetime.UTC
+```
