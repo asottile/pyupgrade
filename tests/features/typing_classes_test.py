@@ -210,6 +210,16 @@ def test_typing_named_tuple_noop(s):
 
             id='preserves comments without alignment',
         ),
+        pytest.param(
+            'from typing import NamedTuple\n'
+            'Foo = NamedTuple("Foo", [("union", str | None)])',
+
+            'from typing import NamedTuple\n'
+            'class Foo(NamedTuple):\n'
+            '    union: str | None',
+
+            id='BitOr unparse error',
+        ),
     ),
 )
 def test_fix_typing_named_tuple(s, expected):
@@ -392,6 +402,16 @@ def test_typing_typed_dict_noop(s):
             '        a: int\n',
 
             id='right after a dedent',
+        ),
+        pytest.param(
+            'from typing import TypedDict\n'
+            'Foo = TypedDict("Foo", {"union": str | int | None})',
+
+            'from typing import TypedDict\n'
+            'class Foo(TypedDict):\n'
+            '    union: str | int | None',
+
+            id='BitOr unparse error',
         ),
     ),
 )
