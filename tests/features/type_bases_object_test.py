@@ -13,20 +13,6 @@ from pyupgrade._main import _fix_plugins
 def test_fix_type_bases_object_noop(src):
     ret = _fix_plugins(src, settings=Settings())
     assert ret == src
-"""
-pytest.param(
-    'P = type(    \n"P",\n    (\n        foo,\n        object,'
-    '\n        bar\n    ),\n    {}\n)',
-    'P = type(    \n"P",\n    (\n        foo,\n        bar\n    '
-    '),\n    {}\n)',
-    id='newline and also inside classes tuple, object in the middle',
-),
-pytest.param(
-    'Q = type(\n    "Q",\n    (foo, object, bar),\n    {}\n)',
-    'Q = type(\n    "Q",\n    (foo, bar),\n    {}\n)',
-    id='newline and indent, object in the middle',
-),
-"""
 
 
 @pytest.mark.parametrize(
@@ -136,6 +122,18 @@ pytest.param(
             'U = type("U", (tuple, object,), {})',
             'U = type("U", (tuple,), {})',
             id='trailing comma, object last, two classes',
+        ),
+        pytest.param(
+            'P = type(    \n"P",\n    (\n        foo,\n        object,'
+            '\n        bar\n    ),\n    {}\n)',
+            'P = type(    \n"P",\n    (\n        foo,\n        bar\n    '
+            '),\n    {}\n)',
+            id='newline and also inside classes tuple, object in the middle',
+        ),
+        pytest.param(
+            'Q = type(\n    "Q",\n    (foo, object, bar),\n    {}\n)',
+            'Q = type(\n    "Q",\n    (foo, bar),\n    {}\n)',
+            id='newline and indent, object in the middle',
         ),
     ),
 )
