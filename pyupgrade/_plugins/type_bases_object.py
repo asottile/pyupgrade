@@ -39,7 +39,7 @@ def remove_line(
 def remove_base_class_from_type_call(_: int, tokens: list[Token]) -> None:
     type_start = find_open_paren(tokens, 0)
     bases_start = find_open_paren(tokens, type_start + 1)
-    _, end = parse_call_args(tokens, bases_start)
+    bases, end = parse_call_args(tokens, bases_start)
     inner_tokens = tokens[bases_start + 1: end - 1]
     new_lines = [x.src for x in inner_tokens if x.name == 'NL']
     names = [x.src for x in inner_tokens if x.name == 'NAME']
