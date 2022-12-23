@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import functools
 from typing import Iterable
 
 from tokenize_rt import Offset
@@ -14,32 +13,31 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_open_paren
 from pyupgrade._token_helpers import parse_call_args
-from pyupgrade._token_helpers import delete_argument
 
 
 def is_last_comma(tokens: list[Token], names: list[str]) -> bool:
     last_arg = names[-1]
     idx = [x.src for x in tokens].index(last_arg)
-    return tokens[idx+1].src == ","
+    return tokens[idx + 1].src == ","
 
 
 def remove_all(the_list: list[str], item: str) -> list[str]:
     return [x for x in the_list if x != item]
 
 
-def remove_line(the_list: list[str], sub_list: list[str], item: str, last_is_comma: bool) -> list[str]:
+def remove_line(
+    the_list: list[str], sub_list: list[str], item: str, last_is_comma: bool
+) -> list[str]:
     is_last = sub_list[-1] == item
     idx = [x.src for x in the_list].index(item)
     line = the_list[idx].line
-    idxs = ([i for i, x in enumerate(the_list) if x.line == line])
-    del the_list[min(idxs):max(idxs)+1]
+    idxs = [i for i, x in enumerate(the_list) if x.line == line]
+    del the_list[min(idxs) : max(idxs) + 1]
     if is_last and not last_is_comma:
-        del the_list[min(idxs)-2]
+        del the_list[min(idxs) - 2]
 
 
-def remove_base_class_from_type_call(
-    _: int, tokens: list[Token], *, arguments: list[ast.Name]
-) -> None:
+def remove_base_class_from_type_call(_: int, tokens: list[Token]) -> None:
     type_start = find_open_paren(tokens, 0)
     bases_start = find_open_paren(tokens, type_start + 1)
     _, end = parse_call_args(tokens, bases_start)
@@ -57,21 +55,21 @@ def remove_base_class_from_type_call(
         remove_line(tokens, inner_tokens, "object", last_is_comma)
         return
     inner_tokens = remove_all(inner_tokens, "object")
+    # start by deleting all tokens, we will selectively add back
     del tokens[bases_start + 1 : end - 1]
     count = 1
-    object_is_last = names[-1] == "object"
     for i, token in enumerate(inner_tokens):
         # Boolean value to see if the current item is the last
         last = i == len(inner_tokens) - 1
         tokens.insert(bases_start + count, Token("NAME", token))
         count += 1
+        # adds a comma and a space if the current item is not the last
         if not last and token != "\n":
             tokens.insert(bases_start + count, Token("UNIMPORTANT_WS", " "))
             tokens.insert(bases_start + count, Token("OP", ","))
             count += 2
-        elif len(inner_tokens) == 1:
-            tokens.insert(bases_start + count, Token("OP", ","))
-        elif last_is_comma:
+        # If the lenght is only one, or the last one had a comma, add a comma
+        elif (last and last_is_comma) or len(inner_tokens) == 1:
             tokens.insert(bases_start + count, Token("OP", ","))
 
 
@@ -93,9 +91,4 @@ def visit_Call(
     ):
         for base in node.args[1].elts:
             if isinstance(base, ast.Name) and base.id == "object":
-                # TODO: send idx of the found object
-                func = functools.partial(
-                    remove_base_class_from_type_call,
-                    arguments=node.args[1].elts,
-                )
-                yield ast_to_offset(base), func
+                yield ast_to_offset(base), remove_base_class_from_type_call
