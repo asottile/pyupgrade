@@ -17,31 +17,36 @@ from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import delete_argument
 
 
+def is_last_comma(tokens: list[Token], names: list[str]) -> bool:
+    last_arg = names[-1]
+    idx = [x.src for x in tokens].index(last_arg)
+    return tokens[idx+1].src == ","
+
+
 def remove_all(the_list: list[str], item: str) -> list[str]:
     return [x for x in the_list if x != item]
 
 
-def remove_line(the_list: list[str], sub_list: list[str], item: str) -> list[str]:
+def remove_line(the_list: list[str], sub_list: list[str], item: str, last_is_comma: bool) -> list[str]:
     is_last = sub_list[-1] == item
     idx = [x.src for x in the_list].index(item)
     line = the_list[idx].line
     idxs = ([i for i, x in enumerate(the_list) if x.line == line])
     del the_list[min(idxs):max(idxs)+1]
-    if is_last:
+    if is_last and not last_is_comma:
         del the_list[min(idxs)-2]
 
 
 def remove_base_class_from_type_call(
     _: int, tokens: list[Token], *, arguments: list[ast.Name]
 ) -> None:
-    print([x.src for x in tokens])
     type_start = find_open_paren(tokens, 0)
     bases_start = find_open_paren(tokens, type_start + 1)
     _, end = parse_call_args(tokens, bases_start)
     inner_tokens = tokens[bases_start + 1 : end - 1]
-    last_is_comma = inner_tokens[-1].src == ','
     new_lines = [x.src for x in inner_tokens if x.name == "NL"]
     names = [x.src for x in inner_tokens if x.name == "NAME"]
+    last_is_comma = is_last_comma(tokens, names)
     multi_line = len(new_lines) >= len(names)
     targets = ["NAME", "NL"]
     if multi_line:
@@ -49,7 +54,7 @@ def remove_base_class_from_type_call(
     inner_tokens = [x.src for x in inner_tokens if x.name in targets]
     # This gets run if the function arguments are spread out over multiple lines
     if multi_line:
-        remove_line(tokens, inner_tokens, "object")
+        remove_line(tokens, inner_tokens, "object", last_is_comma)
         return
     inner_tokens = remove_all(inner_tokens, "object")
     del tokens[bases_start + 1 : end - 1]
