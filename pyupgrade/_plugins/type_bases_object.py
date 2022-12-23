@@ -25,11 +25,11 @@ def remove_all(the_list: list[str], item: str) -> list[str]:
 
 
 def remove_line(
-<<<<<<< HEAD
-    the_list: list[Token], sub_list: list[str], item: str, last_is_comma: bool
-=======
+    << << << < HEAD
+    the_list: list[Token], sub_list: list[str], item: str, last_is_comma: bool ==
+    == == =
     the_list: list[str], sub_list: list[str], item: str, last_is_comma: bool,
->>>>>>> 1cdc0a5961543d044833a8e5e8fba2d094929a55
+    >>>>>> > 1cdc0a5961543d044833a8e5e8fba2d094929a55
 ) -> list[str]:
     is_last = sub_list[-1] == item
     idx = [x.src for x in the_list].index(item)
