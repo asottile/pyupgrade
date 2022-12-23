@@ -21,20 +21,39 @@ def remove_all(the_list: list[str], item: str) -> list[str]:
     return [x for x in the_list if x != item]
 
 
+def remove_line(the_list: list[str], item: str) -> list[str]:
+    idx = [x.src for x in the_list].index(item)
+    del the_list[idx + 1]
+    del the_list[idx + 1]
+    del the_list[idx - 1]
+    del the_list[idx - 1]
+
+
 def remove_base_class_from_type_call(
     _: int, tokens: list[Token], *, arguments: list[ast.Name]
 ) -> None:
-    inner_tokens = [x.id for x in arguments]
     type_start = find_open_paren(tokens, 0)
     bases_start = find_open_paren(tokens, type_start + 1)
     _, end = parse_call_args(tokens, bases_start)
+    inner_tokens = tokens[bases_start + 1 : end - 1]
+    new_lines = [x.src for x in inner_tokens if x.name == "NL"]
+    names = [x.src for x in inner_tokens if x.name == "NAME"]
+    multi_line = len(new_lines) >= len(names)
+    targets = ["NAME", "NL"]
+    if multi_line:
+        targets.append("UNIMPORTANT_WS")
+    inner_tokens = [x.src for x in inner_tokens if x.name in targets]
+    if multi_line:
+        print("MULTI LINE")
+        remove_line(tokens, "object")
+        return
     inner_tokens = remove_all(inner_tokens, "object")
-    del tokens[bases_start + 1 :end - 1]
+    del tokens[bases_start + 1 : end - 1]
     count = 1
     for i, token in enumerate(inner_tokens):
         tokens.insert(bases_start + count, Token("NAME", token))
         count += 1
-        if i != len(inner_tokens) - 1:
+        if i != len(inner_tokens) - 1 and token != "\n":
             tokens.insert(bases_start + count, Token("UNIMPORTANT_WS", " "))
             tokens.insert(bases_start + count, Token("OP", ","))
             count += 2
