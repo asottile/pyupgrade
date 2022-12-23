@@ -15,21 +15,6 @@ def test_fix_type_bases_object_noop(src):
     assert ret == src
 """
 pytest.param(
-    'J = type("J", (object, foo, bar,), {})',
-    'J = type("J", (foo, bar,), {})',
-    id='trailing comma, object first',
-),
-pytest.param(
-    'K = type("K", (foo, bar, object,), {})',
-    'K = type("K", (foo, bar,), {})',
-    id='trailing comma, object last',
-),
-pytest.param(
-    'L = type(\n    "L",\n    (foo, bar, object,),\n    {}\n)',
-    'L = type(\n    "L",\n    (foo, bar,),\n    {}\n)',
-    id='trailing comma, newline and indent, object last',
-),
-pytest.param(
     'M = type(\n    "M",\n    (\n        class1,\n'
     '        class2,\n        class3,\n        class4,\n        class5'
     ',\n        class6,\n        class7,\n        class8,\n        '
@@ -136,6 +121,21 @@ pytest.param(
             ',\n        class7,\n        class8,\n        class9,\n        '
             'classA\n    ),\n    {}\n)',
             id='newline and also inside classes tuple, object last',
+        ),
+        pytest.param(
+            'J = type("J", (object, foo, bar,), {})',
+            'J = type("J", (foo, bar,), {})',
+            id='trailing comma, object first',
+        ),
+        pytest.param(
+            'K = type("K", (foo, bar, object,), {})',
+            'K = type("K", (foo, bar,), {})',
+            id='trailing comma, object last',
+        ),
+        pytest.param(
+            'L = type(\n    "L",\n    (foo, bar, object,),\n    {}\n)',
+            'L = type(\n    "L",\n    (foo, bar,),\n    {}\n)',
+            id='trailing comma, newline and indent, object last',
         ),
     ),
 )

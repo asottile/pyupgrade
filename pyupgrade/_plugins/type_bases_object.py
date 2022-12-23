@@ -21,43 +21,52 @@ def remove_all(the_list: list[str], item: str) -> list[str]:
     return [x for x in the_list if x != item]
 
 
-def remove_line(the_list: list[str], item: str) -> list[str]:
+def remove_line(the_list: list[str], sub_list: list[str], item: str) -> list[str]:
+    is_last = sub_list[-1] == item
     idx = [x.src for x in the_list].index(item)
-    del the_list[idx + 1]
-    del the_list[idx + 1]
-    del the_list[idx - 1]
-    del the_list[idx - 1]
+    line = the_list[idx].line
+    idxs = ([i for i, x in enumerate(the_list) if x.line == line])
+    del the_list[min(idxs):max(idxs)+1]
+    if is_last:
+        del the_list[min(idxs)-2]
 
 
 def remove_base_class_from_type_call(
     _: int, tokens: list[Token], *, arguments: list[ast.Name]
 ) -> None:
+    print([x.src for x in tokens])
     type_start = find_open_paren(tokens, 0)
     bases_start = find_open_paren(tokens, type_start + 1)
     _, end = parse_call_args(tokens, bases_start)
     inner_tokens = tokens[bases_start + 1 : end - 1]
+    last_is_comma = inner_tokens[-1].src == ','
     new_lines = [x.src for x in inner_tokens if x.name == "NL"]
     names = [x.src for x in inner_tokens if x.name == "NAME"]
     multi_line = len(new_lines) >= len(names)
     targets = ["NAME", "NL"]
     if multi_line:
-        targets.append("UNIMPORTANT_WS")
+        targets.remove("NL")
     inner_tokens = [x.src for x in inner_tokens if x.name in targets]
+    # This gets run if the function arguments are spread out over multiple lines
     if multi_line:
-        print("MULTI LINE")
-        remove_line(tokens, "object")
+        remove_line(tokens, inner_tokens, "object")
         return
     inner_tokens = remove_all(inner_tokens, "object")
     del tokens[bases_start + 1 : end - 1]
     count = 1
+    object_is_last = names[-1] == "object"
     for i, token in enumerate(inner_tokens):
+        # Boolean value to see if the current item is the last
+        last = i == len(inner_tokens) - 1
         tokens.insert(bases_start + count, Token("NAME", token))
         count += 1
-        if i != len(inner_tokens) - 1 and token != "\n":
+        if not last and token != "\n":
             tokens.insert(bases_start + count, Token("UNIMPORTANT_WS", " "))
             tokens.insert(bases_start + count, Token("OP", ","))
             count += 2
         elif len(inner_tokens) == 1:
+            tokens.insert(bases_start + count, Token("OP", ","))
+        elif last_is_comma:
             tokens.insert(bases_start + count, Token("OP", ","))
 
 
