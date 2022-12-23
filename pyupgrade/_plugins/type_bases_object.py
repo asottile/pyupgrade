@@ -5,7 +5,6 @@ from typing import Iterable
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
-from tokenize_rt import UNIMPORTANT_WS
 
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
@@ -26,7 +25,7 @@ def remove_all(the_list: list[str], item: str) -> list[str]:
 
 
 def remove_line(
-    the_list: list[str], sub_list: list[str], item: str, last_is_comma: bool
+    the_list: list[Token], sub_list: list[str], item: str, last_is_comma: bool
 ) -> list[str]:
     is_last = sub_list[-1] == item
     idx = [x.src for x in the_list].index(item)
@@ -50,7 +49,7 @@ def remove_base_class_from_type_call(_: int, tokens: list[Token]) -> None:
     if multi_line:
         targets.remove("NL")
     inner_tokens = [x.src for x in inner_tokens if x.name in targets]
-    # This gets run if the function arguments are spread out over multiple lines
+    # This gets run if the function arguments are on over multiple lines
     if multi_line:
         remove_line(tokens, inner_tokens, "object", last_is_comma)
         return
