@@ -8,6 +8,7 @@ import tokenize
 from typing import Match
 from typing import Sequence
 
+import astor as astor
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import parse_string_literal
 from tokenize_rt import reversed_enumerate
@@ -339,6 +340,38 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         return contents_text != contents_text_orig
 
 
+blacklist = {".tox", "venv", "site-packages", ".eggs"}
+
+
+def _resolve_files(
+        files_or_paths,
+        excluded_files_or_paths):
+    """Resolve relative paths and directory names into a list of absolute paths to python files."""
+    # Taken from https://github.com/ikamensh/flynt (MIT)
+    files = []
+    _blacklist = blacklist.copy()
+    if excluded_files_or_paths is not None:
+        _blacklist.update(set(excluded_files_or_paths))
+
+    for file_or_path in files_or_paths:
+
+        import os
+        abs_path = os.path.abspath(file_or_path)
+
+        if not os.path.exists(abs_path):
+            print(f"`{file_or_path}` not found")
+            sys.exit(1)
+
+        if os.path.isdir(abs_path):
+            for folder, filename in astor.code_to_ast.find_py_files(abs_path):
+                files.append(os.path.join(folder, filename))
+        else:
+            files.append(abs_path)
+
+    files = [f for f in files if all(b not in f for b in _blacklist)]
+    return files
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
@@ -375,9 +408,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         action='store_const', dest='min_version', const=(3, 11),
     )
     args = parser.parse_args(argv)
-
     ret = 0
-    for filename in args.filenames:
+    for filename in _resolve_files(args.filenames,[]):
         ret |= _fix_file(filename, args)
     return ret
 
