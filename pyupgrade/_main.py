@@ -340,12 +340,13 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         return contents_text != contents_text_orig
 
 
-blacklist = {".tox", "venv", "site-packages", ".eggs"}
+blacklist = {'.tox', 'venv', 'site-packages', '.eggs'}
 
 
 def _resolve_files(
         files_or_paths,
-        excluded_files_or_paths):
+        excluded_files_or_paths,
+):
     """Resolve relative paths and directory names into a list of absolute paths to python files."""
     # Taken from https://github.com/ikamensh/flynt (MIT)
     files = []
@@ -359,7 +360,7 @@ def _resolve_files(
         abs_path = os.path.abspath(file_or_path)
 
         if not os.path.exists(abs_path):
-            print(f"`{file_or_path}` not found")
+            print(f'`{file_or_path}` not found')
             sys.exit(1)
 
         if os.path.isdir(abs_path):
@@ -409,7 +410,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     ret = 0
-    for filename in _resolve_files(args.filenames,[]):
+    for filename in _resolve_files(args.filenames, []):
         ret |= _fix_file(filename, args)
     return ret
 
