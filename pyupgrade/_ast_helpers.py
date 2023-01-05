@@ -44,11 +44,7 @@ def has_starargs(call: ast.Call) -> bool:
 
 
 def contains_await(node: ast.AST) -> bool:
-    for node_ in ast.walk(node):
-        if isinstance(node_, ast.Await):
-            return True
-    else:
-        return False
+    return any(isinstance(node_, ast.Await) for node_ in ast.walk(node))
 
 
 def is_async_listcomp(node: ast.ListComp) -> bool:

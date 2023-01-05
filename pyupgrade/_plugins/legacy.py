@@ -68,8 +68,7 @@ def _targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
             return False
         elif not _fields_same(t1, t2):
             return False
-    else:
-        return True
+    return True
 
 
 class Scope:

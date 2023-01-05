@@ -118,10 +118,7 @@ def visit_Call(
             if name is not None:
                 candidate, _, _ = name.partition('.')
                 # timid: could make the f-string longer
-                if candidate and candidate in seen:
-                    break
-                # timid: bracketed
-                elif '[' in name:
+                if candidate and candidate in seen or '[' in name:
                     break
                 seen.add(candidate)
 

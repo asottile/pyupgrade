@@ -123,15 +123,12 @@ def _fix_escape_sequences(token: Token) -> Token:
 
     def cb(match: Match[str]) -> str:
         matched = match.group()
-        if _is_valid_escape(match):
-            return matched
-        else:
-            return fr'\{matched}'
+        return matched if _is_valid_escape(match) else r'\{matched}'
 
     if has_invalid_escapes and (has_valid_escapes or 'u' in actual_prefix):
         return token._replace(src=prefix + ESCAPE_RE.sub(cb, rest))
     elif has_invalid_escapes and not has_valid_escapes:
-        return token._replace(src=prefix + 'r' + rest)
+        return token._replace(src=f'{prefix}r{rest}')
     else:
         return token
 
@@ -140,9 +137,8 @@ def _remove_u_prefix(token: Token) -> Token:
     prefix, rest = parse_string_literal(token.src)
     if 'u' not in prefix.lower():
         return token
-    else:
-        new_prefix = prefix.replace('u', '').replace('U', '')
-        return token._replace(src=new_prefix + rest)
+    new_prefix = prefix.replace('u', '').replace('U', '')
+    return token._replace(src=new_prefix + rest)
 
 
 def _fix_extraneous_parens(tokens: list[Token], i: int) -> None:
@@ -182,10 +178,7 @@ def _fix_extraneous_parens(tokens: list[Token], i: int) -> None:
 
 
 def _remove_fmt(tup: DotFormatPart) -> DotFormatPart:
-    if tup[1] is None:
-        return tup
-    else:
-        return (tup[0], '', tup[2], tup[3])
+    return tup if tup[1] is None else (tup[0], '', tup[2], tup[3])
 
 
 def _fix_format_literal(tokens: list[Token], end: int) -> None:

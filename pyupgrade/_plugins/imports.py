@@ -259,15 +259,15 @@ def _for_version(
     exact = {}
     for ver, ver_exact in REPLACE_EXACT.items():
         if ver <= version:
-            exact.update(ver_exact)
+            exact |= ver_exact
 
     mods = {**REPLACE_MODS}
     if not keep_mock:
         exact['mock', 'mock'] = 'unittest'
-        mods.update({
+        mods |= {
             'mock': 'unittest.mock',
             'mock.mock': 'unittest.mock',
-        })
+        }
 
     return removals, exact, mods
 
@@ -285,11 +285,7 @@ class FromImport(NamedTuple):
 
     @classmethod
     def parse(cls, i: int, tokens: list[Token]) -> FromImport:
-        if has_space_before(i, tokens):
-            start = i - 1
-        else:
-            start = i
-
+        start = i - 1 if has_space_before(i, tokens) else i
         j = i + 1
         # XXX: does not handle explicit relative imports
         while tokens[j].name != 'NAME':
@@ -334,10 +330,7 @@ class FromImport(NamedTuple):
 
 
 def _alias_to_s(alias: ast.alias) -> str:
-    if alias.asname:
-        return f'{alias.name} as {alias.asname}'
-    else:
-        return alias.name
+    return f'{alias.name} as {alias.asname}' if alias.asname else alias.name
 
 
 def _replace_from_modname(
@@ -470,10 +463,7 @@ def _replace_import(
     except ValueError:
         return
 
-    if has_space_before(i, tokens):
-        start = i - 1
-    else:
-        start = i
+    start = i - 1 if has_space_before(i, tokens) else i
     end = find_end(tokens, i)
 
     parts = []

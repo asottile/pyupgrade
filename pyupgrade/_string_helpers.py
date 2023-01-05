@@ -45,9 +45,9 @@ def unparse_parsed_string(parsed: list[DotFormatPart]) -> str:
         if field_name is not None:
             ret += '{' + field_name
             if conversion:
-                ret += '!' + conversion
+                ret += f'!{conversion}'
             if format_spec:
-                ret += ':' + format_spec
+                ret += f':{format_spec}'
             ret += '}'
         return ret
 
@@ -57,9 +57,9 @@ def unparse_parsed_string(parsed: list[DotFormatPart]) -> str:
 def curly_escape(s: str) -> str:
     parts = NAMED_UNICODE_RE.split(s)
     return ''.join(
-        part.replace('{', '{{').replace('}', '}}')
-        if not NAMED_UNICODE_RE.fullmatch(part)
-        else part
+        part
+        if NAMED_UNICODE_RE.fullmatch(part)
+        else part.replace('{', '{{').replace('}', '}}')
         for part in parts
     )
 

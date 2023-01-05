@@ -108,10 +108,7 @@ def visit_Call(
             node.args and
             not has_starargs(node)
     ):
-        if isinstance(node.args[0], _EXPR_NEEDS_PARENS):
-            parens: tuple[int, ...] = (0,)
-        else:
-            parens = ()
+        parens = (0,) if isinstance(node.args[0], _EXPR_NEEDS_PARENS) else ()
         func = functools.partial(
             find_and_replace_call,
             template=SIX_CALLS[name],

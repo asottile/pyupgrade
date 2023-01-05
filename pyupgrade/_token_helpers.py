@@ -73,19 +73,12 @@ if sys.version_info >= (3, 8):  # pragma: >=3.8 cover
         return idx
 else:  # pragma: <3.8 cover
     def _arg_token_index(tokens: list[Token], i: int, arg: ast.expr) -> int:
-        # lists containing non-tuples report the first element correctly
-        if isinstance(arg, ast.List):
-            # If the first element is a tuple, the ast lies to us about its col
-            # offset.  We must find the first `(` token after the start of the
-            # list element.
-            if isinstance(arg.elts[0], ast.Tuple):
-                i = _search_until(tokens, i, arg)
-                return find_open_paren(tokens, i)
-            else:
-                return _search_until(tokens, i, arg.elts[0])
-            # others' start position points at their first child node already
-        else:
+        if not isinstance(arg, ast.List):
             return _search_until(tokens, i, arg)
+        if not isinstance(arg.elts[0], ast.Tuple):
+            return _search_until(tokens, i, arg.elts[0])
+        i = _search_until(tokens, i, arg)
+        return find_open_paren(tokens, i)
 
 
 def victims(
@@ -114,11 +107,9 @@ def victims(
         if is_start_brace:
             brace_stack.append(token)
 
-        # Remove all braces before the first element of the inner
-        # comprehension's target.
-        if is_start_brace and arg_depth is None:
-            start_depths.append(len(brace_stack))
-            starts.append(i)
+            if arg_depth is None:
+                start_depths.append(len(brace_stack))
+                starts.append(i)
 
         if (
                 token == ',' and
@@ -184,10 +175,7 @@ class Block(NamedTuple):
     line: bool
 
     def _initial_indent(self, tokens: list[Token]) -> int:
-        if tokens[self.start].src.isspace():
-            return len(tokens[self.start].src)
-        else:
-            return 0
+        return len(tokens[self.start].src) if tokens[self.start].src.isspace() else 0
 
     def _minimum_indent(self, tokens: list[Token]) -> int:
         block_indent = None
@@ -235,15 +223,13 @@ class Block(NamedTuple):
         i = last_token = self.end - 1
         while tokens[i].name in NON_CODING_TOKENS | {'DEDENT', 'NEWLINE'}:
             # if we find an indented comment inside our block, keep it
-            if (
-                    tokens[i].name in {'NL', 'NEWLINE'} and
-                    tokens[i + 1].name == UNIMPORTANT_WS and
-                    len(tokens[i + 1].src) > self._initial_indent(tokens)
-            ):
-                break
-            # otherwise we've found another line to remove
-            elif tokens[i].name in {'NL', 'NEWLINE'}:
-                last_token = i
+            if tokens[i].name in {'NL', 'NEWLINE'}:
+                if tokens[i + 1].name == UNIMPORTANT_WS and len(
+                    tokens[i + 1].src,
+                ) > self._initial_indent(tokens):
+                    break
+                else:
+                    last_token = i
             i -= 1
         return self._replace(end=last_token + 1)
 
@@ -276,10 +262,7 @@ class Block(NamedTuple):
                 level += {'INDENT': 1, 'DEDENT': -1}.get(tokens[j].name, 0)
                 j += 1
             ret = cls(start, colon, block, j, line=False)
-            if trim_end:
-                return ret._trim_end(tokens)
-            else:
-                return ret
+            return ret._trim_end(tokens) if trim_end else ret
         else:  # single line block
             block = j
             j = find_end(tokens, j)
@@ -323,11 +306,7 @@ def remove_base_class(i: int, tokens: list[Token]) -> None:
                 j += 1
             right = j
 
-    if brace_stack:
-        last_part = brace_stack[-1]
-    else:
-        last_part = i
-
+    last_part = brace_stack[-1] if brace_stack else i
     j = i
     while brace_stack:
         if tokens[j].src == '(':
@@ -341,13 +320,11 @@ def remove_base_class(i: int, tokens: list[Token]) -> None:
     # single base, remove the entire bases
     if tokens[left].src == '(' and tokens[right].src == ':':
         del tokens[left:right]
-    # multiple bases, base is first
-    elif tokens[left].src == '(' and tokens[right].src != ':':
+    elif tokens[left].src == '(':
         # if there's space / comment afterwards remove that too
         while tokens[right + 1].name in {UNIMPORTANT_WS, 'COMMENT'}:
             right += 1
         del tokens[left + 1:right + 1]
-    # multiple bases, base is not first
     else:
         del tokens[left:last_part + 1]
 
@@ -398,11 +375,7 @@ def arg_str(tokens: list[Token], start: int, end: int) -> str:
 def _arg_contains_newline(tokens: list[Token], start: int, end: int) -> bool:
     while tokens[start].name in {'NL', 'NEWLINE', UNIMPORTANT_WS}:
         start += 1
-    for i in range(start, end):
-        if tokens[i].name in {'NL', 'NEWLINE'}:
-            return True
-    else:
-        return False
+    return any(tokens[i].name in {'NL', 'NEWLINE'} for i in range(start, end))
 
 
 def replace_call(
@@ -503,11 +476,9 @@ def find_comprehension_opening_bracket(i: int, tokens: list[Token]) -> int:
     """Find opening bracket of comprehension given first argument."""
     if sys.version_info < (3, 8):  # pragma: <3.8 cover
         i -= 1
-        while not (tokens[i].name == 'OP' and tokens[i].src == '[') and i:
+        while (tokens[i].name != 'OP' or tokens[i].src != '[') and i:
             i -= 1
-        return i
-    else:  # pragma: >=3.8 cover
-        return i
+    return i
 
 
 def has_space_before(i: int, tokens: list[Token]) -> bool:
