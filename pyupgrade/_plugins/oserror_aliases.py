@@ -57,7 +57,7 @@ def _fix_oserror_except(
     unique_args = tuple(dict.fromkeys(args))
 
     if len(unique_args) > 1:
-        joined = '({})'.format(', '.join(unique_args))
+        joined = f"({', '.join(unique_args)})"
     elif tokens[start - 1].name != 'UNIMPORTANT_WS':
         joined = f' {unique_args[0]}'
     else:

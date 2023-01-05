@@ -43,27 +43,23 @@ def visit_Call(
         node: ast.Call,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    if (
-            isinstance(node.func, ast.Attribute) and
-            isinstance(node.func.value, ast.Name) and
-            node.func.value.id == 'self' and
-            node.func.attr in METHOD_MAPPING
+    if isinstance(node.func, ast.Attribute) and isinstance(
+        node.func.value, ast.Name
     ):
-        func = functools.partial(
-            replace_name,
-            name=node.func.attr,
-            new=f'self.{METHOD_MAPPING[node.func.attr]}',
-        )
-        yield ast_to_offset(node.func), func
-    elif (
-            isinstance(node.func, ast.Attribute) and
-            isinstance(node.func.value, ast.Name) and
+        if node.func.value.id == 'self' and node.func.attr in METHOD_MAPPING:
+            func = functools.partial(
+                replace_name,
+                name=node.func.attr,
+                new=f'self.{METHOD_MAPPING[node.func.attr]}',
+            )
+            yield ast_to_offset(node.func), func
+        elif (
             node.func.value.id == 'unittest' and
             node.func.attr in FUNCTION_MAPPING
-    ):
-        func = functools.partial(
-            replace_name,
-            name=node.func.attr,
-            new=f'unittest.{FUNCTION_MAPPING[node.func.attr]}',
-        )
-        yield ast_to_offset(node.func), func
+        ):
+            func = functools.partial(
+                replace_name,
+                name=node.func.attr,
+                new=f'unittest.{FUNCTION_MAPPING[node.func.attr]}',
+            )
+            yield ast_to_offset(node.func), func
