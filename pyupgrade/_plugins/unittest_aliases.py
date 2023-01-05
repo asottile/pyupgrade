@@ -44,7 +44,7 @@ def visit_Call(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if isinstance(node.func, ast.Attribute) and isinstance(
-        node.func.value, ast.Name
+        node.func.value, ast.Name,
     ):
         if node.func.value.id == 'self' and node.func.attr in METHOD_MAPPING:
             func = functools.partial(

@@ -225,7 +225,7 @@ class Block(NamedTuple):
             # if we find an indented comment inside our block, keep it
             if tokens[i].name in {'NL', 'NEWLINE'}:
                 if tokens[i + 1].name == UNIMPORTANT_WS and len(
-                    tokens[i + 1].src
+                    tokens[i + 1].src,
                 ) > self._initial_indent(tokens):
                     break
                 else:
