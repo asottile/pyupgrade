@@ -19,7 +19,7 @@ PEP585_BUILTINS = frozenset((
 
 def _should_rewrite(state: State) -> bool:
     return (
-        state.settings.min_version >= (3, 9) or (
+        state.settings.min_version >= (3, 9) and (
             not state.settings.keep_runtime_typing and
             state.in_annotation and
             'annotations' in state.from_imports['__future__']
