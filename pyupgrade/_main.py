@@ -351,6 +351,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         action='store_const', dest='min_version', default=(3,), const=(3,),
     )
     parser.add_argument(
+        '--currpy-plus',
+        action='store_const', dest='min_version', const=sys.version_info[:2],
+    )
+    parser.add_argument(
         '--py36-plus',
         action='store_const', dest='min_version', const=(3, 6),
     )

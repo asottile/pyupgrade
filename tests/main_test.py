@@ -10,6 +10,13 @@ import pytest
 from pyupgrade._main import main
 
 
+def python_version_to_test(py_ver):
+    version_to_test = [f'py{py_ver}']
+    if ''.join(str(x) for x in sys.version_info[:2]) == py_ver:
+        version_to_test.append('currpy')
+    return version_to_test
+
+
 def test_main_trivial():
     assert main(()) == 0
 
@@ -121,25 +128,28 @@ def test_py3_plus_oserror(tmpdir):
     assert f.read() == 'raise OSError(1, 2)\n'
 
 
-def test_py36_plus_fstrings(tmpdir):
+@pytest.mark.parametrize('py_ver', python_version_to_test('36'))
+def test_py36_plus_fstrings(py_ver, tmpdir):
     f = tmpdir.join('f.py')
     f.write('"{} {}".format(hello, world)')
     assert main((f.strpath,)) == 0
     assert f.read() == '"{} {}".format(hello, world)'
-    assert main((f.strpath, '--py36-plus')) == 1
+    assert main((f.strpath, f'--{py_ver}-plus')) == 1
     assert f.read() == 'f"{hello} {world}"'
 
 
-def test_py37_plus_removes_annotations(tmpdir):
+@pytest.mark.parametrize('py_ver', python_version_to_test('37'))
+def test_py37_plus_removes_annotations(py_ver, tmpdir):
     f = tmpdir.join('f.py')
     f.write('from __future__ import generator_stop\nx = 1\n')
     assert main((f.strpath,)) == 0
     assert main((f.strpath, '--py36-plus')) == 0
-    assert main((f.strpath, '--py37-plus')) == 1
+    assert main((f.strpath, f'--{py_ver}-plus')) == 1
     assert f.read() == 'x = 1\n'
 
 
-def test_py38_plus_removes_no_arg_decorators(tmpdir):
+@pytest.mark.parametrize('py_ver', python_version_to_test('38'))
+def test_py38_plus_removes_no_arg_decorators(py_ver, tmpdir):
     f = tmpdir.join('f.py')
     f.write(
         'import functools\n\n'
@@ -150,7 +160,7 @@ def test_py38_plus_removes_no_arg_decorators(tmpdir):
     assert main((f.strpath,)) == 0
     assert main((f.strpath, '--py36-plus')) == 0
     assert main((f.strpath, '--py37-plus')) == 0
-    assert main((f.strpath, '--py38-plus')) == 1
+    assert main((f.strpath, f'--{py_ver}-plus')) == 1
     assert f.read() == (
         'import functools\n\n'
         '@functools.lru_cache\n'
@@ -159,7 +169,8 @@ def test_py38_plus_removes_no_arg_decorators(tmpdir):
     )
 
 
-def test_noop_token_error(tmpdir):
+@pytest.mark.parametrize('py_ver', python_version_to_test('36'))
+def test_noop_token_error(py_ver, tmpdir):
     f = tmpdir.join('f.py')
     f.write(
         # force some rewrites (ast is ok https://bugs.python.org/issue2180)
@@ -171,7 +182,7 @@ def test_noop_token_error(tmpdir):
         'x = \\\n'
         '5\\\n',
     )
-    assert main((f.strpath, '--py36-plus')) == 0
+    assert main((f.strpath, f'--{py_ver}-plus')) == 0
 
 
 def test_main_exit_zero_even_if_changed(tmpdir):
