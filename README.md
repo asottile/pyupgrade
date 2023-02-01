@@ -80,6 +80,8 @@ Availability:
 +'{a} {b}'.format(a=1, b=2)
 ```
 
+`'%s' % a` is not supported because the tool can't detect if `a` is a tuple or not.
+
 ### Unicode literals
 
 ```diff
