@@ -182,6 +182,15 @@ def test_main_exit_zero_even_if_changed(tmpdir):
     assert not main((str(f), '--exit-zero-even-if-changed'))
 
 
+def test_main_check_only(tmpdir):
+    f = tmpdir.join('t.py')
+    f.write('set((1, 2))\n')
+    assert main((str(f), '--check-only')) == 1
+    assert f.read() == 'set((1, 2))\n'
+    assert main((str(f), '--check-only', '--exit-zero-even-if-changed')) == 0
+    assert f.read() == 'set((1, 2))\n'
+
+
 def test_main_stdin_no_changes(capsys):
     stdin = io.TextIOWrapper(io.BytesIO(b'{1, 2}\n'), 'UTF-8')
     with mock.patch.object(sys, 'stdin', stdin):
