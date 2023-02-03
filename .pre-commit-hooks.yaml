@@ -3,7 +3,7 @@
     description: Automatically upgrade syntax for newer versions.
     entry: pyupgrade
     language: python
-    types: [python]
+    types: [python, pyi]
     # for backward compatibility
     files: ''
     minimum_pre_commit_version: 0.15.0
