@@ -281,6 +281,7 @@ class FromImport(NamedTuple):
     mod_start: int
     mod_end: int
     names: tuple[int, ...]
+    ends: tuple[int, ...]
     end: int
 
     @classmethod
@@ -310,11 +311,14 @@ class FromImport(NamedTuple):
             for j in range(import_token + 1, end)
             if tokens[j].name == 'NAME'
         ]
+        ends_by_offset = {}
         for i in reversed(range(len(names))):
             if tokens[names[i]].src == 'as':
+                ends_by_offset[names[i - 1]] = names[i + 1]
                 del names[i:i + 2]
+        ends = tuple(ends_by_offset.get(pos, pos) for pos in names)
 
-        return cls(start, mod_start, mod_end + 1, tuple(names), end)
+        return cls(start, mod_start, mod_end + 1, tuple(names), ends, end)
 
     def remove_self(self, tokens: list[Token]) -> None:
         del tokens[self.start:self.end]
@@ -327,10 +331,10 @@ class FromImport(NamedTuple):
             if idx == 0:  # look forward until next name and del
                 del tokens[self.names[idx]:self.names[idx + 1]]
             else:  # look backward for comma and del
-                j = end = self.names[idx]
+                j = self.names[idx]
                 while tokens[j].src != ',':
                     j -= 1
-                del tokens[j:end + 1]
+                del tokens[j:self.ends[idx] + 1]
 
 
 def _alias_to_s(alias: ast.alias) -> str:

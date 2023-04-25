@@ -305,6 +305,13 @@ def test_mock_noop_keep_mock():
             'from collections.abc import Callable\n',
             id='typing.Callable is rewritable in 3.10+ only',
         ),
+        pytest.param(
+            'from typing import Optional, Sequence as S\n',
+            (3, 10),
+            'from typing import Optional\n'
+            'from collections.abc import Sequence as S\n',
+            id='aliasing in multi from import',
+        ),
     ),
 )
 def test_import_replaces(s, min_version, expected):
