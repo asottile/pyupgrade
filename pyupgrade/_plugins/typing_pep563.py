@@ -113,8 +113,8 @@ def _replace_string_literal(
             nodes.extend(_process_call(node))
         elif isinstance(node, ast.Subscript):
             nodes.extend(_process_subscript(node))
-        elif isinstance(node, ast.Str):
-            func = functools.partial(_dequote, new=node.s)
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            func = functools.partial(_dequote, new=node.value)
             yield ast_to_offset(node), func
         else:
             for name in node._fields:

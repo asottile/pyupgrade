@@ -44,7 +44,11 @@ def is_a_native_literal_call(
         not has_starargs(node) and
         (
             len(node.args) == 0 or
-            (len(node.args) == 1 and isinstance(node.args[0], ast.Str))
+            (
+                len(node.args) == 1 and
+                isinstance(node.args[0], ast.Constant) and
+                isinstance(node.args[0].value, str)
+            )
         )
     )
 

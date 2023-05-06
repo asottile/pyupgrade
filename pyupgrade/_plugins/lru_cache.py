@@ -28,7 +28,7 @@ def _is_literal_kwarg(
 ) -> bool:
     return (
         keyword.arg == name and
-        isinstance(keyword.value, ast.NameConstant) and
+        isinstance(keyword.value, ast.Constant) and
         keyword.value.value is value
     )
 
