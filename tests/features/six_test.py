@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from pyupgrade._data import Settings
@@ -387,17 +385,6 @@ def test_fix_six_noop(s):
             'x = map(str, ints)\n',
             id='six.moves builtin attrs',
         ),
-    ),
-)
-def test_fix_six(s, expected):
-    ret = _fix_plugins(s, settings=Settings())
-    assert ret == expected
-
-
-@pytest.mark.xfail(sys.version_info < (3, 8), reason='walrus')
-@pytest.mark.parametrize(
-    ('s', 'expected'),
-    (
         pytest.param(
             'for _ in six.itervalues(x := y): pass',
             'for _ in (x := y).values(): pass',
@@ -405,7 +392,7 @@ def test_fix_six(s, expected):
         ),
     ),
 )
-def test_fix_six_py38_plus(s, expected):
+def test_fix_six(s, expected):
     ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
 

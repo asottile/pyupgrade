@@ -12,11 +12,10 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket
-from pyupgrade._token_helpers import find_comprehension_opening_bracket
 
 
 def _replace_list_comprehension(i: int, tokens: list[Token]) -> None:
-    start = find_comprehension_opening_bracket(i, tokens)
+    start = i
     end = find_closing_bracket(tokens, start)
     tokens[start] = tokens[start]._replace(src='(')
     tokens[end] = tokens[end]._replace(src=')')
