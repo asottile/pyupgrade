@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from pyupgrade._data import Settings
@@ -338,27 +336,19 @@ def test_fix_typing_pep563_noop(s):
 
             id='NamedTuple with no args (invalid syntax)',
         ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'def foo(var0, /, var1: "MyClass") -> "MyClass":\n'
+            '   x: "MyClass"\n',
+
+            'from __future__ import annotations\n'
+            'def foo(var0, /, var1: MyClass) -> MyClass:\n'
+            '   x: MyClass\n',
+
+            id='posonly args',
+        ),
     ),
 )
 def test_fix_typing_pep563(s, expected):
     ret = _fix_plugins(s, settings=Settings(min_version=(3, 7)))
-    assert ret == expected
-
-
-@pytest.mark.xfail(
-    sys.version_info < (3, 8),
-    reason='posonly args not available in Python3.7',
-)
-def test_fix_typing_pep563_posonlyargs():
-    s = (
-        'from __future__ import annotations\n'
-        'def foo(var0, /, var1: "MyClass") -> "MyClass":\n'
-        '   x: "MyClass"\n'
-    )
-    expected = (
-        'from __future__ import annotations\n'
-        'def foo(var0, /, var1: MyClass) -> MyClass:\n'
-        '   x: MyClass\n'
-    )
-    ret = _fix_plugins(s, settings=Settings(min_version=(3, 8)))
     assert ret == expected

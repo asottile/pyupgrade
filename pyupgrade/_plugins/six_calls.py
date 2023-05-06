@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import functools
-import sys
 from typing import Iterable
 
 from tokenize_rt import Offset
@@ -21,10 +20,8 @@ from pyupgrade._token_helpers import replace_call
 
 _EXPR_NEEDS_PARENS: tuple[type[ast.expr], ...] = (
     ast.Await, ast.BinOp, ast.BoolOp, ast.Compare, ast.GeneratorExp, ast.IfExp,
-    ast.Lambda, ast.UnaryOp,
+    ast.Lambda, ast.UnaryOp, ast.NamedExpr,
 )
-if sys.version_info >= (3, 8):  # pragma: >=3.8 cover
-    _EXPR_NEEDS_PARENS += (ast.NamedExpr,)
 
 SIX_CALLS = {
     'u': '{args[0]}',
