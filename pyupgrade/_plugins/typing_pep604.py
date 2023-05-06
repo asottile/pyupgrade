@@ -128,9 +128,16 @@ def _supported_version(state: State) -> bool:
 
 def _any_arg_is_str(node_slice: ast.expr) -> bool:
     return (
-        isinstance(node_slice, ast.Str) or (
+        (
+            isinstance(node_slice, ast.Constant) and
+            isinstance(node_slice.value, str)
+        ) or (
             isinstance(node_slice, ast.Tuple) and
-            any(isinstance(elt, ast.Str) for elt in node_slice.elts)
+            any(
+                isinstance(elt, ast.Constant) and
+                isinstance(elt.value, str)
+                for elt in node_slice.elts
+            )
         )
     )
 

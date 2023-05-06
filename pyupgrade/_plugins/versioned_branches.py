@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from typing import cast
 from typing import Iterable
-from typing import List
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -69,8 +68,8 @@ def _fix_py3_block_else(i: int, tokens: list[Token]) -> None:
 def _eq(test: ast.Compare, n: int) -> bool:
     return (
         isinstance(test.ops[0], ast.Eq) and
-        isinstance(test.comparators[0], ast.Num) and
-        test.comparators[0].n == n
+        isinstance(test.comparators[0], ast.Constant) and
+        test.comparators[0].value == n
     )
 
 
@@ -83,14 +82,17 @@ def _compare_to_3(
             isinstance(test.ops[0], op) and
             isinstance(test.comparators[0], ast.Tuple) and
             len(test.comparators[0].elts) >= 1 and
-            all(isinstance(n, ast.Num) for n in test.comparators[0].elts)
+            all(
+                isinstance(n, ast.Constant) and isinstance(n.value, int)
+                for n in test.comparators[0].elts
+            )
     ):
         return False
 
     # checked above but mypy needs help
-    ast_elts = cast('List[ast.Num]', test.comparators[0].elts)
+    ast_elts = cast('list[ast.Constant]', test.comparators[0].elts)
     # padding a 0 for compatibility with (3,) used as a spec
-    elts = tuple(e.n for e in ast_elts) + (0,)
+    elts = tuple(e.value for e in ast_elts) + (0,)
 
     return elts[:2] == (3, minor) and all(n == 0 for n in elts[2:])
 

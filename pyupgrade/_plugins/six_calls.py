@@ -140,7 +140,8 @@ def visit_Call(
             not node.keywords and
             not has_starargs(node) and
             len(node.args) == 1 and
-            isinstance(node.args[0], ast.Str)
+            isinstance(node.args[0], ast.Constant) and
+            isinstance(node.args[0].value, str)
     ):
         yield ast_to_offset(node), _fix_six_b
     elif (

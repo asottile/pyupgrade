@@ -99,12 +99,13 @@ def visit_Call(
 
     if (
             isinstance(node.func, ast.Attribute) and
-            isinstance(node.func.value, ast.Str) and
+            isinstance(node.func.value, ast.Constant) and
+            isinstance(node.func.value.value, str) and
             node.func.attr == 'format' and
             not has_starargs(node)
     ):
         try:
-            parsed = parse_format(node.func.value.s)
+            parsed = parse_format(node.func.value.value)
         except ValueError:
             return
 

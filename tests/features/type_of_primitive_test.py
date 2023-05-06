@@ -14,6 +14,10 @@ from pyupgrade._main import _fix_plugins
             id='NoneType',
         ),
         pytest.param(
+            'type(...)\n',
+            id='ellipsis',
+        ),
+        pytest.param(
             'foo = "foo"\n'
             'type(foo)\n',
             id='String assigned to variable',
@@ -61,6 +65,13 @@ def test_fix_type_of_primitive_noop(s):
             'bytes\n',
 
             id='Empty bytes string -> bytes',
+        ),
+        pytest.param(
+            'type(True)\n',
+
+            'bool\n',
+
+            id='bool',
         ),
     ),
 )

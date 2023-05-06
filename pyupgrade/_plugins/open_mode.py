@@ -81,10 +81,14 @@ def visit_Call(
             ) and
             not has_starargs(node)
     ):
-        if len(node.args) >= 2 and isinstance(node.args[1], ast.Str):
+        if (
+                len(node.args) >= 2 and
+                isinstance(node.args[1], ast.Constant) and
+                isinstance(node.args[1].value, str)
+        ):
             if (
-                node.args[1].s in MODE_REPLACE or
-                (len(node.args) == 2 and node.args[1].s in MODE_REMOVE)
+                node.args[1].value in MODE_REPLACE or
+                (len(node.args) == 2 and node.args[1].value in MODE_REMOVE)
             ):
                 func = functools.partial(_fix_open_mode, arg_idx=1)
                 yield ast_to_offset(node), func
@@ -99,10 +103,11 @@ def visit_Call(
             )
             if (
                 mode is not None and
-                isinstance(mode.value, ast.Str) and
+                isinstance(mode.value, ast.Constant) and
+                isinstance(mode.value.value, str) and
                 (
-                    mode.value.s in MODE_REMOVE or
-                    mode.value.s in MODE_REPLACE
+                    mode.value.value in MODE_REMOVE or
+                    mode.value.value in MODE_REPLACE
                 )
             ):
                 func = functools.partial(

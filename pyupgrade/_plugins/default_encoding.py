@@ -29,12 +29,18 @@ def visit_Call(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            isinstance(node.func, ast.Attribute) and
-            isinstance(node.func.value, (ast.Str, ast.JoinedStr)) and
+            isinstance(node.func, ast.Attribute) and (
+                (
+                    isinstance(node.func.value, ast.Constant) and
+                    isinstance(node.func.value.value, str)
+                ) or
+                isinstance(node.func.value, ast.JoinedStr)
+            ) and
             node.func.attr == 'encode' and
             not has_starargs(node) and
             len(node.args) == 1 and
-            isinstance(node.args[0], ast.Str) and
-            is_codec(node.args[0].s, 'utf-8')
+            isinstance(node.args[0], ast.Constant) and
+            isinstance(node.args[0].value, str) and
+            is_codec(node.args[0].value, 'utf-8')
     ):
         yield ast_to_offset(node), _fix_default_encoding

@@ -35,7 +35,8 @@ def visit_Call(
     if (
             state.settings.min_version >= (3, 6) and
             isinstance(node.func, ast.Attribute) and
-            isinstance(node.func.value, ast.Str) and
+            isinstance(node.func.value, ast.Constant) and
+            isinstance(node.func.value.value, str) and
             node.func.attr == 'format' and
             len(node.args) == 0 and
             len(node.keywords) == 1 and
