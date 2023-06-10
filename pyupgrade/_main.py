@@ -195,7 +195,7 @@ def _fix_format_literal(tokens: list[Token], end: int) -> None:
     for i in parts:
         # f'foo {0}'.format(...) would get turned into a SyntaxError
         prefix, _ = parse_string_literal(tokens[i].src)
-        if 'f' in prefix.lower():
+        if 'f' in prefix.lower():  # pragma: <3.12 cover
             return
 
         try:
@@ -244,7 +244,7 @@ def _fix_encode_to_binary(tokens: list[Token], i: int) -> None:
     ):
         victims = slice(i - 1, i + 4)
         prefix, rest = parse_string_literal(tokens[i + 2].src)
-        if 'f' in prefix.lower():
+        if 'f' in prefix.lower():  # pragma: <3.12 cover
             return
         encoding = ast.literal_eval(prefix + rest)
         if is_codec(encoding, 'ascii') or is_codec(encoding, 'utf-8'):

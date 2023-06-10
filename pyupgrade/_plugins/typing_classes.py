@@ -220,10 +220,7 @@ def visit_Assign(
                     (
                         len(node.value.keywords) == 1 and
                         node.value.keywords[0].arg == 'total' and
-                        isinstance(
-                            node.value.keywords[0].value,
-                            (ast.Constant, ast.NameConstant),
-                        )
+                        isinstance(node.value.keywords[0].value, ast.Constant)
                     )
                 ) and
                 isinstance(node.value.args[1], ast.Dict) and

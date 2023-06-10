@@ -66,8 +66,11 @@ def visit_Call(
             isinstance(node.func, ast.Name) and node.func.id == 'bytes' and
             not node.keywords and not has_starargs(node) and
             (
-                len(node.args) == 0 or
-                (len(node.args) == 1 and isinstance(node.args[0], ast.Bytes))
+                len(node.args) == 0 or (
+                    len(node.args) == 1 and
+                    isinstance(node.args[0], ast.Constant) and
+                    isinstance(node.args[0].value, bytes)
+                )
             )
     ):
         func = functools.partial(_fix_literal, empty="b''")
