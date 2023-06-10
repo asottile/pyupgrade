@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from pyupgrade._data import Settings
@@ -447,3 +449,9 @@ def test_fix_six(s, expected):
 def test_fix_base_classes(s, expected):
     ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
+
+
+@pytest.mark.xfail(sys.version_info < (3, 12), reason='3.12+ feature')
+def test_rewriting_in_fstring():
+    ret = _fix_plugins('f"{six.text_type}"', settings=Settings())
+    assert ret == 'f"{str}"'
