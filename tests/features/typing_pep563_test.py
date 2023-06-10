@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from pyupgrade._data import Settings
@@ -53,6 +55,15 @@ from pyupgrade._main import _fix_plugins
             'from __future__ import annotations\n'
             'x: Annotated[1:2] = ...\n',
             id='Annotated with invalid slice',
+        ),
+        pytest.param(
+            'def f[X: "int"](x: X) -> X: return x\n',
+            id='TypeVar quoted bound but no __future__ annotations',
+        ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'def f[X](x: X) -> X: return x\n',
+            id='TypeVar without bound',
         ),
     ),
 )
@@ -362,4 +373,20 @@ def test_fix_typing_pep563_noop(s):
 )
 def test_fix_typing_pep563(s, expected):
     ret = _fix_plugins(s, settings=Settings(min_version=(3, 7)))
+    assert ret == expected
+
+
+@pytest.mark.xfail(sys.version_info < (3, 12), reason='3.12+ syntax')
+def test_typevar_bound():
+    src = '''\
+from __future__ import annotations
+def f[T: "int"](t: T) -> T:
+    return t
+'''
+    expected = '''\
+from __future__ import annotations
+def f[T: int](t: T) -> T:
+    return t
+'''
+    ret = _fix_plugins(src, settings=Settings())
     assert ret == expected
