@@ -76,6 +76,17 @@ def test_fix_typing_pep563_noop(s):
         ),
         pytest.param(
             'from __future__ import annotations\n'
+            'async def foo(var: "MyClass") -> "MyClass":\n'
+            '   ...\n',
+
+            'from __future__ import annotations\n'
+            'async def foo(var: MyClass) -> MyClass:\n'
+            '   ...\n',
+
+            id='simple async annotation',
+        ),
+        pytest.param(
+            'from __future__ import annotations\n'
             'def foo(*, inplace: "bool"): ...\n',
 
             'from __future__ import annotations\n'
