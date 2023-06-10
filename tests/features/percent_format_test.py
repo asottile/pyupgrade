@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import ast
-
 import pytest
 
 from pyupgrade._data import Settings
@@ -183,19 +181,6 @@ def test_simplify_conversion_flag(s, expected):
     ),
 )
 def test_percent_format_noop(s):
-    assert _fix_plugins(s, settings=Settings()) == s
-
-
-def _has_16806_bug():
-    # See https://bugs.python.org/issue16806
-    body = ast.parse('"""\n"""').body[0]
-    assert isinstance(body, ast.Expr)
-    return body.value.col_offset == -1
-
-
-@pytest.mark.xfail(not _has_16806_bug(), reason='multiline string parse bug')
-def test_percent_format_noop_if_bug_16806():
-    s = '"""%s\n""" % ("issue16806",)'
     assert _fix_plugins(s, settings=Settings()) == s
 
 
