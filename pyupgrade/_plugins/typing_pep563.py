@@ -133,10 +133,9 @@ def _process_args(
             yield from _replace_string_literal(arg.annotation)
 
 
-@register(ast.FunctionDef)
-def visit_FunctionDef(
+def _visit_func(
         state: State,
-        node: ast.FunctionDef,
+        node: ast.AsyncFunctionDef | ast.FunctionDef,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if not _supported_version(state):
@@ -148,6 +147,24 @@ def visit_FunctionDef(
     yield from _process_args(getattr(node.args, 'posonlyargs', []))
     if node.returns is not None:
         yield from _replace_string_literal(node.returns)
+
+
+@register(ast.AsyncFunctionDef)
+def visit_AsyncFunctionDef(
+        state: State,
+        node: ast.AsyncFunctionDef,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    yield from _visit_func(state, node, parent)
+
+
+@register(ast.FunctionDef)
+def visit_FunctionDef(
+        state: State,
+        node: ast.FunctionDef,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    yield from _visit_func(state, node, parent)
 
 
 @register(ast.AnnAssign)
