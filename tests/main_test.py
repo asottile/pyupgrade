@@ -46,6 +46,15 @@ def test_main_changes_a_file(tmpdir, capsys):
     assert f.read() == 'x = {1, 2, 3}\n'
 
 
+def test_main_changes_check(tmpdir, capsys):
+    f = tmpdir.join('f.py')
+    f.write('x = set((1, 2, 3))\n')
+    assert main((f.strpath, '--check-only')) == 1
+    out, err = capsys.readouterr()
+    assert err == f'File {f.strpath} would be re-written\n'
+    assert f.read() == 'x = set((1, 2, 3))\n'
+
+
 def test_main_keeps_line_endings(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write_binary(b'x = set((1, 2, 3))\r\n')

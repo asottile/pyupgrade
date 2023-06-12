@@ -329,9 +329,12 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     if filename == '-':
         print(contents_text, end='')
     elif contents_text != contents_text_orig:
-        print(f'Rewriting {filename}', file=sys.stderr)
-        with open(filename, 'w', encoding='UTF-8', newline='') as f:
-            f.write(contents_text)
+        if args.check_only:
+            print(f'File {filename} would be re-written', file=sys.stderr)
+        else:
+            print(f'Rewriting {filename}', file=sys.stderr)
+            with open(filename, 'w', encoding='UTF-8', newline='') as f:
+                f.write(contents_text)
 
     if args.exit_zero_even_if_changed:
         return 0
@@ -343,6 +346,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
+    parser.add_argument('--check-only', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')
     parser.add_argument('--keep-runtime-typing', action='store_true')
