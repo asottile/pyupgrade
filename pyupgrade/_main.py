@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import ast
+import difflib
+import os
 import re
 import sys
 import tokenize
@@ -331,6 +333,20 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     elif contents_text != contents_text_orig:
         if args.check_only:
             print(f'File {filename} would be re-written', file=sys.stderr)
+            if args.diff:
+                print(
+                    ''.join(
+                        d for d in difflib.unified_diff(
+                            contents_text_orig.splitlines(keepends=True),
+                            contents_text.splitlines(keepends=True),
+                            fromfile=filename,
+                            tofile=filename,
+                            lineterm=os.linesep,
+                        )
+                    ),
+                    end='',
+                    file=sys.stderr,
+                )
         else:
             print(f'Rewriting {filename}', file=sys.stderr)
             with open(filename, 'w', encoding='UTF-8', newline='') as f:
@@ -347,6 +363,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--check-only', action='store_true')
+    parser.add_argument('--diff', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')
     parser.add_argument('--keep-runtime-typing', action='store_true')
