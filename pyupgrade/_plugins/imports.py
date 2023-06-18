@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.9.0
+# Using reorder-python-imports==3.10.0
 REMOVALS = {
     (3,): {
         '__future__': {
@@ -96,7 +96,6 @@ REPLACE_EXACT = {
         ('typing_extensions', 'ContextManager'): 'typing',
         ('typing_extensions', 'Coroutine'): 'typing',
         ('typing_extensions', 'DefaultDict'): 'typing',
-        ('typing_extensions', 'NewType'): 'typing',
         ('typing_extensions', 'TYPE_CHECKING'): 'typing',
         ('typing_extensions', 'Text'): 'typing',
         ('typing_extensions', 'Type'): 'typing',
@@ -113,9 +112,7 @@ REPLACE_EXACT = {
     (3, 8): {
         ('mypy_extensions', 'TypedDict'): 'typing',
         ('typing_extensions', 'Final'): 'typing',
-        ('typing_extensions', 'Literal'): 'typing',
         ('typing_extensions', 'OrderedDict'): 'typing',
-        ('typing_extensions', 'Protocol'): 'typing',
         ('typing_extensions', 'SupportsIndex'): 'typing',
         ('typing_extensions', 'runtime_checkable'): 'typing',
     },
@@ -156,6 +153,8 @@ REPLACE_EXACT = {
     (3, 10): {
         ('typing', 'Callable'): 'collections.abc',
         ('typing_extensions', 'Concatenate'): 'typing',
+        ('typing_extensions', 'Literal'): 'typing',
+        ('typing_extensions', 'NewType'): 'typing',
         ('typing_extensions', 'ParamSpecArgs'): 'typing',
         ('typing_extensions', 'ParamSpecKwargs'): 'typing',
         ('typing_extensions', 'TypeAlias'): 'typing',
@@ -167,17 +166,13 @@ REPLACE_EXACT = {
     (3, 11): {
         ('typing_extensions', 'Any'): 'typing',
         ('typing_extensions', 'LiteralString'): 'typing',
-        ('typing_extensions', 'NamedTuple'): 'typing',
         ('typing_extensions', 'Never'): 'typing',
         ('typing_extensions', 'NotRequired'): 'typing',
         ('typing_extensions', 'Required'): 'typing',
         ('typing_extensions', 'Self'): 'typing',
-        ('typing_extensions', 'TypedDict'): 'typing',
-        ('typing_extensions', 'Unpack'): 'typing',
         ('typing_extensions', 'assert_never'): 'typing',
         ('typing_extensions', 'assert_type'): 'typing',
         ('typing_extensions', 'clear_overloads'): 'typing',
-        ('typing_extensions', 'dataclass_transform'): 'typing',
         ('typing_extensions', 'final'): 'typing',
         ('typing_extensions', 'get_overloads'): 'typing',
         ('typing_extensions', 'overload'): 'typing',
