@@ -326,18 +326,15 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     )
     contents_text = _fix_tokens(contents_text)
 
-    if args.dry_run:
-        if contents_text != contents_text_orig:
-            print(f'Would rewrite {filename}', file=sys.stderr)
-            return 1
-        return 0
-
     if filename == '-':
         print(contents_text, end='')
     elif contents_text != contents_text_orig:
-        print(f'Rewriting {filename}', file=sys.stderr)
-        with open(filename, 'w', encoding='UTF-8', newline='') as f:
-            f.write(contents_text)
+        if not args.dry_run:
+            print(f'Rewriting {filename}', file=sys.stderr)
+            with open(filename, 'w', encoding='UTF-8', newline='') as f:
+                f.write(contents_text)
+        else:
+            print(f'Would rewrite {filename}', file=sys.stderr)
 
     if args.exit_zero_even_if_changed:
         return 0
