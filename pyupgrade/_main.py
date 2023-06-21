@@ -326,6 +326,12 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     )
     contents_text = _fix_tokens(contents_text)
 
+    if args.dry_run:
+        if contents_text != contents_text_orig:
+            print(f'Would rewrite {filename}', file=sys.stderr)
+            return 1
+        return 0
+
     if filename == '-':
         print(contents_text, end='')
     elif contents_text != contents_text_orig:
@@ -342,6 +348,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
+    parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')

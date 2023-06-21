@@ -182,6 +182,22 @@ def test_main_exit_zero_even_if_changed(tmpdir):
     assert not main((str(f), '--exit-zero-even-if-changed'))
 
 
+def test_main_dry_run_with_possible_changes(tmpdir):
+    f = tmpdir.join('t.py')
+    origin = 'set((1, 2))\n'
+    f.write(origin)
+    assert main((str(f), '--dry-run'))
+    assert f.read() == origin
+
+
+def test_main_dry_run_with_no_changes(tmpdir):
+    f = tmpdir.join('t.py')
+    origin = '{1, 2}\n'
+    f.write(origin)
+    assert not main((str(f), '--dry-run'))
+    assert f.read() == origin
+
+
 def test_main_stdin_no_changes(capsys):
     stdin = io.TextIOWrapper(io.BytesIO(b'{1, 2}\n'), 'UTF-8')
     with mock.patch.object(sys, 'stdin', stdin):
