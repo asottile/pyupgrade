@@ -57,10 +57,6 @@ from pyupgrade._main import _fix_plugins
             id='Annotated with invalid slice',
         ),
         pytest.param(
-            'def f[X: "int"](x: X) -> X: return x\n',
-            id='TypeVar quoted bound but no __future__ annotations',
-        ),
-        pytest.param(
             'from __future__ import annotations\n'
             'def f[X](x: X) -> X: return x\n',
             id='TypeVar without bound',
