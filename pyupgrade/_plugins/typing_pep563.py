@@ -144,7 +144,7 @@ def _visit_func(
     yield from _process_args([node.args.vararg, node.args.kwarg])
     yield from _process_args(node.args.args)
     yield from _process_args(node.args.kwonlyargs)
-    yield from _process_args(getattr(node.args, 'posonlyargs', []))
+    yield from _process_args(node.args.posonlyargs)
     if node.returns is not None:
         yield from _replace_string_literal(node.returns)
 
