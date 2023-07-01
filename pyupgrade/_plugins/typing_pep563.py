@@ -185,7 +185,5 @@ if sys.version_info >= (3, 12):  # pragma: >=3.12 cover
             node: ast.TypeVar,
             parent: ast.AST,
     ) -> Iterable[tuple[Offset, TokenFunc]]:
-        if not _supported_version(state):
-            return
         if node.bound is not None:
             yield from _replace_string_literal(node.bound)
