@@ -25,19 +25,13 @@ def _find_if_else_block(tokens: list[Token], i: int) -> tuple[Block, Block]:
     return if_block, else_block
 
 
-def _find_elif(tokens: list[Token], i: int) -> int:
-    while tokens[i].src != 'elif':  # pragma: no cover (only for <3.8.1)
-        i -= 1
-    return i
-
-
 def _fix_py3_block(i: int, tokens: list[Token]) -> None:
     if tokens[i].src == 'if':
         if_block = Block.find(tokens, i)
         if_block.dedent(tokens)
         del tokens[if_block.start:if_block.block]
     else:
-        if_block = Block.find(tokens, _find_elif(tokens, i))
+        if_block = Block.find(tokens, i)
         if_block.replace_condition(tokens, [Token('NAME', 'else')])
 
 
@@ -47,8 +41,7 @@ def _fix_py2_block(i: int, tokens: list[Token]) -> None:
         else_block.dedent(tokens)
         del tokens[if_block.start:else_block.block]
     else:
-        j = _find_elif(tokens, i)
-        if_block, else_block = _find_if_else_block(tokens, j)
+        if_block, else_block = _find_if_else_block(tokens, i)
         del tokens[if_block.start:else_block.start]
 
 
@@ -59,8 +52,7 @@ def _fix_py3_block_else(i: int, tokens: list[Token]) -> None:
         del tokens[if_block.end:else_block.end]
         del tokens[if_block.start:if_block.block]
     else:
-        j = _find_elif(tokens, i)
-        if_block, else_block = _find_if_else_block(tokens, j)
+        if_block, else_block = _find_if_else_block(tokens, i)
         del tokens[if_block.end:else_block.end]
         if_block.replace_condition(tokens, [Token('NAME', 'else')])
 
