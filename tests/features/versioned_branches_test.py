@@ -9,10 +9,7 @@ from pyupgrade._main import _fix_plugins
 @pytest.mark.parametrize(
     's',
     (
-        # we timidly skip `if` without `else` as it could cause a SyntaxError
-        'if six.PY2:\n'
-        '    pass',
-        # here's the case where it causes a SyntaxError
+        # skip `if` without `else` as it could cause a SyntaxError
         'if True:\n'
         '    if six.PY2:\n'
         '        pass\n',
@@ -569,6 +566,16 @@ def test_fix_py3_only_code(s, expected):
             'import sys\n'
             'pass',
             id='sys.version_info >= (3, 6), noelse',
+        ),
+        pytest.param(
+            'print("before")\n'
+            'if six.PY2:\n'
+            '    pass\n'
+            'print("after")\n',
+
+            'print("before")\n'
+            'print("after")\n',
+            id='can remove no-else if at module scope',
         ),
     ),
 )
