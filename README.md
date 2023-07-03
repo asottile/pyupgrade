@@ -634,6 +634,15 @@ Availability:
      ...
 ```
 
+### shlex.join
+
+Availability:
+- `--py38-plus` is passed on the commandline.
+
+```diff
+-' '.join(shlex.quote(arg) for arg in cmd)
++shlex.join(cmd)
+```
 
 ### replace `@functools.lru_cache(maxsize=None)` with shorthand
 
