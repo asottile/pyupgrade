@@ -49,17 +49,10 @@ def find_open_paren(tokens: list[Token], i: int) -> int:
 
 
 def find_end(tokens: list[Token], i: int) -> int:
-    while tokens[i].name not in {'NEWLINE', 'ENDMARKER'}:
+    while tokens[i].name != 'NEWLINE':
         i += 1
 
-    # depending on the version of python, some will not emit
-    # NEWLINE('') at the end of a file which does not end with a
-    # newline (for example 3.7.0)
-    if tokens[i].name == 'ENDMARKER':  # pragma: no cover
-        i -= 1
-    else:
-        i += 1
-
+    i += 1
     return i
 
 
