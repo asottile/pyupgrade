@@ -45,6 +45,20 @@ def _fix_py2_block(i: int, tokens: list[Token]) -> None:
         del tokens[if_block.start:else_block.start]
 
 
+def _fix_remove_block(i: int, tokens: list[Token]) -> None:
+    block = Block.find(tokens, i)
+    del tokens[block.start:block.end]
+
+
+def _fix_py2_convert_elif(i: int, tokens: list[Token]) -> None:
+    if_block = Block.find(tokens, i)
+    # wasn't actually followed by an `elif`
+    if tokens[if_block.end].src != 'elif':
+        return
+    tokens[if_block.end] = Token('CODE', tokens[i].src)
+    _fix_remove_block(i, tokens)
+
+
 def _fix_py3_block_else(i: int, tokens: list[Token]) -> None:
     if tokens[i].src == 'if':
         if_block, else_block = _find_if_else_block(tokens, i)
@@ -57,9 +71,14 @@ def _fix_py3_block_else(i: int, tokens: list[Token]) -> None:
         if_block.replace_condition(tokens, [Token('NAME', 'else')])
 
 
-def _fix_remove_block(i: int, tokens: list[Token]) -> None:
-    block = Block.find(tokens, i)
-    del tokens[block.start:block.end]
+def _fix_py3_convert_elif(i: int, tokens: list[Token]) -> None:
+    if_block = Block.find(tokens, i)
+    # wasn't actually followed by an `elif`
+    if tokens[if_block.end].src != 'elif':
+        return
+    tokens[if_block.end] = Token('CODE', tokens[i].src)
+    if_block.dedent(tokens)
+    del tokens[if_block.start:if_block.block]
 
 
 def _eq(test: ast.Compare, n: int) -> bool:
@@ -147,9 +166,11 @@ def visit_If(
                 )
             )
     ):
-        if node.orelse and not isinstance(node.orelse[0], ast.If):
+        if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
+            yield ast_to_offset(node), _fix_py2_convert_elif
+        elif node.orelse:
             yield ast_to_offset(node), _fix_py2_block
-        elif node.col_offset == 0 and not node.orelse:
+        elif node.col_offset == 0:
             yield ast_to_offset(node), _fix_remove_block
     elif (
             # if six.PY3:
@@ -192,7 +213,9 @@ def visit_If(
                 )
             )
     ):
-        if node.orelse and not isinstance(node.orelse[0], ast.If):
+        if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
+            yield ast_to_offset(node), _fix_py3_convert_elif
+        elif node.orelse:
             yield ast_to_offset(node), _fix_py3_block_else
-        elif not node.orelse:
+        else:
             yield ast_to_offset(node), _fix_py3_block
