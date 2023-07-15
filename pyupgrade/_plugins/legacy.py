@@ -64,7 +64,7 @@ def _targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
         # ignore `ast.Load` / `ast.Store`
         if _all_isinstance((t1, t2), ast.expr_context):
             continue
-        elif type(t1) != type(t2):
+        elif type(t1) is not type(t2):
             return False
         elif not _fields_same(t1, t2):
             return False
