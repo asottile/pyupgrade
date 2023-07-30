@@ -13,7 +13,7 @@ from pyupgrade._main import _fix_plugins
         'set()',
         # Don't touch weird looking function calls -- use autopep8 or such
         # first
-        'set (())', 'set ((1, 2))',
+        'set ((1, 2))',
     ),
 )
 def test_fix_sets_noop(s):
@@ -26,6 +26,7 @@ def test_fix_sets_noop(s):
         # Take a set literal with an empty tuple / list and remove the arg
         ('set(())', 'set()'),
         ('set([])', 'set()'),
+        pytest.param('set (())', 'set ()', id='empty, weird ws'),
         # Remove spaces in empty set literals
         ('set(( ))', 'set()'),
         # Some "normal" test cases
