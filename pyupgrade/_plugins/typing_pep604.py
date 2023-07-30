@@ -14,14 +14,14 @@ from pyupgrade._ast_helpers import is_name_attr
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import CLOSING
 from pyupgrade._token_helpers import find_closing_bracket
-from pyupgrade._token_helpers import find_token
-from pyupgrade._token_helpers import OPENING
+from pyupgrade._token_helpers import find_op
+from pyupgrade._token_helpers import is_close
+from pyupgrade._token_helpers import is_open
 
 
 def _fix_optional(i: int, tokens: list[Token]) -> None:
-    j = find_token(tokens, i, '[')
+    j = find_op(tokens, i, '[')
     k = find_closing_bracket(tokens, j)
     if tokens[j].line == tokens[k].line:
         tokens[k] = Token('CODE', ' | None')
@@ -44,7 +44,7 @@ def _fix_union(
     commas = []
     coding_depth = None
 
-    j = find_token(tokens, i, '[')
+    j = find_op(tokens, i, '[')
     k = j + 1
     while depth:
         # it's possible our first coding token is a close paren
@@ -59,12 +59,12 @@ def _fix_union(
             else:
                 coding_depth = depth
 
-        if tokens[k].src in OPENING:
+        if is_open(tokens[k]):
             if tokens[k].src == '(':
                 open_parens.append((depth, k))
 
             depth += 1
-        elif tokens[k].src in CLOSING:
+        elif is_close(tokens[k]):
             if tokens[k].src == ')':
                 paren_depth, open_paren = open_parens.pop()
                 parens_done.append((paren_depth, (open_paren, k)))

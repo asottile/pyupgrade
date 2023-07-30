@@ -13,7 +13,7 @@ from pyupgrade._ast_helpers import is_name_attr
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_call
 
@@ -21,7 +21,7 @@ SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
 
 
 def _fix_literal(i: int, tokens: list[Token], *, empty: str) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, j)
     if any(tok.name == 'NL' for tok in tokens[i:end]):
         return

@@ -12,7 +12,7 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 
 _TYPES = {
     bool: 'bool',
@@ -30,7 +30,7 @@ def _rewrite_type_of_primitive(
         *,
         src: str,
 ) -> None:
-    open_paren = find_open_paren(tokens, i + 1)
+    open_paren = find_op(tokens, i + 1, '(')
     j = find_closing_bracket(tokens, open_paren)
     tokens[i] = tokens[i]._replace(src=src)
     del tokens[i + 1:j + 1]

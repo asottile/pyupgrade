@@ -16,7 +16,7 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_end
-from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import find_name
 from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
@@ -292,7 +292,7 @@ class FromImport(NamedTuple):
             j += 1
         mod_start = j
 
-        import_token = find_token(tokens, j, 'import')
+        import_token = find_name(tokens, j, 'import')
         j = import_token - 1
         while tokens[j].name != 'NAME':
             j -= 1

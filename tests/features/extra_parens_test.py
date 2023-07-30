@@ -58,6 +58,16 @@ def test_fix_extra_parens_noop(s):
 
             id='extra parens on coroutines are instead reduced to 2',
         ),
+        pytest.param(
+            'f((f"{x})"))',
+            'f(f"{x})")',
+            id='3.12: handle close brace in fstring body',
+        ),
+        pytest.param(
+            'f((f"{x}("))',
+            'f(f"{x}(")',
+            id='3.12: handle open brace in fstring body',
+        ),
     ),
 )
 def test_fix_extra_parens(s, expected):

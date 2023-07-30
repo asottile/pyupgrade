@@ -13,7 +13,7 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import delete_argument
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_argument
 
@@ -25,7 +25,7 @@ def _use_capture_output(
     stdout_arg_idx: int,
     stderr_arg_idx: int,
 ) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     func_args, _ = parse_call_args(tokens, j)
     if stdout_arg_idx < stderr_arg_idx:
         delete_argument(stderr_arg_idx, tokens, func_args)
@@ -51,7 +51,7 @@ def _replace_universal_newlines_with_text(
     *,
     arg_idx: int,
 ) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     func_args, _ = parse_call_args(tokens, j)
     for i in range(*func_args[arg_idx]):
         if tokens[i].src == 'universal_newlines':

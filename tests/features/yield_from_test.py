@@ -142,6 +142,36 @@ from pyupgrade._plugins.legacy import _targets_same
             '    yield from x\n',
             id='leave one loop alone (referenced after assignment)',
         ),
+        pytest.param(
+            'def f(y):\n'
+            '   for x in f"{y}:":\n'
+            '       yield x\n',
+
+            'def f(y):\n'
+            '   yield from f"{y}:"\n',
+
+            id='3.12: colon in fstring',
+        ),
+        pytest.param(
+            'def f(y):\n'
+            '   for x in f"{y}(":\n'
+            '       yield x\n',
+
+            'def f(y):\n'
+            '   yield from f"{y}("\n',
+
+            id='3.12: open brace in fstring',
+        ),
+        pytest.param(
+            'def f(y):\n'
+            '   for x in f"{y})":\n'
+            '       yield x\n',
+
+            'def f(y):\n'
+            '   yield from f"{y})"\n',
+
+            id='3.13: close brace in fstring',
+        ),
     ),
 )
 def test_fix_yield_from(s, expected):

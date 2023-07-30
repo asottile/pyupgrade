@@ -11,8 +11,9 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import BRACES
 from pyupgrade._token_helpers import immediately_paren
+from pyupgrade._token_helpers import is_close
+from pyupgrade._token_helpers import is_open
 from pyupgrade._token_helpers import remove_brace
 from pyupgrade._token_helpers import victims
 
@@ -25,13 +26,12 @@ def _fix_set_empty_literal(i: int, tokens: list[Token]) -> None:
         return
 
     j = i + 2
-    brace_stack = ['(']
-    while brace_stack:
-        token = tokens[j].src
-        if token == BRACES[brace_stack[-1]]:
-            brace_stack.pop()
-        elif token in BRACES:
-            brace_stack.append(token)
+    depth = 1
+    while depth:
+        if is_open(tokens[j]):
+            depth += 1
+        elif is_close(tokens[j]):
+            depth -= 1
         j += 1
 
     # Remove the inner tokens

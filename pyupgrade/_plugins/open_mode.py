@@ -16,7 +16,7 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import delete_argument
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 
 
@@ -41,7 +41,7 @@ class FunctionArg(NamedTuple):
 
 
 def _fix_open_mode(i: int, tokens: list[Token], *, arg_idx: int) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, j)
     mode = tokens_to_src(tokens[slice(*func_args[arg_idx])])
     mode_stripped = mode.split('=')[-1]

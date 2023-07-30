@@ -12,15 +12,15 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import find_open_paren
-from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import find_name
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import victims
 
 
 def _fix_shlex_join(i: int, tokens: list[Token], *, arg: ast.expr) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     comp_victims = victims(tokens, j, arg, gen=True)
-    k = find_token(tokens, comp_victims.arg_index, 'in') + 1
+    k = find_name(tokens, comp_victims.arg_index, 'in') + 1
     while tokens[k].name in NON_CODING_TOKENS:
         k += 1
     tokens[comp_victims.ends[0]:comp_victims.ends[-1] + 1] = [Token('OP', ')')]
