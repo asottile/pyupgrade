@@ -90,6 +90,16 @@ def test_fix_sets_noop(s):
             '}\n',
         ),
         pytest.param('set((\n))', 'set()', id='empty literal with newline'),
+        pytest.param(
+            'set((f"{x}(",))',
+            '{f"{x}("}',
+            id='3.12 fstring containing open brace',
+        ),
+        pytest.param(
+            'set((f"{x})",))',
+            '{f"{x})"}',
+            id='3.12 fstring containing close brace',
+        ),
     ),
 )
 def test_sets(s, expected):

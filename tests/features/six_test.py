@@ -302,6 +302,16 @@ def test_fix_six_noop(s):
             id='add_metaclass, indented',
         ),
         pytest.param(
+            '@six.add_metaclass(M)\n'
+            '@unrelated(f"class{x}")\n'
+            'class C: pass\n',
+
+            '@unrelated(f"class{x}")\n'
+            'class C(metaclass=M): pass\n',
+
+            id='add_metaclass, 3.12: fstring between add_metaclass and class',
+        ),
+        pytest.param(
             'print(six.itervalues({1:2}))\n',
             'print({1:2}.values())\n',
             id='six.itervalues',

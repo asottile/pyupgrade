@@ -14,7 +14,7 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_and_replace_call
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_call
 
@@ -53,7 +53,7 @@ RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
 
 
 def _fix_six_b(i: int, tokens: list[Token]) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     if (
             tokens[j + 1].name == 'STRING' and
             tokens[j + 1].src.isascii() and

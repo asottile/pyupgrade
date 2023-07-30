@@ -12,7 +12,7 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import arg_str
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_name
 
@@ -30,7 +30,7 @@ def _fix_oserror_except(
     except_index = i
     while tokens[except_index].src != 'except':
         except_index -= 1
-    start = find_open_paren(tokens, except_index)
+    start = find_op(tokens, except_index, '(')
     func_args, end = parse_call_args(tokens, start)
 
     # save the exceptions and remove the block

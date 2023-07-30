@@ -111,6 +111,34 @@ def test_fix_capture_output_noop(s, version):
             ')',
             id='both universal_newlines and capture_output rewrite',
         ),
+        pytest.param(
+            'subprocess.run(\n'
+            '    f"{x}(",\n'
+            '    stdout=subprocess.PIPE,\n'
+            '    stderr=subprocess.PIPE,\n'
+            ')',
+
+            'subprocess.run(\n'
+            '    f"{x}(",\n'
+            '    capture_output=True,\n'
+            ')',
+
+            id='3.12: fstring with open brace',
+        ),
+        pytest.param(
+            'subprocess.run(\n'
+            '    f"{x})",\n'
+            '    stdout=subprocess.PIPE,\n'
+            '    stderr=subprocess.PIPE,\n'
+            ')',
+
+            'subprocess.run(\n'
+            '    f"{x})",\n'
+            '    capture_output=True,\n'
+            ')',
+
+            id='3.12: fstring with close brace',
+        ),
     ),
 )
 def test_fix_capture_output(s, expected):

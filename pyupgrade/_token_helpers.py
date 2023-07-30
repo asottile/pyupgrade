@@ -10,8 +10,8 @@ from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 from tokenize_rt import UNIMPORTANT_WS
 
-BRACES = {'(': ')', '[': ']', '{': '}'}
-OPENING, CLOSING = frozenset(BRACES), frozenset(BRACES.values())
+_OPENING = frozenset('([{')
+_CLOSING = frozenset(')]}')
 KEYWORDS = frozenset(keyword.kwlist)
 
 
@@ -26,41 +26,43 @@ class Victims(NamedTuple):
     arg_index: int
 
 
-def _search_until(tokens: list[Token], idx: int, arg: ast.expr) -> int:
-    while (
-            idx < len(tokens) and
-            not (
-                tokens[idx].line == arg.lineno and
-                tokens[idx].utf8_byte_offset == arg.col_offset
-            )
-    ):
-        idx += 1
-    return idx
+def is_open(token: Token) -> bool:
+    return token.name == 'OP' and token.src in _OPENING
 
 
-def find_token(tokens: list[Token], i: int, src: str) -> int:
-    while tokens[i].src != src:
+def is_close(token: Token) -> bool:
+    return token.name == 'OP' and token.src in _CLOSING
+
+
+def _find_token(tokens: list[Token], i: int, name: str, src: str) -> int:
+    while not tokens[i].matches(name=name, src=src):
         i += 1
     return i
 
 
-def find_open_paren(tokens: list[Token], i: int) -> int:
-    return find_token(tokens, i, '(')
+def find_name(tokens: list[Token], i: int, src: str) -> int:
+    return _find_token(tokens, i, 'NAME', src)
+
+
+def find_op(tokens: list[Token], i: int, src: str) -> int:
+    return _find_token(tokens, i, 'OP', src)
 
 
 def find_end(tokens: list[Token], i: int) -> int:
     while tokens[i].name != 'NEWLINE':
         i += 1
 
-    i += 1
-    return i
+    return i + 1
 
 
 def _arg_token_index(tokens: list[Token], i: int, arg: ast.expr) -> int:
-    idx = _search_until(tokens, i, arg) + 1
-    while idx < len(tokens) and tokens[idx].name in NON_CODING_TOKENS:
-        idx += 1
-    return idx
+    offset = (arg.lineno, arg.col_offset)
+    while tokens[i].offset != offset:
+        i += 1
+    i += 1
+    while tokens[i].name in NON_CODING_TOKENS:
+        i += 1
+    return i
 
 
 def victims(
@@ -75,45 +77,44 @@ def victims(
     first_comma_index = None
     arg_depth = None
     arg_index = _arg_token_index(tokens, start, arg)
-    brace_stack = [tokens[start].src]
+    depth = 1
     i = start + 1
 
-    while brace_stack:
-        token = tokens[i].src
-        is_start_brace = token in BRACES
-        is_end_brace = token == BRACES[brace_stack[-1]]
+    while depth:
+        is_start_brace = is_open(tokens[i])
+        is_end_brace = is_close(tokens[i])
 
         if i == arg_index:
-            arg_depth = len(brace_stack)
+            arg_depth = depth
 
         if is_start_brace:
-            brace_stack.append(token)
+            depth += 1
 
         # Remove all braces before the first element of the inner
         # comprehension's target.
         if is_start_brace and arg_depth is None:
-            start_depths.append(len(brace_stack))
+            start_depths.append(depth)
             starts.append(i)
 
         if (
-                token == ',' and
-                len(brace_stack) == arg_depth and
+                tokens[i].matches(name='OP', src=',') and
+                depth == arg_depth and
                 first_comma_index is None
         ):
             first_comma_index = i
 
-        if is_end_brace and len(brace_stack) in start_depths:
+        if is_end_brace and depth in start_depths:
             if tokens[i - 2].src == ',' and tokens[i - 1].src == ' ':
                 ends.extend((i - 2, i - 1, i))
             elif tokens[i - 1].src == ',':
                 ends.extend((i - 1, i))
             else:
                 ends.append(i)
-            if len(brace_stack) > 1 and tokens[i + 1].src == ',':
+            if depth > 1 and tokens[i + 1].src == ',':
                 ends.append(i + 1)
 
         if is_end_brace:
-            brace_stack.pop()
+            depth -= 1
 
         i += 1
     # May need to remove a trailing comma for a comprehension
@@ -128,13 +129,13 @@ def victims(
 
 
 def find_closing_bracket(tokens: list[Token], i: int) -> int:
-    assert tokens[i].src in OPENING
+    assert tokens[i].src in _OPENING
     depth = 1
     i += 1
     while depth:
-        if tokens[i].src in OPENING:
+        if is_open(tokens[i]):
             depth += 1
-        elif tokens[i].src in CLOSING:
+        elif is_close(tokens[i]):
             depth -= 1
         i += 1
     return i - 1
@@ -142,10 +143,10 @@ def find_closing_bracket(tokens: list[Token], i: int) -> int:
 
 def find_block_start(tokens: list[Token], i: int) -> int:
     depth = 0
-    while depth or tokens[i].src != ':':
-        if tokens[i].src in OPENING:
+    while depth or not tokens[i].matches(name='OP', src=':'):
+        if is_open(tokens[i]):
             depth += 1
-        elif tokens[i].src in CLOSING:
+        elif is_close(tokens[i]):
             depth -= 1
         i += 1
     return i
@@ -343,22 +344,20 @@ def parse_call_args(
         i: int,
 ) -> tuple[list[tuple[int, int]], int]:
     args = []
-    stack = [i]
+    depth = 1
     i += 1
     arg_start = i
 
-    while stack:
-        token = tokens[i]
-
-        if len(stack) == 1 and token.src == ',':
+    while depth:
+        if depth == 1 and tokens[i].src == ',':
             args.append((arg_start, i))
             arg_start = i + 1
-        elif token.src in BRACES:
-            stack.append(i)
-        elif token.src == BRACES[tokens[stack[-1]].src]:
-            stack.pop()
+        elif is_open(tokens[i]):
+            depth += 1
+        elif is_close(tokens[i]):
+            depth -= 1
             # if we're at the end, append that argument
-            if not stack and tokens_to_src(tokens[arg_start:i]).strip():
+            if not depth and tokens_to_src(tokens[arg_start:i]).strip():
                 args.append((arg_start, i))
 
         i += 1
@@ -410,10 +409,7 @@ def replace_call(
 
     # Remove trailing comma
     end_rest = end - 1
-    while (
-            tokens[end_rest - 1].name == 'OP' and
-            tokens[end_rest - 1].src == ','
-    ):
+    if tokens[end_rest - 1].matches(name='OP', src=','):
         end_rest -= 1
 
     rest = tokens_to_src(tokens[start_rest:end_rest])
@@ -428,7 +424,7 @@ def find_and_replace_call(
         template: str,
         parens: tuple[int, ...] = (),
 ) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, j)
     replace_call(tokens, i, end, func_args, template, parens=parens)
 
@@ -437,7 +433,7 @@ def replace_name(i: int, tokens: list[Token], *, name: str, new: str) -> None:
     # preserve token offset in case we need to match it later
     new_token = tokens[i]._replace(name='CODE', src=new)
     j = i
-    while tokens[j].src != name:
+    while not tokens[j].matches(name='NAME', src=name):
         # timid: if we see a parenthesis here, skip it
         if tokens[j].src == ')':
             return
