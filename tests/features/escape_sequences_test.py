@@ -10,14 +10,11 @@ from pyupgrade._main import _fix_tokens
     (
         '""',
         r'r"\d"', r"r'\d'", r'r"""\d"""', r"r'''\d'''",
-        # python2 has a bug where `rb'foo'` is tokenized as NAME + STRING
         r'rb"\d"',
         # make sure we don't replace an already valid string
         r'"\\d"',
-        # in python2 `'\u2603'` is literally \\u2603, but transforming based
-        # on that would be incorrect in python3.
-        # intentionally timid here to avoid breaking working python3 code
-        '"\\u2603"',
+        # this is already a proper unicode escape
+        r'"\u2603"',
         # don't touch already valid escapes
         r'"\r\n"',
         # python3.3+ named unicode escapes
