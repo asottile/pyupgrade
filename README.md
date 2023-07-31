@@ -105,10 +105,6 @@ Availability:
  # this fixes a syntax error in python3.3+
 -'\N'
 +r'\N'
-
-# note: pyupgrade is timid in one case (that's usually a mistake)
-# in python2.x `'\u2603'` is the same as `'\\u2603'` without `unicode_literals`
-# but in python3.x, that's our friend ☃
 ```
 
 ### `is` / `is not` comparison to constant literals
