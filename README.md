@@ -13,6 +13,18 @@ versions of the language.
 pip install pyupgrade
 ```
 
+## Usage
+
+```console
+$ pyupgrade --help
+usage: pyupgrade [-h] [--exit-zero-even-if-changed] [--keep-percent-format] [--keep-mock] [--keep-runtime-typing] [--py3-plus]
+                 [--py36-plus] [--py37-plus] [--py38-plus] [--py39-plus] [--py310-plus] [--py311-plus]
+                 [filenames ...]
+# ...
+$ pyupgrade example.py
+Rewriting example.py
+```
+
 ## As a pre-commit hook
 
 See [pre-commit](https://github.com/pre-commit/pre-commit) for instructions
