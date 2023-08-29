@@ -149,22 +149,8 @@ def _visit_func(
         yield from _replace_string_literal(node.returns)
 
 
-@register(ast.AsyncFunctionDef)
-def visit_AsyncFunctionDef(
-        state: State,
-        node: ast.AsyncFunctionDef,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    yield from _visit_func(state, node, parent)
-
-
-@register(ast.FunctionDef)
-def visit_FunctionDef(
-        state: State,
-        node: ast.FunctionDef,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    yield from _visit_func(state, node, parent)
+register(ast.AsyncFunctionDef)(_visit_func)
+register(ast.FunctionDef)(_visit_func)
 
 
 @register(ast.AnnAssign)
