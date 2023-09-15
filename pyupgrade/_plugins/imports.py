@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.10.0
+# Using reorder-python-imports==3.11.0
 REMOVALS = {
     (3,): {
         '__future__': {
@@ -183,7 +183,7 @@ REPLACE_MODS = {
     'six.moves.BaseHTTPServer': 'http.server',
     'six.moves.CGIHTTPServer': 'http.server',
     'six.moves.SimpleHTTPServer': 'http.server',
-    'six.moves._dummy_thread': '_dummy_thread',
+    'six.moves._dummy_thread': '_thread',
     'six.moves._thread': '_thread',
     'six.moves.builtins': 'builtins',
     'six.moves.cPickle': 'pickle',
@@ -228,6 +228,7 @@ REPLACE_MODS = {
     'six.moves.urllib_error': 'urllib.error',
     'six.moves.urllib_parse': 'urllib.parse',
     'six.moves.urllib_robotparser': 'urllib.robotparser',
+    'six.moves.winreg': '_winreg',
     'six.moves.xmlrpc_client': 'xmlrpc.client',
     'six.moves.xmlrpc_server': 'xmlrpc.server',
     'xml.etree.cElementTree': 'xml.etree.ElementTree',
