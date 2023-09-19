@@ -19,7 +19,7 @@ def parse_format(s: str) -> list[DotFormatPart]:
 
     for part in NAMED_UNICODE_RE.split(s):
         if NAMED_UNICODE_RE.fullmatch(part):
-            if not ret:
+            if not ret or ret[-1][1:] != (None, None, None):
                 ret.append((part, None, None, None))
             else:
                 ret[-1] = (ret[-1][0] + part, None, None, None)
