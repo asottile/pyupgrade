@@ -25,6 +25,8 @@ from pyupgrade._main import _fix_tokens
         '("{0}" # {1}\n"{2}").format(1, 2, 3)',
         # don't touch f-strings (these are wrong but don't make it worse)
         'f"{0}".format(a)',
+        # shouldn't touch the format spec
+        r'"{}\N{SNOWMAN}".format("")',
     ),
 )
 def test_format_literals_noop(s):
