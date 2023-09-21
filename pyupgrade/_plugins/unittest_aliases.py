@@ -7,6 +7,7 @@ from typing import Iterable
 from tokenize_rt import Offset
 
 from pyupgrade._ast_helpers import ast_to_offset
+from pyupgrade._ast_helpers import has_starargs
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
@@ -59,7 +60,10 @@ def visit_Call(
             isinstance(node.func, ast.Attribute) and
             isinstance(node.func.value, ast.Name) and
             node.func.value.id == 'unittest' and
-            node.func.attr in FUNCTION_MAPPING
+            node.func.attr in FUNCTION_MAPPING and
+            not has_starargs(node) and
+            not node.keywords and
+            len(node.args) == 1
     ):
         func = functools.partial(
             replace_name,
