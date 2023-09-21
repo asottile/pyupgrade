@@ -40,6 +40,7 @@ RECORD_FROM_IMPORTS = frozenset((
     '__future__',
     'functools',
     'mmap',
+    'os',
     'select',
     'six',
     'six.moves',
