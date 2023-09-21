@@ -17,7 +17,7 @@ from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_name
 
 ERROR_NAMES = frozenset(('EnvironmentError', 'IOError', 'WindowsError'))
-ERROR_MODULES = frozenset(('mmap', 'select', 'socket'))
+ERROR_MODULES = frozenset(('mmap', 'select', 'socket', 'os'))
 
 
 def _fix_oserror_except(
