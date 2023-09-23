@@ -7,6 +7,7 @@ from typing import Iterable
 from tokenize_rt import Offset
 
 from pyupgrade._ast_helpers import ast_to_offset
+from pyupgrade._ast_helpers import is_type_check
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
@@ -36,14 +37,6 @@ NAMES_TYPE_CTX = {
 }
 
 
-def _is_type_check(node: ast.AST | None) -> bool:
-    return (
-        isinstance(node, ast.Call) and
-        isinstance(node.func, ast.Name) and
-        node.func.id in {'isinstance', 'issubclass'}
-    )
-
-
 @register(ast.Attribute)
 def visit_Attribute(
         state: State,
@@ -62,7 +55,7 @@ def visit_Attribute(
         ):
             return
 
-        if node.attr in NAMES_TYPE_CTX and _is_type_check(parent):
+        if node.attr in NAMES_TYPE_CTX and is_type_check(parent):
             new = NAMES_TYPE_CTX[node.attr]
         else:
             new = NAMES[node.attr]
@@ -106,7 +99,7 @@ def visit_Name(
         ):
             return
 
-        if node.id in NAMES_TYPE_CTX and _is_type_check(parent):
+        if node.id in NAMES_TYPE_CTX and is_type_check(parent):
             new = NAMES_TYPE_CTX[node.id]
         else:
             new = NAMES[node.id]

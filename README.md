@@ -154,6 +154,22 @@ A fix for [python-modernize/python-modernize#178]
 
 [python-modernize/python-modernize#178]: https://github.com/python-modernize/python-modernize/issues/178
 
+### constant fold `isinstance` / `issubclass` / `except`
+
+```diff
+-isinstance(x, (int, int))
++isinstance(x, int)
+
+-issubclass(y, (str, str))
++issubclass(y, str)
+
+ try:
+     raises()
+-except (Error1, Error1, Error2):
++except (Error1, Error2):
+     pass
+```
+
 ### unittest deprecated aliases
 
 Rewrites [deprecated unittest method aliases](https://docs.python.org/3/library/unittest.html#deprecated-aliases) to their non-deprecated forms.
