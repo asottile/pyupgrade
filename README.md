@@ -509,6 +509,30 @@ Note that `if` blocks without an `else` will not be rewritten as it could introd
          handle_error()
 ```
 
+### `TimeoutError` aliases
+
+Availability:
+- `--py310-plus` for `socket.timeout`
+- `--py311-plus` for `asyncio.Timeout`
+
+```diff
+
+ def throw(a):
+     if a:
+-        raise asyncio.TimeoutError('boom')
++        raise TimeoutError('boom')
+     else:
+-        raise socket.timeout('boom')
++        raise TimeoutError('boom')
+
+ def catch(a):
+     try:
+         throw(a)
+-    except (asyncio.TimeoutError, socket.timeout):
++    except TimeoutError:
+         handle_error()
+```
+
 ### `typing.Text` str alias
 
 ```diff
