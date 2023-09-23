@@ -13,7 +13,7 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._data import Version
-from pyupgrade._token_helpers import arg_str
+from pyupgrade._token_helpers import constant_fold_tuple
 from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_name
@@ -45,34 +45,13 @@ def _fix_except(
         *,
         at_idx: dict[int, _Target],
 ) -> None:
-    # find all the arg strs in the tuple
-    except_index = i
-    while tokens[except_index].src != 'except':
-        except_index -= 1
-    start = find_op(tokens, except_index, '(')
+    start = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, start)
 
-    arg_strs = [arg_str(tokens, *arg) for arg in func_args]
+    for i, target in reversed(at_idx.items()):
+        tokens[slice(*func_args[i])] = [Token('NAME', target.target)]
 
-    # rewrite the block without dupes
-    args = []
-    for i, arg in enumerate(arg_strs):
-        target = at_idx.get(i)
-        if target is not None:
-            args.append(target.target)
-        else:
-            args.append(arg)
-
-    unique_args = tuple(dict.fromkeys(args))
-
-    if len(unique_args) > 1:
-        joined = '({})'.format(', '.join(unique_args))
-    elif tokens[start - 1].name != 'UNIMPORTANT_WS':
-        joined = f' {unique_args[0]}'
-    else:
-        joined = unique_args[0]
-
-    tokens[start:end] = [Token('CODE', joined)]
+    constant_fold_tuple(start, tokens)
 
 
 def _get_rewrite(

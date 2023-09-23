@@ -470,6 +470,23 @@ def replace_argument(
     tokens[start_idx:end_idx] = [Token('SRC', new)]
 
 
+def constant_fold_tuple(i: int, tokens: list[Token]) -> None:
+    start = find_op(tokens, i, '(')
+    func_args, end = parse_call_args(tokens, start)
+    arg_strs = [arg_str(tokens, *arg) for arg in func_args]
+
+    unique_args = tuple(dict.fromkeys(arg_strs))
+
+    if len(unique_args) > 1:
+        joined = '({})'.format(', '.join(unique_args))
+    elif tokens[start - 1].name != 'UNIMPORTANT_WS':
+        joined = f' {unique_args[0]}'
+    else:
+        joined = unique_args[0]
+
+    tokens[start:end] = [Token('CODE', joined)]
+
+
 def has_space_before(i: int, tokens: list[Token]) -> bool:
     return i >= 1 and tokens[i - 1].name in {UNIMPORTANT_WS, 'INDENT'}
 

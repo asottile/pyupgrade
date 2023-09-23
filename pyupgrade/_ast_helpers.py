@@ -56,3 +56,13 @@ def is_async_listcomp(node: ast.ListComp) -> bool:
         any(gen.is_async for gen in node.generators) or
         contains_await(node)
     )
+
+
+def is_type_check(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Call) and
+        isinstance(node.func, ast.Name) and
+        node.func.id in {'isinstance', 'issubclass'} and
+        len(node.args) == 2 and
+        not has_starargs(node)
+    )
