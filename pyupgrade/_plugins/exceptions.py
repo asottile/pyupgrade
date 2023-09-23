@@ -52,9 +52,7 @@ def _fix_except(
     start = find_op(tokens, except_index, '(')
     func_args, end = parse_call_args(tokens, start)
 
-    # save the exceptions and remove the block
     arg_strs = [arg_str(tokens, *arg) for arg in func_args]
-    del tokens[start:end]
 
     # rewrite the block without dupes
     args = []
@@ -74,8 +72,7 @@ def _fix_except(
     else:
         joined = unique_args[0]
 
-    new = Token('CODE', joined)
-    tokens.insert(start, new)
+    tokens[start:end] = [Token('CODE', joined)]
 
 
 def _get_rewrite(
