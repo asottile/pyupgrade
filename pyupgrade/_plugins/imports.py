@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.11.0
+# Using reorder-python-imports==3.12.0
 REMOVALS = {
     (3,): {
         '__future__': {
@@ -89,16 +89,52 @@ REPLACE_EXACT = {
         ('six.moves.urllib', 'robotparser'): 'urllib',
     },
     (3, 6): {
+        ('typing_extensions', 'AbstractSet'): 'typing',
+        ('typing_extensions', 'AnyStr'): 'typing',
         ('typing_extensions', 'AsyncIterable'): 'typing',
         ('typing_extensions', 'AsyncIterator'): 'typing',
         ('typing_extensions', 'Awaitable'): 'typing',
+        ('typing_extensions', 'BinaryIO'): 'typing',
+        ('typing_extensions', 'Callable'): 'typing',
         ('typing_extensions', 'ClassVar'): 'typing',
+        ('typing_extensions', 'Collection'): 'typing',
+        ('typing_extensions', 'Container'): 'typing',
         ('typing_extensions', 'ContextManager'): 'typing',
         ('typing_extensions', 'Coroutine'): 'typing',
         ('typing_extensions', 'DefaultDict'): 'typing',
+        ('typing_extensions', 'Dict'): 'typing',
+        ('typing_extensions', 'FrozenSet'): 'typing',
+        ('typing_extensions', 'Generator'): 'typing',
+        ('typing_extensions', 'Generic'): 'typing',
+        ('typing_extensions', 'Hashable'): 'typing',
+        ('typing_extensions', 'IO'): 'typing',
+        ('typing_extensions', 'ItemsView'): 'typing',
+        ('typing_extensions', 'Iterable'): 'typing',
+        ('typing_extensions', 'Iterator'): 'typing',
+        ('typing_extensions', 'KeysView'): 'typing',
+        ('typing_extensions', 'List'): 'typing',
+        ('typing_extensions', 'Mapping'): 'typing',
+        ('typing_extensions', 'MappingView'): 'typing',
+        ('typing_extensions', 'Match'): 'typing',
+        ('typing_extensions', 'MutableMapping'): 'typing',
+        ('typing_extensions', 'MutableSequence'): 'typing',
+        ('typing_extensions', 'MutableSet'): 'typing',
+        ('typing_extensions', 'Optional'): 'typing',
+        ('typing_extensions', 'Pattern'): 'typing',
+        ('typing_extensions', 'Reversible'): 'typing',
+        ('typing_extensions', 'Sequence'): 'typing',
+        ('typing_extensions', 'Set'): 'typing',
+        ('typing_extensions', 'Sized'): 'typing',
         ('typing_extensions', 'TYPE_CHECKING'): 'typing',
         ('typing_extensions', 'Text'): 'typing',
+        ('typing_extensions', 'TextIO'): 'typing',
+        ('typing_extensions', 'Tuple'): 'typing',
         ('typing_extensions', 'Type'): 'typing',
+        ('typing_extensions', 'Union'): 'typing',
+        ('typing_extensions', 'ValuesView'): 'typing',
+        ('typing_extensions', 'cast'): 'typing',
+        ('typing_extensions', 'no_type_check'): 'typing',
+        ('typing_extensions', 'no_type_check_decorator'): 'typing',
     },
     (3, 7): {
         ('mypy_extensions', 'NoReturn'): 'typing',
@@ -107,6 +143,7 @@ REPLACE_EXACT = {
         ('typing_extensions', 'ChainMap'): 'typing',
         ('typing_extensions', 'Counter'): 'typing',
         ('typing_extensions', 'Deque'): 'typing',
+        ('typing_extensions', 'ForwardRef'): 'typing',
         ('typing_extensions', 'NoReturn'): 'typing',
     },
     (3, 8): {
@@ -177,6 +214,21 @@ REPLACE_EXACT = {
         ('typing_extensions', 'get_overloads'): 'typing',
         ('typing_extensions', 'overload'): 'typing',
         ('typing_extensions', 'reveal_type'): 'typing',
+    },
+    (3, 12): {
+        ('typing_extensions', 'NamedTuple'): 'typing',
+        ('typing_extensions', 'Protocol'): 'typing',
+        ('typing_extensions', 'SupportsAbs'): 'typing',
+        ('typing_extensions', 'SupportsBytes'): 'typing',
+        ('typing_extensions', 'SupportsComplex'): 'typing',
+        ('typing_extensions', 'SupportsFloat'): 'typing',
+        ('typing_extensions', 'SupportsInt'): 'typing',
+        ('typing_extensions', 'SupportsRound'): 'typing',
+        ('typing_extensions', 'TypeAliasType'): 'typing',
+        ('typing_extensions', 'TypedDict'): 'typing',
+        ('typing_extensions', 'Unpack'): 'typing',
+        ('typing_extensions', 'dataclass_transform'): 'typing',
+        ('typing_extensions', 'override'): 'typing',
     },
 }
 REPLACE_MODS = {
