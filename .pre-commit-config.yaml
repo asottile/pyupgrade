@@ -10,11 +10,11 @@ repos:
     -   id: name-tests-test
     -   id: requirements-txt-fixer
 -   repo: https://github.com/asottile/setup-cfg-fmt
-    rev: v2.4.0
+    rev: v2.5.0
     hooks:
     -   id: setup-cfg-fmt
 -   repo: https://github.com/asottile/reorder-python-imports
-    rev: v3.11.0
+    rev: v3.12.0
     hooks:
     -   id: reorder-python-imports
         args: [--py38-plus, --add-import, 'from __future__ import annotations']
