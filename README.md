@@ -56,6 +56,32 @@ Sample `.pre-commit-config.yaml`:
 +{a: b for a, b in y}
 ```
 
+### Replace unnecessary lambdas in `collections.defaultdict` calls
+
+```diff
+-defaultdict(lambda: [])
++defaultdict(list)
+-defaultdict(lambda: list())
++defaultdict(list)
+-defaultdict(lambda: {})
++defaultdict(dict)
+-defaultdict(lambda: dict())
++defaultdict(dict)
+-defaultdict(lambda: ())
++defaultdict(tuple)
+-defaultdict(lambda: tuple())
++defaultdict(tuple)
+-defaultdict(lambda: set())
++defaultdict(set)
+-defaultdict(lambda: 0)
++defaultdict(int)
+-defaultdict(lambda: 0.0)
++defaultdict(float)
+-defaultdict(lambda: 0j)
++defaultdict(complex)
+-defaultdict(lambda: '')
++defaultdict(str)
+```
 
 ### Format Specifiers
 
