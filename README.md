@@ -555,7 +555,7 @@ Note that `if` blocks without an `else` will not be rewritten as it could introd
 
 Availability:
 - `--py310-plus` for `socket.timeout`
-- `--py311-plus` for `asyncio.Timeout`
+- `--py311-plus` for `asyncio.TimeoutError`
 
 ```diff
 
