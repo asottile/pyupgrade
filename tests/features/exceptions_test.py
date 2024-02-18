@@ -225,6 +225,30 @@ def test_fix_exceptions_version_specific_noop(s, version):
 
             id='leave unrelated error names alone',
         ),
+        pytest.param(
+            'try: ...\n'
+            'except (\n'
+            '    BaseException,\n'
+            '    BaseException # b\n'
+            '): ...\n',
+
+            'try: ...\n'
+            'except BaseException: ...\n',
+
+            id='dedupe with comment.  see #932',
+        ),
+        pytest.param(
+            'try: ...\n'
+            'except (\n'
+            '    A, A,\n'
+            '    B  # b\n'
+            '): ...\n',
+
+            'try: ...\n'
+            'except (A, B): ...\n',
+
+            id='dedupe other exception, one contains comment.  see #932',
+        ),
     ),
 )
 def test_fix_exceptions(s, expected):
