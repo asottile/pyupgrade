@@ -369,6 +369,14 @@ def arg_str(tokens: list[Token], start: int, end: int) -> str:
     return tokens_to_src(tokens[start:end]).strip()
 
 
+def _arg_str_no_comment(tokens: list[Token], start: int, end: int) -> str:
+    arg_tokens = [
+        token for token in tokens[start:end]
+        if token.name != 'COMMENT'
+    ]
+    return tokens_to_src(arg_tokens).strip()
+
+
 def _arg_contains_newline(tokens: list[Token], start: int, end: int) -> bool:
     while tokens[start].name in {'NL', 'NEWLINE', UNIMPORTANT_WS}:
         start += 1
@@ -473,7 +481,7 @@ def replace_argument(
 def constant_fold_tuple(i: int, tokens: list[Token]) -> None:
     start = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, start)
-    arg_strs = [arg_str(tokens, *arg) for arg in func_args]
+    arg_strs = [_arg_str_no_comment(tokens, *arg) for arg in func_args]
 
     unique_args = tuple(dict.fromkeys(arg_strs))
 
