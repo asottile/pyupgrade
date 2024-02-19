@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import functools
-import sys
 from typing import Iterable
 
 from tokenize_rt import Offset
@@ -15,16 +14,14 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_and_replace_call
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_call
 
 _EXPR_NEEDS_PARENS: tuple[type[ast.expr], ...] = (
     ast.Await, ast.BinOp, ast.BoolOp, ast.Compare, ast.GeneratorExp, ast.IfExp,
-    ast.Lambda, ast.UnaryOp,
+    ast.Lambda, ast.UnaryOp, ast.NamedExpr,
 )
-if sys.version_info >= (3, 8):  # pragma: >=3.8 cover
-    _EXPR_NEEDS_PARENS += (ast.NamedExpr,)
 
 SIX_CALLS = {
     'u': '{args[0]}',
@@ -56,7 +53,7 @@ RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
 
 
 def _fix_six_b(i: int, tokens: list[Token]) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     if (
             tokens[j + 1].name == 'STRING' and
             tokens[j + 1].src.isascii() and
@@ -143,7 +140,8 @@ def visit_Call(
             not node.keywords and
             not has_starargs(node) and
             len(node.args) == 1 and
-            isinstance(node.args[0], ast.Str)
+            isinstance(node.args[0], ast.Constant) and
+            isinstance(node.args[0].value, str)
     ):
         yield ast_to_offset(node), _fix_six_b
     elif (

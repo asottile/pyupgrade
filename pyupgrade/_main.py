@@ -25,8 +25,8 @@ from pyupgrade._string_helpers import DotFormatPart
 from pyupgrade._string_helpers import is_codec
 from pyupgrade._string_helpers import parse_format
 from pyupgrade._string_helpers import unparse_parsed_string
-from pyupgrade._token_helpers import CLOSING
-from pyupgrade._token_helpers import OPENING
+from pyupgrade._token_helpers import is_close
+from pyupgrade._token_helpers import is_open
 from pyupgrade._token_helpers import remove_brace
 
 
@@ -161,9 +161,9 @@ def _fix_extraneous_parens(tokens: list[Token], i: int) -> None:
         # found comma or yield at depth 1: this is a tuple / coroutine
         if depth == 1 and tokens[i].src in {',', 'yield'}:
             return
-        elif tokens[i].src in OPENING:
+        elif is_open(tokens[i]):
             depth += 1
-        elif tokens[i].src in CLOSING:
+        elif is_close(tokens[i]):
             depth -= 1
     end = i
 
@@ -195,7 +195,7 @@ def _fix_format_literal(tokens: list[Token], end: int) -> None:
     for i in parts:
         # f'foo {0}'.format(...) would get turned into a SyntaxError
         prefix, _ = parse_string_literal(tokens[i].src)
-        if 'f' in prefix.lower():
+        if 'f' in prefix.lower():  # pragma: <3.12 cover
             return
 
         try:
@@ -244,7 +244,7 @@ def _fix_encode_to_binary(tokens: list[Token], i: int) -> None:
     ):
         victims = slice(i - 1, i + 4)
         prefix, rest = parse_string_literal(tokens[i + 2].src)
-        if 'f' in prefix.lower():
+        if 'f' in prefix.lower():  # pragma: <3.12 cover
             return
         encoding = ast.literal_eval(prefix + rest)
         if is_codec(encoding, 'ascii') or is_codec(encoding, 'utf-8'):
@@ -284,7 +284,7 @@ def _fix_tokens(contents_text: str) -> str:
     for i, token in reversed_enumerate(tokens):
         if token.name == 'STRING':
             tokens[i] = _fix_escape_sequences(_remove_u_prefix(tokens[i]))
-        elif token.src == '(':
+        elif token.matches(name='OP', src='('):
             _fix_extraneous_parens(tokens, i)
         elif token.src == 'format' and i > 0 and tokens[i - 1].src == '.':
             _fix_format_literal(tokens, i - 2)
@@ -373,6 +373,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         '--py311-plus',
         action='store_const', dest='min_version', const=(3, 11),
+    )
+    parser.add_argument(
+        '--py312-plus',
+        action='store_const', dest='min_version', const=(3, 12),
     )
     args = parser.parse_args(argv)
 

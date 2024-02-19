@@ -19,13 +19,13 @@ from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import Block
 from pyupgrade._token_helpers import find_and_replace_call
 from pyupgrade._token_helpers import find_block_start
-from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import find_name
 
 FUNC_TYPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)
 
 
 def _fix_yield(i: int, tokens: list[Token]) -> None:
-    in_token = find_token(tokens, i, 'in')
+    in_token = find_name(tokens, i, 'in')
     colon = find_block_start(tokens, i)
     block = Block.find(tokens, i, trim_end=True)
     container = tokens_to_src(tokens[in_token + 1:colon]).strip()
@@ -64,7 +64,7 @@ def _targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
         # ignore `ast.Load` / `ast.Store`
         if _all_isinstance((t1, t2), ast.expr_context):
             continue
-        elif type(t1) != type(t2):
+        elif type(t1) is not type(t2):
             return False
         elif not _fields_same(t1, t2):
             return False

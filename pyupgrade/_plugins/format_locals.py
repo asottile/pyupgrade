@@ -12,13 +12,12 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket
-from pyupgrade._token_helpers import find_open_paren
-from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import find_op
 
 
 def _fix(i: int, tokens: list[Token]) -> None:
-    dot_pos = find_token(tokens, i, '.')
-    open_pos = find_open_paren(tokens, dot_pos)
+    dot_pos = find_op(tokens, i, '.')
+    open_pos = find_op(tokens, dot_pos, '(')
     close_pos = find_closing_bracket(tokens, open_pos)
     for string_idx in rfind_string_parts(tokens, dot_pos - 1):
         tok = tokens[string_idx]
@@ -35,7 +34,8 @@ def visit_Call(
     if (
             state.settings.min_version >= (3, 6) and
             isinstance(node.func, ast.Attribute) and
-            isinstance(node.func.value, ast.Str) and
+            isinstance(node.func.value, ast.Constant) and
+            isinstance(node.func.value.value, str) and
             node.func.attr == 'format' and
             len(node.args) == 0 and
             len(node.keywords) == 1 and

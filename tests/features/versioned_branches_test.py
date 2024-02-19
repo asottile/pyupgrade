@@ -9,22 +9,26 @@ from pyupgrade._main import _fix_plugins
 @pytest.mark.parametrize(
     's',
     (
-        # we timidly skip `if` without `else` as it could cause a SyntaxError
-        'if six.PY2:\n'
-        '    pass',
-        # here's the case where it causes a SyntaxError
+        # skip `if` without `else` as it could cause a SyntaxError
         'if True:\n'
         '    if six.PY2:\n'
         '        pass\n',
-        # for now we don't attempt to rewrite `elif`
-        'if six.PY2:\n'
-        '    pass\n'
-        'elif False:\n'
-        '    pass\n',
-        'if six.PY3:\n'
-        '    pass\n'
-        'elif False:\n'
-        '    pass\n',
+        pytest.param(
+            'if six.PY2:\n'
+            '    2\n'
+            'else:\n'
+            '    if False:\n'
+            '        3\n',
+            id='py2 indistinguisable at ast level from `elif`',
+        ),
+        pytest.param(
+            'if six.PY3:\n'
+            '    3\n'
+            'else:\n'
+            '    if False:\n'
+            '        2\n',
+            id='py3 indistinguisable at ast level from `elif`',
+        ),
         # don't rewrite version compares with not 3.0 compares
         'if sys.version_info >= (3, 6):\n'
         '    3.6\n'
@@ -446,6 +450,27 @@ def test_fix_py2_block_noop(s):
 
             id='comment after dedented block',
         ),
+        pytest.param(
+            'print("before")\n'
+            'if six.PY2:\n'
+            '    pass\n'
+            'print("after")\n',
+
+            'print("before")\n'
+            'print("after")\n',
+            id='can remove no-else if at module scope',
+        ),
+        pytest.param(
+            'if six.PY2:\n'
+            '    pass\n'
+            'elif False:\n'
+            '    pass\n',
+
+            'if False:\n'
+            '    pass\n',
+
+            id='elif becomes if',
+        ),
     ),
 )
 def test_fix_py2_blocks(s, expected):
@@ -569,6 +594,18 @@ def test_fix_py3_only_code(s, expected):
             'import sys\n'
             'pass',
             id='sys.version_info >= (3, 6), noelse',
+        ),
+        pytest.param(
+            'if six.PY3:\n'
+            '    pass\n'
+            'elif False:\n'
+            '    pass\n',
+
+            'pass\n'
+            'if False:\n'
+            '    pass\n',
+
+            id='elif becomes if',
         ),
     ),
 )

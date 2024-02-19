@@ -38,13 +38,16 @@ def _unparse(node: ast.expr) -> str:
         else:
             slice_s = _unparse(node_slice)
         return f'{_unparse(node.value)}[{slice_s}]'
-    elif isinstance(node, (ast.Str, ast.Bytes)):
-        return repr(node.s)
-    elif isinstance(node, ast.Ellipsis):
+    elif (
+            isinstance(node, ast.Constant) and
+            isinstance(node.value, (str, bytes))
+    ):
+        return repr(node.value)
+    elif isinstance(node, ast.Constant) and node.value is Ellipsis:
         return '...'
     elif isinstance(node, ast.List):
         return '[{}]'.format(', '.join(_unparse(elt) for elt in node.elts))
-    elif isinstance(node, ast.NameConstant):
+    elif isinstance(node, ast.Constant) and node.value in {True, False, None}:
         return repr(node.value)
     elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
         return f'{_unparse(node.left)} | {_unparse(node.right)}'
@@ -97,7 +100,7 @@ def _typed_class_replacement(
 
 def _fix_named_tuple(i: int, tokens: list[Token], *, call: ast.Call) -> None:
     types = {
-        tup.elts[0].s: tup.elts[1]
+        tup.elts[0].value: tup.elts[1]
         for tup in call.args[1].elts  # type: ignore  # (checked below)
     }
     end, attrs = _typed_class_replacement(tokens, i, call, types)
@@ -123,7 +126,7 @@ def _fix_dict_typed_dict(
         call: ast.Call,
 ) -> None:
     types = {
-        k.s: v
+        k.value: v
         for k, v in zip(
             call.args[1].keys,  # type: ignore  # (checked below)
             call.args[1].values,  # type: ignore  # (checked below)
@@ -160,8 +163,9 @@ def visit_Assign(
             isinstance(node.targets[0], ast.Name) and
             isinstance(node.value, ast.Call) and
             len(node.value.args) >= 1 and
-            isinstance(node.value.args[0], ast.Str) and
-            node.targets[0].id == node.value.args[0].s and
+            isinstance(node.value.args[0], ast.Constant) and
+            isinstance(node.value.args[0].value, str) and
+            node.targets[0].id == node.value.args[0].value and
             not has_starargs(node.value)
     ):
         if (
@@ -178,9 +182,10 @@ def visit_Assign(
                 all(
                     isinstance(tup, ast.Tuple) and
                     len(tup.elts) == 2 and
-                    isinstance(tup.elts[0], ast.Str) and
-                    tup.elts[0].s.isidentifier() and
-                    tup.elts[0].s not in KEYWORDS
+                    isinstance(tup.elts[0], ast.Constant) and
+                    isinstance(tup.elts[0].value, str) and
+                    tup.elts[0].value.isidentifier() and
+                    tup.elts[0].value not in KEYWORDS
                     for tup in node.value.args[1].elts
                 )
         ):
@@ -215,18 +220,16 @@ def visit_Assign(
                     (
                         len(node.value.keywords) == 1 and
                         node.value.keywords[0].arg == 'total' and
-                        isinstance(
-                            node.value.keywords[0].value,
-                            (ast.Constant, ast.NameConstant),
-                        )
+                        isinstance(node.value.keywords[0].value, ast.Constant)
                     )
                 ) and
                 isinstance(node.value.args[1], ast.Dict) and
                 node.value.args[1].keys and
                 all(
-                    isinstance(k, ast.Str) and
-                    k.s.isidentifier() and
-                    k.s not in KEYWORDS
+                    isinstance(k, ast.Constant) and
+                    isinstance(k.value, str) and
+                    k.value.isidentifier() and
+                    k.value not in KEYWORDS
                     for k in node.value.args[1].keys
                 )
         ):

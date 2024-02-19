@@ -11,7 +11,8 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import BRACES
+from pyupgrade._token_helpers import find_closing_bracket
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import immediately_paren
 from pyupgrade._token_helpers import remove_brace
 from pyupgrade._token_helpers import victims
@@ -20,22 +21,9 @@ SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
 
 
 def _fix_set_empty_literal(i: int, tokens: list[Token]) -> None:
-    # TODO: this could be implemented with a little extra logic
-    if not immediately_paren('set', tokens, i):
-        return
-
-    j = i + 2
-    brace_stack = ['(']
-    while brace_stack:
-        token = tokens[j].src
-        if token == BRACES[brace_stack[-1]]:
-            brace_stack.pop()
-        elif token in BRACES:
-            brace_stack.append(token)
-        j += 1
-
-    # Remove the inner tokens
-    del tokens[i + 2:j - 1]
+    i = find_op(tokens, i, '(')
+    j = find_closing_bracket(tokens, i)
+    del tokens[i + 1:j]
 
 
 def _fix_set_literal(i: int, tokens: list[Token], *, arg: ast.expr) -> None:

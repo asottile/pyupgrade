@@ -16,7 +16,7 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import delete_argument
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 
 
@@ -41,7 +41,7 @@ class FunctionArg(NamedTuple):
 
 
 def _fix_open_mode(i: int, tokens: list[Token], *, arg_idx: int) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, j)
     mode = tokens_to_src(tokens[slice(*func_args[arg_idx])])
     mode_stripped = mode.split('=')[-1]
@@ -81,10 +81,14 @@ def visit_Call(
             ) and
             not has_starargs(node)
     ):
-        if len(node.args) >= 2 and isinstance(node.args[1], ast.Str):
+        if (
+                len(node.args) >= 2 and
+                isinstance(node.args[1], ast.Constant) and
+                isinstance(node.args[1].value, str)
+        ):
             if (
-                node.args[1].s in MODE_REPLACE or
-                (len(node.args) == 2 and node.args[1].s in MODE_REMOVE)
+                node.args[1].value in MODE_REPLACE or
+                (len(node.args) == 2 and node.args[1].value in MODE_REMOVE)
             ):
                 func = functools.partial(_fix_open_mode, arg_idx=1)
                 yield ast_to_offset(node), func
@@ -99,10 +103,11 @@ def visit_Call(
             )
             if (
                 mode is not None and
-                isinstance(mode.value, ast.Str) and
+                isinstance(mode.value, ast.Constant) and
+                isinstance(mode.value.value, str) and
                 (
-                    mode.value.s in MODE_REMOVE or
-                    mode.value.s in MODE_REPLACE
+                    mode.value.value in MODE_REMOVE or
+                    mode.value.value in MODE_REPLACE
                 )
             ):
                 func = functools.partial(

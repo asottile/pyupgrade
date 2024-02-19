@@ -13,11 +13,11 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._string_helpers import is_codec
 from pyupgrade._token_helpers import find_closing_bracket
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 
 
 def _fix_default_encoding(i: int, tokens: list[Token]) -> None:
-    i = find_open_paren(tokens, i + 1)
+    i = find_op(tokens, i + 1, '(')
     j = find_closing_bracket(tokens, i)
     del tokens[i + 1:j]
 
@@ -29,12 +29,18 @@ def visit_Call(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            isinstance(node.func, ast.Attribute) and
-            isinstance(node.func.value, (ast.Str, ast.JoinedStr)) and
+            isinstance(node.func, ast.Attribute) and (
+                (
+                    isinstance(node.func.value, ast.Constant) and
+                    isinstance(node.func.value.value, str)
+                ) or
+                isinstance(node.func.value, ast.JoinedStr)
+            ) and
             node.func.attr == 'encode' and
             not has_starargs(node) and
             len(node.args) == 1 and
-            isinstance(node.args[0], ast.Str) and
-            is_codec(node.args[0].s, 'utf-8')
+            isinstance(node.args[0], ast.Constant) and
+            isinstance(node.args[0].value, str) and
+            is_codec(node.args[0].value, 'utf-8')
     ):
         yield ast_to_offset(node), _fix_default_encoding

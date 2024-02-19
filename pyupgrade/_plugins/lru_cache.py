@@ -13,13 +13,12 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_and_replace_call
-from pyupgrade._token_helpers import find_open_paren
-from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import find_op
 
 
 def _remove_call(i: int, tokens: list[Token]) -> None:
-    i = find_open_paren(tokens, i)
-    j = find_token(tokens, i, ')')
+    i = find_op(tokens, i, '(')
+    j = find_op(tokens, i, ')')
     del tokens[i:j + 1]
 
 
@@ -28,7 +27,7 @@ def _is_literal_kwarg(
 ) -> bool:
     return (
         keyword.arg == name and
-        isinstance(keyword.value, ast.NameConstant) and
+        isinstance(keyword.value, ast.Constant) and
         keyword.value.value is value
     )
 

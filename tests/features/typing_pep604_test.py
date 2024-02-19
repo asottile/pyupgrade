@@ -206,6 +206,42 @@ def f(x: int | str) -> None: ...
 
             id='nested unions',
         ),
+        pytest.param(
+            'from typing import Annotated, Union\n'
+            'x: Union[str, Annotated[int, f"{x})"]]\n',
+
+            'from typing import Annotated, Union\n'
+            'x: str | Annotated[int, f"{x})"]\n',
+
+            id='union, 3.12: ignore close brace in fstring',
+        ),
+        pytest.param(
+            'from typing import Annotated, Union\n'
+            'x: Union[str, Annotated[int, f"{x}("]]\n',
+
+            'from typing import Annotated, Union\n'
+            'x: str | Annotated[int, f"{x}("]\n',
+
+            id='union, 3.12: ignore open brace in fstring',
+        ),
+        pytest.param(
+            'from typing import Annotated, Optional\n'
+            'x: Optional[Annotated[int, f"{x}("]]\n',
+
+            'from typing import Annotated, Optional\n'
+            'x: Annotated[int, f"{x}("] | None\n',
+
+            id='optional, 3.12: ignore open brace in fstring',
+        ),
+        pytest.param(
+            'from typing import Annotated, Optional\n'
+            'x: Optional[Annotated[int, f"{x})"]]\n',
+
+            'from typing import Annotated, Optional\n'
+            'x: Annotated[int, f"{x})"] | None\n',
+
+            id='optional, 3.12: ignore close brace in fstring',
+        ),
     ),
 )
 def test_fix_pep604_types(s, expected):

@@ -184,18 +184,18 @@ def _fix_percent_format_dict(
 
     for k in node_right.keys:
         # not a string key
-        if not isinstance(k, ast.Str):
+        if not isinstance(k, ast.Constant) or not isinstance(k.value, str):
             return
         # duplicate key
-        elif k.s in seen_keys:
+        elif k.value in seen_keys:
             return
         # not an identifier
-        elif not k.s.isidentifier():
+        elif not k.value.isidentifier():
             return
         # a keyword
-        elif k.s in KEYWORDS:
+        elif k.value in KEYWORDS:
             return
-        seen_keys.add(k.s)
+        seen_keys.add(k.value)
         keys[ast_to_offset(k)] = k
 
     # TODO: this is overly timid
@@ -212,13 +212,13 @@ def _fix_percent_format_dict(
         if key is None:
             continue
         # we found the key, but the string didn't match (implicit join?)
-        elif ast.literal_eval(token.src) != key.s:
+        elif ast.literal_eval(token.src) != key.value:
             return
         # the map uses some strange syntax that's not `'key': value`
         elif tokens[j + 1].src != ':' or tokens[j + 2].src != ' ':
             return
         else:
-            key_indices.append((j, key.s))
+            key_indices.append((j, key.value))
     assert not keys, keys
 
     tokens[brace_end] = tokens[brace_end]._replace(src=')')
@@ -238,10 +238,11 @@ def visit_BinOp(
     if (
             not state.settings.keep_percent_format and
             isinstance(node.op, ast.Mod) and
-            isinstance(node.left, ast.Str)
+            isinstance(node.left, ast.Constant) and
+            isinstance(node.left.value, str)
     ):
         try:
-            parsed = _parse_percent_format(node.left.s)
+            parsed = _parse_percent_format(node.left.value)
         except ValueError:
             pass
         else:

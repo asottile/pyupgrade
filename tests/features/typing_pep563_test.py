@@ -56,6 +56,11 @@ from pyupgrade._main import _fix_plugins
             'x: Annotated[1:2] = ...\n',
             id='Annotated with invalid slice',
         ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'def f[X](x: X) -> X: return x\n',
+            id='TypeVar without bound',
+        ),
     ),
 )
 def test_fix_typing_pep563_noop(s):
@@ -75,6 +80,17 @@ def test_fix_typing_pep563_noop(s):
             '   x: MyClass\n',
 
             id='Simple annotation',
+        ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'async def foo(var: "MyClass") -> "MyClass":\n'
+            '   ...\n',
+
+            'from __future__ import annotations\n'
+            'async def foo(var: MyClass) -> MyClass:\n'
+            '   ...\n',
+
+            id='simple async annotation',
         ),
         pytest.param(
             'from __future__ import annotations\n'
@@ -338,6 +354,17 @@ def test_fix_typing_pep563_noop(s):
 
             id='NamedTuple with no args (invalid syntax)',
         ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'def foo(var0, /, var1: "MyClass") -> "MyClass":\n'
+            '   x: "MyClass"\n',
+
+            'from __future__ import annotations\n'
+            'def foo(var0, /, var1: MyClass) -> MyClass:\n'
+            '   x: MyClass\n',
+
+            id='posonly args',
+        ),
     ),
 )
 def test_fix_typing_pep563(s, expected):
@@ -345,20 +372,17 @@ def test_fix_typing_pep563(s, expected):
     assert ret == expected
 
 
-@pytest.mark.xfail(
-    sys.version_info < (3, 8),
-    reason='posonly args not available in Python3.7',
-)
-def test_fix_typing_pep563_posonlyargs():
-    s = (
-        'from __future__ import annotations\n'
-        'def foo(var0, /, var1: "MyClass") -> "MyClass":\n'
-        '   x: "MyClass"\n'
-    )
-    expected = (
-        'from __future__ import annotations\n'
-        'def foo(var0, /, var1: MyClass) -> MyClass:\n'
-        '   x: MyClass\n'
-    )
-    ret = _fix_plugins(s, settings=Settings(min_version=(3, 8)))
+@pytest.mark.xfail(sys.version_info < (3, 12), reason='3.12+ syntax')
+def test_typevar_bound():
+    src = '''\
+from __future__ import annotations
+def f[T: "int"](t: T) -> T:
+    return t
+'''
+    expected = '''\
+from __future__ import annotations
+def f[T: int](t: T) -> T:
+    return t
+'''
+    ret = _fix_plugins(src, settings=Settings())
     assert ret == expected

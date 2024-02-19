@@ -10,11 +10,11 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import find_name
 
 
 def _fix_mock_mock(i: int, tokens: list[Token]) -> None:
-    j = find_token(tokens, i + 1, 'mock')
+    j = find_name(tokens, i + 1, 'mock')
     del tokens[i + 1:j + 1]
 
 

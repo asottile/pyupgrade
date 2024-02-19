@@ -10,11 +10,11 @@ from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 
 
 def _replace_io_open(i: int, tokens: list[Token]) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     tokens[i:j] = [tokens[i]._replace(name='NAME', src='open')]
 
 

@@ -113,8 +113,8 @@ def _replace_string_literal(
             nodes.extend(_process_call(node))
         elif isinstance(node, ast.Subscript):
             nodes.extend(_process_subscript(node))
-        elif isinstance(node, ast.Str):
-            func = functools.partial(_dequote, new=node.s)
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            func = functools.partial(_dequote, new=node.value)
             yield ast_to_offset(node), func
         else:
             for name in node._fields:
@@ -133,10 +133,9 @@ def _process_args(
             yield from _replace_string_literal(arg.annotation)
 
 
-@register(ast.FunctionDef)
-def visit_FunctionDef(
+def _visit_func(
         state: State,
-        node: ast.FunctionDef,
+        node: ast.AsyncFunctionDef | ast.FunctionDef,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if not _supported_version(state):
@@ -145,9 +144,13 @@ def visit_FunctionDef(
     yield from _process_args([node.args.vararg, node.args.kwarg])
     yield from _process_args(node.args.args)
     yield from _process_args(node.args.kwonlyargs)
-    yield from _process_args(getattr(node.args, 'posonlyargs', []))
+    yield from _process_args(node.args.posonlyargs)
     if node.returns is not None:
         yield from _replace_string_literal(node.returns)
+
+
+register(ast.AsyncFunctionDef)(_visit_func)
+register(ast.FunctionDef)(_visit_func)
 
 
 @register(ast.AnnAssign)
@@ -159,3 +162,14 @@ def visit_AnnAssign(
     if not _supported_version(state):
         return
     yield from _replace_string_literal(node.annotation)
+
+
+if sys.version_info >= (3, 12):  # pragma: >=3.12 cover
+    @register(ast.TypeVar)
+    def visit_TypeVar(
+            state: State,
+            node: ast.TypeVar,
+            parent: ast.AST,
+    ) -> Iterable[tuple[Offset, TokenFunc]]:
+        if node.bound is not None:
+            yield from _replace_string_literal(node.bound)

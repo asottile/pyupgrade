@@ -1,5 +1,4 @@
-[![Build Status](https://dev.azure.com/asottile/asottile/_apis/build/status/asottile.pyupgrade?branchName=main)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=2&branchName=main)
-[![Azure DevOps coverage](https://img.shields.io/azure-devops/coverage/asottile/asottile/2/main.svg)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=2&branchName=main)
+[![build status](https://github.com/asottile/pyupgrade/actions/workflows/main.yml/badge.svg)](https://github.com/asottile/pyupgrade/actions/workflows/main.yml)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/asottile/pyupgrade/main.svg)](https://results.pre-commit.ci/latest/github/asottile/pyupgrade/main)
 
 pyupgrade
@@ -22,7 +21,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v3.3.1
+    rev: v3.15.1
     hooks:
     -   id: pyupgrade
 ```
@@ -57,6 +56,32 @@ Sample `.pre-commit-config.yaml`:
 +{a: b for a, b in y}
 ```
 
+### Replace unnecessary lambdas in `collections.defaultdict` calls
+
+```diff
+-defaultdict(lambda: [])
++defaultdict(list)
+-defaultdict(lambda: list())
++defaultdict(list)
+-defaultdict(lambda: {})
++defaultdict(dict)
+-defaultdict(lambda: dict())
++defaultdict(dict)
+-defaultdict(lambda: ())
++defaultdict(tuple)
+-defaultdict(lambda: tuple())
++defaultdict(tuple)
+-defaultdict(lambda: set())
++defaultdict(set)
+-defaultdict(lambda: 0)
++defaultdict(int)
+-defaultdict(lambda: 0.0)
++defaultdict(float)
+-defaultdict(lambda: 0j)
++defaultdict(complex)
+-defaultdict(lambda: '')
++defaultdict(str)
+```
 
 ### Format Specifiers
 
@@ -106,10 +131,6 @@ Availability:
  # this fixes a syntax error in python3.3+
 -'\N'
 +r'\N'
-
-# note: pyupgrade is timid in one case (that's usually a mistake)
-# in python2.x `'\u2603'` is the same as `'\\u2603'` without `unicode_literals`
-# but in python3.x, that's our friend ☃
 ```
 
 ### `is` / `is not` comparison to constant literals
@@ -158,6 +179,22 @@ A fix for [python-modernize/python-modernize#178]
 ```
 
 [python-modernize/python-modernize#178]: https://github.com/python-modernize/python-modernize/issues/178
+
+### constant fold `isinstance` / `issubclass` / `except`
+
+```diff
+-isinstance(x, (int, int))
++isinstance(x, int)
+
+-issubclass(y, (str, str))
++issubclass(y, str)
+
+ try:
+     raises()
+-except (Error1, Error1, Error2):
++except (Error1, Error2):
+     pass
+```
 
 ### unittest deprecated aliases
 
@@ -514,6 +551,30 @@ Note that `if` blocks without an `else` will not be rewritten as it could introd
          handle_error()
 ```
 
+### `TimeoutError` aliases
+
+Availability:
+- `--py310-plus` for `socket.timeout`
+- `--py311-plus` for `asyncio.TimeoutError`
+
+```diff
+
+ def throw(a):
+     if a:
+-        raise asyncio.TimeoutError('boom')
++        raise TimeoutError('boom')
+     else:
+-        raise socket.timeout('boom')
++        raise TimeoutError('boom')
+
+ def catch(a):
+     try:
+         throw(a)
+-    except (asyncio.TimeoutError, socket.timeout):
++    except TimeoutError:
+         handle_error()
+```
+
 ### `typing.Text` str alias
 
 ```diff
@@ -635,6 +696,15 @@ Availability:
      ...
 ```
 
+### shlex.join
+
+Availability:
+- `--py38-plus` is passed on the commandline.
+
+```diff
+-' '.join(shlex.quote(arg) for arg in cmd)
++shlex.join(cmd)
+```
 
 ### replace `@functools.lru_cache(maxsize=None)` with shorthand
 

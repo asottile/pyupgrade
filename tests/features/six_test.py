@@ -302,6 +302,16 @@ def test_fix_six_noop(s):
             id='add_metaclass, indented',
         ),
         pytest.param(
+            '@six.add_metaclass(M)\n'
+            '@unrelated(f"class{x}")\n'
+            'class C: pass\n',
+
+            '@unrelated(f"class{x}")\n'
+            'class C(metaclass=M): pass\n',
+
+            id='add_metaclass, 3.12: fstring between add_metaclass and class',
+        ),
+        pytest.param(
             'print(six.itervalues({1:2}))\n',
             'print({1:2}.values())\n',
             id='six.itervalues',
@@ -387,17 +397,6 @@ def test_fix_six_noop(s):
             'x = map(str, ints)\n',
             id='six.moves builtin attrs',
         ),
-    ),
-)
-def test_fix_six(s, expected):
-    ret = _fix_plugins(s, settings=Settings())
-    assert ret == expected
-
-
-@pytest.mark.xfail(sys.version_info < (3, 8), reason='walrus')
-@pytest.mark.parametrize(
-    ('s', 'expected'),
-    (
         pytest.param(
             'for _ in six.itervalues(x := y): pass',
             'for _ in (x := y).values(): pass',
@@ -405,7 +404,7 @@ def test_fix_six(s, expected):
         ),
     ),
 )
-def test_fix_six_py38_plus(s, expected):
+def test_fix_six(s, expected):
     ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
 
@@ -460,3 +459,9 @@ def test_fix_six_py38_plus(s, expected):
 def test_fix_base_classes(s, expected):
     ret = _fix_plugins(s, settings=Settings())
     assert ret == expected
+
+
+@pytest.mark.xfail(sys.version_info < (3, 12), reason='3.12+ feature')
+def test_rewriting_in_fstring():
+    ret = _fix_plugins('f"{six.text_type}"', settings=Settings())
+    assert ret == 'f"{str}"'

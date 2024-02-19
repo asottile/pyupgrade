@@ -12,12 +12,12 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket
-from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import remove_brace
 
 
 def _replace_unpack_with_star(i: int, tokens: list[Token]) -> None:
-    start = find_token(tokens, i, '[')
+    start = find_op(tokens, i, '[')
     end = find_closing_bracket(tokens, start)
 
     remove_brace(tokens, end)

@@ -15,20 +15,20 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import arg_str
 from pyupgrade._token_helpers import find_block_start
-from pyupgrade._token_helpers import find_open_paren
+from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import remove_decorator
 from pyupgrade._token_helpers import replace_call
 
 
 def _fix_add_metaclass(i: int, tokens: list[Token]) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, j)
     metaclass = f'metaclass={arg_str(tokens, *func_args[0])}'
     # insert `metaclass={args[0]}` into `class:`
     # search forward for the `class` token
     j = i + 1
-    while tokens[j].src != 'class':
+    while not tokens[j].matches(name='NAME', src='class'):
         j += 1
     class_token = j
     # then search forward for a `:` token, not inside a brace
@@ -55,7 +55,7 @@ def _fix_add_metaclass(i: int, tokens: list[Token]) -> None:
 
 
 def _fix_with_metaclass(i: int, tokens: list[Token]) -> None:
-    j = find_open_paren(tokens, i)
+    j = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, j)
     if len(func_args) == 1:
         tmpl = 'metaclass={args[0]}'

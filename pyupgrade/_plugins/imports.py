@@ -16,12 +16,12 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_end
-from pyupgrade._token_helpers import find_token
+from pyupgrade._token_helpers import find_name
 from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.9.0
+# Using reorder-python-imports==3.12.0
 REMOVALS = {
     (3,): {
         '__future__': {
@@ -89,17 +89,52 @@ REPLACE_EXACT = {
         ('six.moves.urllib', 'robotparser'): 'urllib',
     },
     (3, 6): {
+        ('typing_extensions', 'AbstractSet'): 'typing',
+        ('typing_extensions', 'AnyStr'): 'typing',
         ('typing_extensions', 'AsyncIterable'): 'typing',
         ('typing_extensions', 'AsyncIterator'): 'typing',
         ('typing_extensions', 'Awaitable'): 'typing',
+        ('typing_extensions', 'BinaryIO'): 'typing',
+        ('typing_extensions', 'Callable'): 'typing',
         ('typing_extensions', 'ClassVar'): 'typing',
+        ('typing_extensions', 'Collection'): 'typing',
+        ('typing_extensions', 'Container'): 'typing',
         ('typing_extensions', 'ContextManager'): 'typing',
         ('typing_extensions', 'Coroutine'): 'typing',
         ('typing_extensions', 'DefaultDict'): 'typing',
-        ('typing_extensions', 'NewType'): 'typing',
+        ('typing_extensions', 'Dict'): 'typing',
+        ('typing_extensions', 'FrozenSet'): 'typing',
+        ('typing_extensions', 'Generator'): 'typing',
+        ('typing_extensions', 'Generic'): 'typing',
+        ('typing_extensions', 'Hashable'): 'typing',
+        ('typing_extensions', 'IO'): 'typing',
+        ('typing_extensions', 'ItemsView'): 'typing',
+        ('typing_extensions', 'Iterable'): 'typing',
+        ('typing_extensions', 'Iterator'): 'typing',
+        ('typing_extensions', 'KeysView'): 'typing',
+        ('typing_extensions', 'List'): 'typing',
+        ('typing_extensions', 'Mapping'): 'typing',
+        ('typing_extensions', 'MappingView'): 'typing',
+        ('typing_extensions', 'Match'): 'typing',
+        ('typing_extensions', 'MutableMapping'): 'typing',
+        ('typing_extensions', 'MutableSequence'): 'typing',
+        ('typing_extensions', 'MutableSet'): 'typing',
+        ('typing_extensions', 'Optional'): 'typing',
+        ('typing_extensions', 'Pattern'): 'typing',
+        ('typing_extensions', 'Reversible'): 'typing',
+        ('typing_extensions', 'Sequence'): 'typing',
+        ('typing_extensions', 'Set'): 'typing',
+        ('typing_extensions', 'Sized'): 'typing',
         ('typing_extensions', 'TYPE_CHECKING'): 'typing',
         ('typing_extensions', 'Text'): 'typing',
+        ('typing_extensions', 'TextIO'): 'typing',
+        ('typing_extensions', 'Tuple'): 'typing',
         ('typing_extensions', 'Type'): 'typing',
+        ('typing_extensions', 'Union'): 'typing',
+        ('typing_extensions', 'ValuesView'): 'typing',
+        ('typing_extensions', 'cast'): 'typing',
+        ('typing_extensions', 'no_type_check'): 'typing',
+        ('typing_extensions', 'no_type_check_decorator'): 'typing',
     },
     (3, 7): {
         ('mypy_extensions', 'NoReturn'): 'typing',
@@ -108,14 +143,13 @@ REPLACE_EXACT = {
         ('typing_extensions', 'ChainMap'): 'typing',
         ('typing_extensions', 'Counter'): 'typing',
         ('typing_extensions', 'Deque'): 'typing',
+        ('typing_extensions', 'ForwardRef'): 'typing',
         ('typing_extensions', 'NoReturn'): 'typing',
     },
     (3, 8): {
         ('mypy_extensions', 'TypedDict'): 'typing',
         ('typing_extensions', 'Final'): 'typing',
-        ('typing_extensions', 'Literal'): 'typing',
         ('typing_extensions', 'OrderedDict'): 'typing',
-        ('typing_extensions', 'Protocol'): 'typing',
         ('typing_extensions', 'SupportsIndex'): 'typing',
         ('typing_extensions', 'runtime_checkable'): 'typing',
     },
@@ -156,6 +190,8 @@ REPLACE_EXACT = {
     (3, 10): {
         ('typing', 'Callable'): 'collections.abc',
         ('typing_extensions', 'Concatenate'): 'typing',
+        ('typing_extensions', 'Literal'): 'typing',
+        ('typing_extensions', 'NewType'): 'typing',
         ('typing_extensions', 'ParamSpecArgs'): 'typing',
         ('typing_extensions', 'ParamSpecKwargs'): 'typing',
         ('typing_extensions', 'TypeAlias'): 'typing',
@@ -167,28 +203,39 @@ REPLACE_EXACT = {
     (3, 11): {
         ('typing_extensions', 'Any'): 'typing',
         ('typing_extensions', 'LiteralString'): 'typing',
-        ('typing_extensions', 'NamedTuple'): 'typing',
         ('typing_extensions', 'Never'): 'typing',
         ('typing_extensions', 'NotRequired'): 'typing',
         ('typing_extensions', 'Required'): 'typing',
         ('typing_extensions', 'Self'): 'typing',
-        ('typing_extensions', 'TypedDict'): 'typing',
-        ('typing_extensions', 'Unpack'): 'typing',
         ('typing_extensions', 'assert_never'): 'typing',
         ('typing_extensions', 'assert_type'): 'typing',
         ('typing_extensions', 'clear_overloads'): 'typing',
-        ('typing_extensions', 'dataclass_transform'): 'typing',
         ('typing_extensions', 'final'): 'typing',
         ('typing_extensions', 'get_overloads'): 'typing',
         ('typing_extensions', 'overload'): 'typing',
         ('typing_extensions', 'reveal_type'): 'typing',
+    },
+    (3, 12): {
+        ('typing_extensions', 'NamedTuple'): 'typing',
+        ('typing_extensions', 'Protocol'): 'typing',
+        ('typing_extensions', 'SupportsAbs'): 'typing',
+        ('typing_extensions', 'SupportsBytes'): 'typing',
+        ('typing_extensions', 'SupportsComplex'): 'typing',
+        ('typing_extensions', 'SupportsFloat'): 'typing',
+        ('typing_extensions', 'SupportsInt'): 'typing',
+        ('typing_extensions', 'SupportsRound'): 'typing',
+        ('typing_extensions', 'TypeAliasType'): 'typing',
+        ('typing_extensions', 'TypedDict'): 'typing',
+        ('typing_extensions', 'Unpack'): 'typing',
+        ('typing_extensions', 'dataclass_transform'): 'typing',
+        ('typing_extensions', 'override'): 'typing',
     },
 }
 REPLACE_MODS = {
     'six.moves.BaseHTTPServer': 'http.server',
     'six.moves.CGIHTTPServer': 'http.server',
     'six.moves.SimpleHTTPServer': 'http.server',
-    'six.moves._dummy_thread': '_dummy_thread',
+    'six.moves._dummy_thread': '_thread',
     'six.moves._thread': '_thread',
     'six.moves.builtins': 'builtins',
     'six.moves.cPickle': 'pickle',
@@ -233,6 +280,7 @@ REPLACE_MODS = {
     'six.moves.urllib_error': 'urllib.error',
     'six.moves.urllib_parse': 'urllib.parse',
     'six.moves.urllib_robotparser': 'urllib.robotparser',
+    'six.moves.winreg': '_winreg',
     'six.moves.xmlrpc_client': 'xmlrpc.client',
     'six.moves.xmlrpc_server': 'xmlrpc.server',
     'xml.etree.cElementTree': 'xml.etree.ElementTree',
@@ -281,6 +329,7 @@ class FromImport(NamedTuple):
     mod_start: int
     mod_end: int
     names: tuple[int, ...]
+    ends: tuple[int, ...]
     end: int
 
     @classmethod
@@ -296,7 +345,7 @@ class FromImport(NamedTuple):
             j += 1
         mod_start = j
 
-        import_token = find_token(tokens, j, 'import')
+        import_token = find_name(tokens, j, 'import')
         j = import_token - 1
         while tokens[j].name != 'NAME':
             j -= 1
@@ -310,11 +359,14 @@ class FromImport(NamedTuple):
             for j in range(import_token + 1, end)
             if tokens[j].name == 'NAME'
         ]
+        ends_by_offset = {}
         for i in reversed(range(len(names))):
             if tokens[names[i]].src == 'as':
+                ends_by_offset[names[i - 1]] = names[i + 1]
                 del names[i:i + 2]
+        ends = tuple(ends_by_offset.get(pos, pos) for pos in names)
 
-        return cls(start, mod_start, mod_end + 1, tuple(names), end)
+        return cls(start, mod_start, mod_end + 1, tuple(names), ends, end)
 
     def remove_self(self, tokens: list[Token]) -> None:
         del tokens[self.start:self.end]
@@ -327,10 +379,10 @@ class FromImport(NamedTuple):
             if idx == 0:  # look forward until next name and del
                 del tokens[self.names[idx]:self.names[idx + 1]]
             else:  # look backward for comma and del
-                j = end = self.names[idx]
+                j = self.names[idx]
                 while tokens[j].src != ',':
                     j -= 1
-                del tokens[j:end + 1]
+                del tokens[j:self.ends[idx] + 1]
 
 
 def _alias_to_s(alias: ast.alias) -> str:

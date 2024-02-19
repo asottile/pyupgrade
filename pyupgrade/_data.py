@@ -7,19 +7,14 @@ from typing import Callable
 from typing import Iterable
 from typing import List
 from typing import NamedTuple
+from typing import Protocol
 from typing import Tuple
-from typing import TYPE_CHECKING
 from typing import TypeVar
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
 
 from pyupgrade import _plugins
-
-if TYPE_CHECKING:
-    from typing import Protocol
-else:
-    Protocol = object
 
 Version = Tuple[int, ...]
 
@@ -43,8 +38,11 @@ ASTFunc = Callable[[State, AST_T, ast.AST], Iterable[Tuple[Offset, TokenFunc]]]
 
 RECORD_FROM_IMPORTS = frozenset((
     '__future__',
+    'asyncio',
+    'collections',
     'functools',
     'mmap',
+    'os',
     'select',
     'six',
     'six.moves',

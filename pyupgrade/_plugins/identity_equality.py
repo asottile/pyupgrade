@@ -12,8 +12,6 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 
-LITERAL_TYPES = (ast.Str, ast.Num, ast.Bytes)
-
 
 def _fix_is_literal(
         i: int,
@@ -35,6 +33,14 @@ def _fix_is_literal(
         tokens[i] = Token('EMPTY', '')
 
 
+def _is_literal(n: ast.AST) -> bool:
+    return (
+        isinstance(n, ast.Constant) and
+        n.value not in {True, False} and
+        isinstance(n.value, (str, bytes, int, float))
+    )
+
+
 @register(ast.Compare)
 def visit_Compare(
         state: State,
@@ -45,10 +51,7 @@ def visit_Compare(
     for op, right in zip(node.ops, node.comparators):
         if (
                 isinstance(op, (ast.Is, ast.IsNot)) and
-                (
-                    isinstance(left, LITERAL_TYPES) or
-                    isinstance(right, LITERAL_TYPES)
-                )
+                (_is_literal(left) or _is_literal(right))
         ):
             func = functools.partial(_fix_is_literal, op=op)
             yield ast_to_offset(right), func
