@@ -39,7 +39,7 @@ def visit_Call(
     if (
             isinstance(node.func, ast.Attribute) and
             isinstance(node.func.value, ast.Constant) and
-            isinstance(node.func.value.value, str) and
+            node.func.value.value == ' ' and
             node.func.attr == 'join' and
             not node.keywords and
             len(node.args) == 1 and

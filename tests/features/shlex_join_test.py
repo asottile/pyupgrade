@@ -17,6 +17,12 @@ from pyupgrade._main import _fix_plugins
         ),
         pytest.param(
             'import shlex\n'
+            '"wat".join(shlex.quote(arg) for arg in cmd)\n',
+            (3, 8),
+            id='not joined with space',
+        ),
+        pytest.param(
+            'import shlex\n'
             '" ".join(shlex.quote(arg) for arg in cmd)\n',
             (3, 7),
             id='3.8+ feature',
