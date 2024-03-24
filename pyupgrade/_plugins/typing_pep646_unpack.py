@@ -37,3 +37,42 @@ def visit_Subscript(
     if is_name_attr(node.value, state.from_imports, ('typing',), ('Unpack',)):
         if isinstance(parent, (ast.Subscript, ast.Index)):
             yield ast_to_offset(node.value), _replace_unpack_with_star
+
+
+def _visit_func(
+        state: State,
+        node: ast.AsyncFunctionDef | ast.FunctionDef,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    if state.settings.min_version < (3, 11):
+        return
+
+    vararg = node.args.vararg
+    if (
+            vararg is not None and
+            isinstance(vararg.annotation, ast.Subscript) and
+            is_name_attr(
+                vararg.annotation.value,
+                state.from_imports,
+                ('typing',), ('Unpack',),
+            )
+    ):
+        yield ast_to_offset(vararg.annotation.value), _replace_unpack_with_star
+
+
+@register(ast.AsyncFunctionDef)
+def visit_AsyncFunctionDef(
+        state: State,
+        node: ast.AsyncFunctionDef,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    yield from _visit_func(state, node, parent)
+
+
+@register(ast.FunctionDef)
+def visit_FunctionDef(
+        state: State,
+        node: ast.FunctionDef,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    yield from _visit_func(state, node, parent)
