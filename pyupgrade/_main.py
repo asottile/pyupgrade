@@ -8,6 +8,7 @@ import tokenize
 from typing import Match
 from typing import Sequence
 
+import configargparse
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import parse_string_literal
 from tokenize_rt import reversed_enumerate
@@ -339,8 +340,9 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
         return contents_text != contents_text_orig
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser()
+def _build_config_arg_parser() -> configargparse.ArgumentParser:
+    parser = configargparse.ArgumentParser()
+
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
@@ -378,6 +380,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         '--py312-plus',
         action='store_const', dest='min_version', const=(3, 12),
     )
+
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = _build_config_arg_parser()
     args = parser.parse_args(argv)
 
     ret = 0
