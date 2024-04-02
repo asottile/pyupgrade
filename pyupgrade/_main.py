@@ -341,7 +341,11 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
 
 
 def _build_config_arg_parser() -> configargparse.ArgumentParser:
-    parser = configargparse.ArgumentParser()
+    config_parser = configargparse.TomlConfigParser(['tool.pyupgrade'])
+    parser = configargparse.ArgumentParser(
+        default_config_files=['pyupgrade.toml', 'pyproject.toml'],
+        config_file_parser_class=config_parser,
+    )
 
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
