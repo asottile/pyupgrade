@@ -348,6 +348,10 @@ def _build_config_arg_parser() -> configargparse.ArgumentParser:
     )
 
     parser.add_argument('filenames', nargs='*')
+    parser.add_argument(
+        '--config-file',
+        is_config_file=True, help='config file path',
+    )
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--keep-percent-format', action='store_true')
     parser.add_argument('--keep-mock', action='store_true')
