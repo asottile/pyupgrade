@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.12.0
+# Using reorder-python-imports==3.13.0
 REMOVALS = {
     (3,): {
         '__future__': {
@@ -99,12 +99,10 @@ REPLACE_EXACT = {
         ('typing_extensions', 'ClassVar'): 'typing',
         ('typing_extensions', 'Collection'): 'typing',
         ('typing_extensions', 'Container'): 'typing',
-        ('typing_extensions', 'ContextManager'): 'typing',
         ('typing_extensions', 'Coroutine'): 'typing',
         ('typing_extensions', 'DefaultDict'): 'typing',
         ('typing_extensions', 'Dict'): 'typing',
         ('typing_extensions', 'FrozenSet'): 'typing',
-        ('typing_extensions', 'Generator'): 'typing',
         ('typing_extensions', 'Generic'): 'typing',
         ('typing_extensions', 'Hashable'): 'typing',
         ('typing_extensions', 'IO'): 'typing',
@@ -138,8 +136,6 @@ REPLACE_EXACT = {
     },
     (3, 7): {
         ('mypy_extensions', 'NoReturn'): 'typing',
-        ('typing_extensions', 'AsyncContextManager'): 'typing',
-        ('typing_extensions', 'AsyncGenerator'): 'typing',
         ('typing_extensions', 'ChainMap'): 'typing',
         ('typing_extensions', 'Counter'): 'typing',
         ('typing_extensions', 'Deque'): 'typing',
@@ -150,8 +146,6 @@ REPLACE_EXACT = {
         ('mypy_extensions', 'TypedDict'): 'typing',
         ('typing_extensions', 'Final'): 'typing',
         ('typing_extensions', 'OrderedDict'): 'typing',
-        ('typing_extensions', 'SupportsIndex'): 'typing',
-        ('typing_extensions', 'runtime_checkable'): 'typing',
     },
     (3, 9): {
         ('typing', 'AsyncGenerator'): 'collections.abc',
@@ -217,15 +211,14 @@ REPLACE_EXACT = {
     },
     (3, 12): {
         ('typing_extensions', 'NamedTuple'): 'typing',
-        ('typing_extensions', 'Protocol'): 'typing',
         ('typing_extensions', 'SupportsAbs'): 'typing',
         ('typing_extensions', 'SupportsBytes'): 'typing',
         ('typing_extensions', 'SupportsComplex'): 'typing',
         ('typing_extensions', 'SupportsFloat'): 'typing',
+        ('typing_extensions', 'SupportsIndex'): 'typing',
         ('typing_extensions', 'SupportsInt'): 'typing',
         ('typing_extensions', 'SupportsRound'): 'typing',
         ('typing_extensions', 'TypeAliasType'): 'typing',
-        ('typing_extensions', 'TypedDict'): 'typing',
         ('typing_extensions', 'Unpack'): 'typing',
         ('typing_extensions', 'dataclass_transform'): 'typing',
         ('typing_extensions', 'override'): 'typing',
