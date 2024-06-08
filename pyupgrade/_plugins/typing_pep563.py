@@ -90,15 +90,8 @@ def _process_call(node: ast.Call) -> Iterable[ast.AST]:
 def _process_subscript(node: ast.Subscript) -> Iterable[ast.AST]:
     name = _get_name(node.value)
     if name == 'Annotated':
-        if sys.version_info >= (3, 9):  # pragma: >=3.9 cover
-            node_slice = node.slice
-        elif isinstance(node.slice, ast.Index):  # pragma: <3.9 cover
-            node_slice: ast.AST = node.slice.value
-        else:  # pragma: <3.9 cover
-            node_slice = node.slice
-
-        if isinstance(node_slice, ast.Tuple) and node_slice.elts:
-            yield node_slice.elts[0]
+        if isinstance(node.slice, ast.Tuple) and node.slice.elts:
+            yield node.slice.elts[0]
     elif name != 'Literal':
         yield node.slice
 

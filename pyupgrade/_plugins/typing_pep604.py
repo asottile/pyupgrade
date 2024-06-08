@@ -153,14 +153,7 @@ def visit_Subscript(
 
     # don't rewrite forward annotations (unless we know they will be dequoted)
     if 'annotations' not in state.from_imports['__future__']:
-        if (
-                (sys.version_info >= (3, 9) and _any_arg_is_str(node.slice)) or
-                (
-                    sys.version_info < (3, 9) and
-                    isinstance(node.slice, ast.Index) and
-                    _any_arg_is_str(node.slice.value)
-                )
-        ):
+        if _any_arg_is_str(node.slice):
             return
 
     if is_name_attr(
@@ -171,19 +164,12 @@ def visit_Subscript(
     ):
         yield ast_to_offset(node), _fix_optional
     elif is_name_attr(node.value, state.from_imports, ('typing',), ('Union',)):
-        if sys.version_info >= (3, 9):  # pragma: >=3.9 cover
-            node_slice = node.slice
-        elif isinstance(node.slice, ast.Index):  # pragma: <3.9 cover
-            node_slice: ast.AST = node.slice.value
-        else:  # pragma: <3.9 cover
-            node_slice = node.slice  # unexpected slice type
-
-        if isinstance(node_slice, ast.Slice):  # not a valid annotation
+        if isinstance(node.slice, ast.Slice):  # not a valid annotation
             return
 
-        if isinstance(node_slice, ast.Tuple):
-            if node_slice.elts:
-                arg_count = len(node_slice.elts)
+        if isinstance(node.slice, ast.Tuple):
+            if node.slice.elts:
+                arg_count = len(node.slice.elts)
             else:
                 return  # empty Union
         else:

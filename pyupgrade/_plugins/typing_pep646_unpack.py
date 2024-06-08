@@ -35,7 +35,7 @@ def visit_Subscript(
         return
 
     if is_name_attr(node.value, state.from_imports, ('typing',), ('Unpack',)):
-        if isinstance(parent, (ast.Subscript, ast.Index)):
+        if isinstance(parent, ast.Subscript):
             yield ast_to_offset(node.value), _replace_unpack_with_star
 
 

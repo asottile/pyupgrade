@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import functools
-import sys
 from typing import Iterable
 
 from tokenize_rt import Offset
@@ -24,19 +23,13 @@ def _unparse(node: ast.expr) -> str:
     elif isinstance(node, ast.Attribute):
         return ''.join((_unparse(node.value), '.', node.attr))
     elif isinstance(node, ast.Subscript):
-        if sys.version_info >= (3, 9):  # pragma: >=3.9 cover
-            node_slice: ast.expr = node.slice
-        elif isinstance(node.slice, ast.Index):  # pragma: <3.9 cover
-            node_slice = node.slice.value
-        else:
-            raise AssertionError(f'expected Slice: {ast.dump(node)}')
-        if isinstance(node_slice, ast.Tuple):
-            if len(node_slice.elts) == 1:
-                slice_s = f'{_unparse(node_slice.elts[0])},'
+        if isinstance(node.slice, ast.Tuple):
+            if len(node.slice.elts) == 1:
+                slice_s = f'{_unparse(node.slice.elts[0])},'
             else:
-                slice_s = ', '.join(_unparse(elt) for elt in node_slice.elts)
+                slice_s = ', '.join(_unparse(elt) for elt in node.slice.elts)
         else:
-            slice_s = _unparse(node_slice)
+            slice_s = _unparse(node.slice)
         return f'{_unparse(node.value)}[{slice_s}]'
     elif (
             isinstance(node, ast.Constant) and
