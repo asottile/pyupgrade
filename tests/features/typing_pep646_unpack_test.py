@@ -21,6 +21,14 @@ from pyupgrade._main import _fix_plugins
             '    pass',
             id='Not inside a subscript',
         ),
+        pytest.param(
+            'from typing import Unpack\n'
+            'from typing import TypedDict\n'
+            'class D(TypedDict):\n'
+            '    x: int\n'
+            'def f(**kwargs: Unpack[D]) -> None: pass\n',
+            id='3.12 TypedDict for kwargs',
+        ),
     ),
 )
 def test_fix_pep646_noop(s):
@@ -52,6 +60,15 @@ def test_fix_pep646_noop(s):
             "Shape = TypeVarTuple('Shape')\n"
             'class C(Generic[*Shape]):\n'
             '    pass',
+        ),
+        pytest.param(
+            'from typing import Unpack\n'
+            'def f(*args: Unpack[tuple[int, ...]]): pass\n',
+
+            'from typing import Unpack\n'
+            'def f(*args: *tuple[int, ...]): pass\n',
+
+            id='Unpack for *args',
         ),
     ),
 )
