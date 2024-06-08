@@ -754,6 +754,24 @@ Availability:
      ...
 ```
 
+### pep 696 TypeVar defaults
+
+Availability:
+- File imports `from __future__ import annotations`
+    - Unless `--keep-runtime-typing` is passed on the commandline.
+- `--py313-plus` is passed on the commandline.
+
+```diff
+-def f() -> Generator[int, None, None]:
++def f() -> Generator[int]:
+     yield 1
+```
+
+```diff
+-async def f() -> AsyncGenerator[int, None]:
++async def f() -> AsyncGenerator[int]:
+     yield 1
+```
 
 ### remove quoted annotations
 
