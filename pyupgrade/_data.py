@@ -40,6 +40,7 @@ RECORD_FROM_IMPORTS = frozenset((
     '__future__',
     'asyncio',
     'collections',
+    'collections.abc',
     'functools',
     'mmap',
     'os',
