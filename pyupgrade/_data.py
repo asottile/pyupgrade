@@ -53,7 +53,8 @@ RECORD_FROM_IMPORTS = frozenset((
     'typing_extensions',
 ))
 
-FUNCS = collections.defaultdict(list)
+FUNCS: ASTCallbackMapping  # python/mypy#17566
+FUNCS = collections.defaultdict(list)  # type: ignore[assignment]
 
 
 def register(tp: type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
