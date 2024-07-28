@@ -91,7 +91,7 @@ class Visitor(ast.NodeVisitor):
         self.yield_offsets: set[Offset] = set()
 
     @contextlib.contextmanager
-    def _scope(self, node: ast.AST) -> Generator[None, None, None]:
+    def _scope(self, node: ast.AST) -> Generator[None]:
         self._scopes.append(Scope(node))
         try:
             yield

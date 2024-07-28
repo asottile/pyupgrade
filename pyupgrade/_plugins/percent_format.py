@@ -46,7 +46,7 @@ def _must_match(regex: Pattern[str], string: str, pos: int) -> Match[str]:
 
 
 def _parse_percent_format(s: str) -> tuple[PercentFormat, ...]:
-    def _parse_inner() -> Generator[PercentFormat, None, None]:
+    def _parse_inner() -> Generator[PercentFormat]:
         string_start = 0
         string_end = 0
         in_fmt = False
