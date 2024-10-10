@@ -607,6 +607,27 @@ def test_fix_py3_only_code(s, expected):
 
             id='elif becomes if',
         ),
+        pytest.param(
+            'import sys\n'
+            'if sys.version_info < (3, 6):\n'
+            '    3-5\n'
+            '# comment',
+
+            'import sys\n'
+            '# comment',
+            id='sys.version_info < (3, 6), trailing comment',
+        ),
+        pytest.param(
+            'import sys\n'
+            'if sys.version_info < (3, 6):\n'
+            '    3-5\n'
+            '    # comment here\n'
+            '# comment there',
+
+            'import sys\n'
+            '# comment there',
+            id='sys.version_info < (3, 6), two comments',
+        ),
     ),
 )
 def test_fix_py3x_only_code(s, expected):
