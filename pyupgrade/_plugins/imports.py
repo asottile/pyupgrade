@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.13.0
+# Using reorder-python-imports==3.14.0
 REMOVALS = {
     (3,): {
         '__future__': {
@@ -222,6 +222,23 @@ REPLACE_EXACT = {
         ('typing_extensions', 'Unpack'): 'typing',
         ('typing_extensions', 'dataclass_transform'): 'typing',
         ('typing_extensions', 'override'): 'typing',
+    },
+    (3, 13): {
+        ('typing_extensions', 'AsyncContextManager'): 'typing',
+        ('typing_extensions', 'AsyncGenerator'): 'typing',
+        ('typing_extensions', 'ContextManager'): 'typing',
+        ('typing_extensions', 'Generator'): 'typing',
+        ('typing_extensions', 'NoDefault'): 'typing',
+        ('typing_extensions', 'ParamSpec'): 'typing',
+        ('typing_extensions', 'Protocol'): 'typing',
+        ('typing_extensions', 'ReadOnly'): 'typing',
+        ('typing_extensions', 'TypeIs'): 'typing',
+        ('typing_extensions', 'TypeVar'): 'typing',
+        ('typing_extensions', 'TypeVarTuple'): 'typing',
+        ('typing_extensions', 'TypedDict'): 'typing',
+        ('typing_extensions', 'get_protocol_members'): 'typing',
+        ('typing_extensions', 'is_protocol'): 'typing',
+        ('typing_extensions', 'runtime_checkable'): 'typing',
     },
 }
 REPLACE_MODS = {
