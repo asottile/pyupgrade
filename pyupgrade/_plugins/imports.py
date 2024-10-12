@@ -4,8 +4,8 @@ import ast
 import bisect
 import collections
 import functools
-from typing import Iterable
-from typing import Mapping
+from collections.abc import Iterable
+from collections.abc import Mapping
 from typing import NamedTuple
 
 from tokenize_rt import Offset
@@ -298,7 +298,7 @@ REPLACE_MODS = {
 # END GENERATED
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _for_version(
         version: tuple[int, ...],
         *,

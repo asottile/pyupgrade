@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterable
 from typing import cast
-from typing import Iterable
 
 from tokenize_rt import Offset
 from tokenize_rt import Token

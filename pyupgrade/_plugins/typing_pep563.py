@@ -3,8 +3,8 @@ from __future__ import annotations
 import ast
 import functools
 import sys
-from typing import Iterable
-from typing import Sequence
+from collections.abc import Iterable
+from collections.abc import Sequence
 
 from tokenize_rt import Offset
 

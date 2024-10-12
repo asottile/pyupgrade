@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 import warnings
-from typing import Container
+from collections.abc import Container
 
 from tokenize_rt import Offset
 

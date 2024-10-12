@@ -5,8 +5,8 @@ import ast
 import re
 import sys
 import tokenize
-from typing import Match
-from typing import Sequence
+from collections.abc import Sequence
+from re import Match
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import parse_string_literal

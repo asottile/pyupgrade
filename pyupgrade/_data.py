@@ -3,12 +3,10 @@ from __future__ import annotations
 import ast
 import collections
 import pkgutil
+from collections.abc import Iterable
 from typing import Callable
-from typing import Iterable
-from typing import List
 from typing import NamedTuple
 from typing import Protocol
-from typing import Tuple
 from typing import TypeVar
 
 from tokenize_rt import Offset
@@ -16,7 +14,7 @@ from tokenize_rt import Token
 
 from pyupgrade import _plugins
 
-Version = Tuple[int, ...]
+Version = tuple[int, ...]
 
 
 class Settings(NamedTuple):
@@ -33,8 +31,8 @@ class State(NamedTuple):
 
 
 AST_T = TypeVar('AST_T', bound=ast.AST)
-TokenFunc = Callable[[int, List[Token]], None]
-ASTFunc = Callable[[State, AST_T, ast.AST], Iterable[Tuple[Offset, TokenFunc]]]
+TokenFunc = Callable[[int, list[Token]], None]
+ASTFunc = Callable[[State, AST_T, ast.AST], Iterable[tuple[Offset, TokenFunc]]]
 
 RECORD_FROM_IMPORTS = frozenset((
     '__future__',

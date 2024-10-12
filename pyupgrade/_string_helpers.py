@@ -4,11 +4,10 @@ import codecs
 import re
 import string
 from typing import Optional
-from typing import Tuple
 
 NAMED_UNICODE_RE = re.compile(r'(?<!\\)(?:\\\\)*(\\N\{[^}]+\})')
 
-DotFormatPart = Tuple[str, Optional[str], Optional[str], Optional[str]]
+DotFormatPart = tuple[str, Optional[str], Optional[str], Optional[str]]
 
 _stdlib_parse_format = string.Formatter().parse
 
