@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import functools
 import itertools
-from typing import Iterable
+from collections.abc import Iterable
 from typing import NamedTuple
 
 from tokenize_rt import Offset
