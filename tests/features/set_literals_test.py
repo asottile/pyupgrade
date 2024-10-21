@@ -14,6 +14,14 @@ from pyupgrade._main import _fix_plugins
         # Don't touch weird looking function calls -- use autopep8 or such
         # first
         'set ((1, 2))',
+        pytest.param(
+            'f"{set((1, 2))}"',
+            id='set directly inside f-string placeholder',
+        ),
+        pytest.param(
+            'f"{set(x for x in y)}"',
+            id='set comp directly inside f-string placeholder',
+        ),
     ),
 )
 def test_fix_sets_noop(s):
