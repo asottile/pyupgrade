@@ -19,6 +19,10 @@ from pyupgrade._main import _fix_plugins
         # Don't rewrite kwargd dicts
         'dict(((a, b) for a, b in y), x=1)',
         'dict(((a, b) for a, b in y), **kwargs)',
+        pytest.param(
+            'f"{dict((a, b) for a, b in y)}"',
+            id='directly inside f-string placeholder',
+        ),
     ),
 )
 def test_fix_dict_noop(s):
