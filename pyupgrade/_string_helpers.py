@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import codecs
-import re
 import string
 from typing import Optional
 
-NAMED_UNICODE_RE = re.compile(r'(?<!\\)(?:\\\\)*(\\N\{[^}]+\})')
+from tokenize_rt import curly_escape
+from tokenize_rt import NAMED_UNICODE_RE
 
 DotFormatPart = tuple[str, Optional[str], Optional[str], Optional[str]]
 
@@ -51,16 +51,6 @@ def unparse_parsed_string(parsed: list[DotFormatPart]) -> str:
         return ret
 
     return ''.join(_convert_tup(tup) for tup in parsed)
-
-
-def curly_escape(s: str) -> str:
-    parts = NAMED_UNICODE_RE.split(s)
-    return ''.join(
-        part.replace('{', '{{').replace('}', '}}')
-        if not NAMED_UNICODE_RE.fullmatch(part)
-        else part
-        for part in parts
-    )
 
 
 def is_codec(encoding: str, name: str) -> bool:

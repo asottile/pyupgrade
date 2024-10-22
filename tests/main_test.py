@@ -25,6 +25,8 @@ from sys import version_info
 x=version_info
 def f():
     global x, y
+
+f'hello snowman: \\N{SNOWMAN}'
 '''
     f = tmpdir.join('f.py')
     f.write(s)
