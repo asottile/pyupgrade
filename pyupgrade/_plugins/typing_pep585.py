@@ -36,7 +36,7 @@ def visit_Attribute(
     if (
             _should_rewrite(state) and
             isinstance(node.value, ast.Name) and
-            node.value.id == 'typing' and
+            state.as_imports.get(node.value.id) == 'typing' and
             node.attr in PEP585_BUILTINS
     ):
         func = functools.partial(

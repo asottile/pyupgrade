@@ -105,46 +105,58 @@ def f(x: int | str) -> None: ...
             id='Union rewrite',
         ),
         pytest.param(
+            'import typing\n'
             'x: typing.Union[int]\n',
 
+            'import typing\n'
             'x: int\n',
 
             id='Union of only one value',
         ),
         pytest.param(
+            'import typing\n'
             'x: typing.Union[Foo[str, int], str]\n',
 
+            'import typing\n'
             'x: Foo[str, int] | str\n',
 
             id='Union containing a value with brackets',
         ),
         pytest.param(
+            'import typing\n'
             'x: typing.Union[typing.List[str], str]\n',
 
+            'import typing\n'
             'x: list[str] | str\n',
 
             id='Union containing pep585 rewritten type',
         ),
         pytest.param(
+            'import typing\n'
             'x: typing.Union[int, str,]\n',
 
+            'import typing\n'
             'x: int | str\n',
 
             id='Union trailing comma',
         ),
         pytest.param(
+            'import typing\n'
             'x: typing.Union[(int, str)]\n',
 
+            'import typing\n'
             'x: int | str\n',
 
             id='Union, parenthesized tuple',
         ),
         pytest.param(
+            'import typing\n'
             'x: typing.Union[\n'
             '    int,\n'
             '    str\n'
             ']\n',
 
+            'import typing\n'
             'x: (\n'
             '    int |\n'
             '    str\n'
@@ -153,11 +165,13 @@ def f(x: int | str) -> None: ...
             id='Union multiple lines',
         ),
         pytest.param(
+            'import typing\n'
             'x: typing.Union[\n'
             '    int,\n'
             '    str,\n'
             ']\n',
 
+            'import typing\n'
             'x: (\n'
             '    int |\n'
             '    str\n'
@@ -175,10 +189,12 @@ def f(x: int | str) -> None: ...
             id='Optional rewrite',
         ),
         pytest.param(
+            'import typing\n'
             'x: typing.Optional[\n'
             '    ComplicatedLongType[int]\n'
             ']\n',
 
+            'import typing\n'
             'x: None | (\n'
             '    ComplicatedLongType[int]\n'
             ')\n',

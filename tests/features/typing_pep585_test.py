@@ -85,6 +85,15 @@ def f(x: list[str]) -> None: ...
             id='import of typing + typing.List',
         ),
         pytest.param(
+            'import typing as ty\n'
+            'x: ty.List[int]\n',
+
+            'import typing as ty\n'
+            'x: list[int]\n',
+
+            id='aliased import of typing + typing.List',
+        ),
+        pytest.param(
             'from typing import List\n'
             'SomeAlias = List[int]\n',
             'from typing import List\n'
