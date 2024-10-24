@@ -27,6 +27,7 @@ class Settings(NamedTuple):
 class State(NamedTuple):
     settings: Settings
     from_imports: dict[str, set[str]]
+    as_imports: dict[str, str]
     in_annotation: bool = False
 
 
@@ -34,7 +35,7 @@ AST_T = TypeVar('AST_T', bound=ast.AST)
 TokenFunc = Callable[[int, list[Token]], None]
 ASTFunc = Callable[[State, AST_T, ast.AST], Iterable[tuple[Offset, TokenFunc]]]
 
-RECORD_FROM_IMPORTS = frozenset((
+RECORDED_IMPORTS = frozenset((
     '__future__',
     'asyncio',
     'collections',
@@ -75,6 +76,7 @@ def visit(
     initial_state = State(
         settings=settings,
         from_imports=collections.defaultdict(set),
+        as_imports=collections.defaultdict(),
     )
 
     nodes: list[tuple[State, ast.AST, ast.AST]] = [(initial_state, tree, tree)]
@@ -91,11 +93,18 @@ def visit(
         if (
                 isinstance(node, ast.ImportFrom) and
                 not node.level and
-                node.module in RECORD_FROM_IMPORTS
+                node.module in RECORDED_IMPORTS
         ):
             state.from_imports[node.module].update(
                 name.name for name in node.names if not name.asname
             )
+        elif (
+                isinstance(node, ast.Import)
+        ):
+            state.as_imports.update({
+                x.asname or x.name: x.name for x in node.names
+                if x.name in RECORDED_IMPORTS
+            })
 
         for name in reversed(node._fields):
             value = getattr(node, name)
