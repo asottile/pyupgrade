@@ -12,12 +12,12 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._string_helpers import is_codec
+from pyupgrade._token_helpers import find_call
 from pyupgrade._token_helpers import find_closing_bracket
-from pyupgrade._token_helpers import find_op
 
 
 def _fix_default_encoding(i: int, tokens: list[Token]) -> None:
-    i = find_op(tokens, i + 1, '(')
+    i = find_call(tokens, i + 1)
     j = find_closing_bracket(tokens, i)
     del tokens[i + 1:j]
 

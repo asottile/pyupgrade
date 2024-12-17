@@ -48,6 +48,20 @@ def find_op(tokens: list[Token], i: int, src: str) -> int:
     return _find_token(tokens, i, 'OP', src)
 
 
+def find_call(tokens: list[Token], i: int) -> int:
+    depth = 0
+    while depth or not tokens[i].matches(name='OP', src='('):
+        if is_open(tokens[i]):  # pragma: >3.12 cover
+            depth += 1
+        elif is_close(tokens[i]):
+            # why max(...)? --
+            # ("something").method(...)
+            #  ^--start   target--^
+            depth = max(depth - 1, 0)
+        i += 1
+    return i
+
+
 def find_end(tokens: list[Token], i: int) -> int:
     while tokens[i].name != 'NEWLINE':
         i += 1

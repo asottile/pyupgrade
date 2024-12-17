@@ -38,6 +38,11 @@ from pyupgrade._main import _fix_plugins
             'f"{x}(".encode()',
             id='3.12+ handle open brace in fstring',
         ),
+        pytest.param(
+            'f"{foo(bar)}(".encode("utf-8")',
+            'f"{foo(bar)}(".encode()',
+            id='f-string with function call',
+        ),
     ),
 )
 def test_fix_encode(s, expected):
