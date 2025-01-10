@@ -327,7 +327,7 @@ def _fix_file(filename: str, args: argparse.Namespace) -> int:
     contents_text = _fix_tokens(contents_text)
 
     if filename == '-':
-        print(contents_text, end='')
+        sys.stdout.buffer.write(contents_text.encode())
     elif contents_text != contents_text_orig:
         print(f'Rewriting {filename}', file=sys.stderr)
         with open(filename, 'w', encoding='UTF-8', newline='') as f:
