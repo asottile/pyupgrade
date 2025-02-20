@@ -133,7 +133,7 @@ def _fix_union(
 
         for comma in comma_positions:
             tokens[comma] = Token('CODE', ' |')
-        to_delete += _remove_consequtive_unimportant_ws(
+        to_delete += _remove_consecutive_unimportant_ws(
             tokens, [x for x in range(j, k) if x not in to_delete]
         )
         to_delete.sort()
@@ -142,7 +142,7 @@ def _fix_union(
         del tokens[i:j]
 
 
-def _remove_consequtive_unimportant_ws(
+def _remove_consecutive_unimportant_ws(
     tokens: list[Token], idxs: list[int]
 ) -> list[int]:
     to_delete = []
