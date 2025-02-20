@@ -15,6 +15,7 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket_and_if_contains_none
+from pyupgrade._token_helpers import find_duplicated_types
 from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import is_close
 from pyupgrade._token_helpers import is_open
@@ -22,9 +23,9 @@ from pyupgrade._token_helpers import is_open
 
 def _fix_optional(i: int, tokens: list[Token]) -> None:
     j = find_op(tokens, i, '[')
-    k, none_exists = find_closing_bracket_and_if_contains_none(tokens, j)    
+    k, contains_none = find_closing_bracket_and_if_contains_none(tokens, j)
     if tokens[j].line == tokens[k].line:
-        if none_exists:
+        if contains_none:
             del tokens[k]
         else:
             tokens[k:k + 1] = [
@@ -36,7 +37,7 @@ def _fix_optional(i: int, tokens: list[Token]) -> None:
     else:
         tokens[j] = tokens[j]._replace(src='(')
         tokens[k] = tokens[k]._replace(src=')')
-        if none_exists:
+        if contains_none:
             del tokens[i:j]
         else:
             tokens[i:j] = [
@@ -116,27 +117,7 @@ def _fix_union(
     else:
         comma_positions = []
 
-    unique_names = []
-    jj = j + 1
-    for kk in top_level_breaks:
-        important_tokens = [
-            x
-            for x in range(jj, kk)
-            if tokens[x].name
-            not in (
-                ["COMMENT"]
-                if tokens[x].line not in lines_with_comments
-                else ["COMMENT", "NL", "UNIMPORTANT_WS"]
-            )
-        ]
-        tlb = "".join([tokens[i].src.lstrip() for i in important_tokens])
-        if tlb[0] in [",", "|"]:
-            tlb = tlb[1:].lstrip()
-        if tlb in unique_names:
-            to_delete += important_tokens
-        else:
-            unique_names.append(tlb)
-        jj = kk
+    to_delete += find_duplicated_types(tokens, j, top_level_breaks, lines_with_comments)
 
     if tokens[j].line == tokens[k].line:
         del tokens[k]
@@ -152,18 +133,28 @@ def _fix_union(
 
         for comma in comma_positions:
             tokens[comma] = Token('CODE', ' |')
-        prev_name=""
-        for kk in [x for x in range(j, k) if x not in to_delete]:
-            if prev_name == "UNIMPORTANT_WS":
-                if tokens[kk].name == "UNIMPORTANT_WS":
-                    to_delete.append(kk)
-                elif tokens[kk].src == " |":
-                    tokens[kk] = Token("CODE", "|")
-            prev_name = tokens[kk].name
+        to_delete += _remove_consequtive_unimportant_ws(
+            tokens, [x for x in range(j, k) if x not in to_delete]
+        )
         to_delete.sort()
         for paren in reversed(to_delete):
             del tokens[paren]
         del tokens[i:j]
+
+
+def _remove_consequtive_unimportant_ws(
+    tokens: list[Token], idxs: list[int]
+) -> list[int]:
+    to_delete = []
+    prev_name = ""
+    for kk in idxs:
+        if prev_name == "UNIMPORTANT_WS":
+            if tokens[kk].name == "UNIMPORTANT_WS":
+                to_delete.append(kk)
+            elif tokens[kk].src == " |":
+                tokens[kk] = Token("CODE", "|")
+        prev_name = tokens[kk].name
+    return to_delete
 
 
 def _supported_version(state: State) -> bool:

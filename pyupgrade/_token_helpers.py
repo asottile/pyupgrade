@@ -182,6 +182,37 @@ def find_block_start(tokens: list[Token], i: int) -> int:
     return i
 
 
+def find_duplicated_types(
+    tokens: list[Token],
+    opening_bracket: int,
+    depth_1_commas: list[int],
+    lines_with_comments: list[int],
+) -> list[int]:
+    unique_names = []
+    to_delete = []
+    i = opening_bracket + 1
+    for d1c in depth_1_commas:
+        important_tokens = [
+            x
+            for x in range(i, d1c)
+            if tokens[x].name
+            not in (
+                ["COMMENT"]
+                if tokens[x].line not in lines_with_comments
+                else ["COMMENT", "NL", "UNIMPORTANT_WS"]
+            )
+        ]
+        type_ = "".join([tokens[k].src.lstrip() for k in important_tokens])
+        if type_[0] in [",", "|"]:
+            type_ = type_[1:].lstrip()
+        if type_ in unique_names:
+            to_delete += important_tokens
+        else:
+            unique_names.append(type_)
+        i = d1c
+    return to_delete
+
+
 class Block(NamedTuple):
     start: int
     colon: int
