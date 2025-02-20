@@ -29,9 +29,9 @@ def _fix_optional(i: int, tokens: list[Token]) -> None:
             del tokens[k]
         else:
             tokens[k:k + 1] = [
-                Token("UNIMPORTANT_WS", " "),
-                Token("CODE", "| "),
-                Token("CODE", "None"),
+                Token('UNIMPORTANT_WS', ' '),
+                Token('CODE', '| '),
+                Token('CODE', 'None'),
             ]
         del tokens[i:j + 1]
     else:
@@ -41,9 +41,9 @@ def _fix_optional(i: int, tokens: list[Token]) -> None:
             del tokens[i:j]
         else:
             tokens[i:j] = [
-                Token("CODE", "None"),
-                Token("UNIMPORTANT_WS", " "),
-                Token("CODE", "| "),
+                Token('CODE', 'None'),
+                Token('UNIMPORTANT_WS', ' '),
+                Token('CODE', '| '),
             ]
 
 
@@ -58,8 +58,8 @@ def _fix_union(
     open_parens = []
     commas = []
     coding_depth = None
-    top_level_breaks=[]
-    lines_with_comments=[]
+    top_level_breaks = []
+    lines_with_comments = []
 
     j = find_op(tokens, i, '[')
     k = j + 1
@@ -92,7 +92,7 @@ def _fix_union(
                 commas.append((depth, k))
             if depth == 1:
                 top_level_breaks.append(k)
-        elif tokens[k].name == "COMMENT":
+        elif tokens[k].name == 'COMMENT':
             lines_with_comments.append(tokens[k].line)
         k += 1
     k -= 1
@@ -134,7 +134,7 @@ def _fix_union(
         for comma in comma_positions:
             tokens[comma] = Token('CODE', ' |')
         to_delete += _remove_consecutive_unimportant_ws(
-            tokens, [x for x in range(j, k) if x not in to_delete]
+            tokens, [x for x in range(j, k) if x not in to_delete],
         )
         to_delete.sort()
         for paren in reversed(to_delete):
@@ -143,16 +143,16 @@ def _fix_union(
 
 
 def _remove_consecutive_unimportant_ws(
-    tokens: list[Token], idxs: list[int]
+    tokens: list[Token], idxs: list[int],
 ) -> list[int]:
     to_delete = []
-    prev_name = ""
+    prev_name = ''
     for kk in idxs:
-        if prev_name == "UNIMPORTANT_WS":
-            if tokens[kk].name == "UNIMPORTANT_WS":
+        if prev_name == 'UNIMPORTANT_WS':
+            if tokens[kk].name == 'UNIMPORTANT_WS':
                 to_delete.append(kk)
-            elif tokens[kk].src == " |":
-                tokens[kk] = Token("CODE", "|")
+            elif tokens[kk].src == ' |':
+                tokens[kk] = Token('CODE', '|')
         prev_name = tokens[kk].name
     return to_delete
 

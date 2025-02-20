@@ -266,10 +266,10 @@ def f(x: int | str) -> None: ...
             id='duplicated types in nested unions or optionals',
         ),
         pytest.param(
-            'from typing import Optional, Union\n'        
+            'from typing import Optional, Union\n'
             'f: Optional[\n'
             '    Union[int, None]\n'
-            ']\n'       
+            ']\n'
             'g: Union[\n'
             '    int,\n'
             '    int,\n'
@@ -280,7 +280,7 @@ def f(x: int | str) -> None: ...
             '    int,\n'
             '    None,\n'
             '    Optional[int],\n'
-            ']\n'            
+            ']\n'
             'i: Union[\n'
             '    Union[int, None], # comment 1\n'
             '    int, # comment 2\n'
@@ -318,7 +318,7 @@ def f(x: int | str) -> None: ...
             'def f(x: list[int, str]): pass\n',
 
             id='general duplicated types',
-            marks=pytest.mark.xfail(reason="requires recursive type searching")
+            marks=pytest.mark.xfail(reason='requires recursive type searching'),
         ),
     ),
 )
