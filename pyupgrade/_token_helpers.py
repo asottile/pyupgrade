@@ -155,6 +155,22 @@ def find_closing_bracket(tokens: list[Token], i: int) -> int:
     return i - 1
 
 
+def find_closing_bracket_and_if_contains_none(tokens: list[Token], i: int) -> tuple[int, bool]:
+    assert tokens[i].src in _OPENING
+    depth = 1
+    i += 1
+    contains_none = False
+    while depth:
+        if is_open(tokens[i]):
+            depth += 1
+        elif is_close(tokens[i]):
+            depth -= 1
+        elif depth == 1 and tokens[i].matches(name='NAME', src='None'):
+            contains_none = True
+        i += 1
+    return i - 1, contains_none
+
+
 def find_block_start(tokens: list[Token], i: int) -> int:
     depth = 0
     while depth or not tokens[i].matches(name='OP', src=':'):

@@ -14,7 +14,7 @@ from pyupgrade._ast_helpers import is_name_attr
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import find_closing_bracket
+from pyupgrade._token_helpers import find_closing_bracket_and_if_contains_none
 from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import is_close
 from pyupgrade._token_helpers import is_open
@@ -22,14 +22,28 @@ from pyupgrade._token_helpers import is_open
 
 def _fix_optional(i: int, tokens: list[Token]) -> None:
     j = find_op(tokens, i, '[')
-    k = find_closing_bracket(tokens, j)
+    k, none_exists = find_closing_bracket_and_if_contains_none(tokens, j)    
     if tokens[j].line == tokens[k].line:
-        tokens[k] = Token('CODE', ' | None')
+        if none_exists:
+            del tokens[k]
+        else:
+            tokens[k:k + 1] = [
+                Token("UNIMPORTANT_WS", " "),
+                Token("CODE", "| "),
+                Token("CODE", "None"),
+            ]
         del tokens[i:j + 1]
     else:
         tokens[j] = tokens[j]._replace(src='(')
         tokens[k] = tokens[k]._replace(src=')')
-        tokens[i:j] = [Token('CODE', 'None | ')]
+        if none_exists:
+            del tokens[i:j]
+        else:
+            tokens[i:j] = [
+                Token("CODE", "None"),
+                Token("UNIMPORTANT_WS", " "),
+                Token("CODE", "| "),
+            ]
 
 
 def _fix_union(
@@ -43,6 +57,8 @@ def _fix_union(
     open_parens = []
     commas = []
     coding_depth = None
+    top_level_breaks=[]
+    lines_with_comments=[]
 
     j = find_op(tokens, i, '[')
     k = j + 1
@@ -70,11 +86,16 @@ def _fix_union(
                 parens_done.append((paren_depth, (open_paren, k)))
 
             depth -= 1
-        elif tokens[k].src == ',':
-            commas.append((depth, k))
-
+        elif tokens[k].src.strip() in [',', '|']:
+            if tokens[k].src.strip() == ',':
+                commas.append((depth, k))
+            if depth == 1:
+                top_level_breaks.append(k)
+        elif tokens[k].name == "COMMENT":
+            lines_with_comments.append(tokens[k].line)
         k += 1
     k -= 1
+    top_level_breaks.append(k)
 
     assert coding_depth is not None
     assert not open_parens, open_parens
@@ -95,12 +116,33 @@ def _fix_union(
     else:
         comma_positions = []
 
-    to_delete.sort()
+    unique_names = []
+    jj = j + 1
+    for kk in top_level_breaks:
+        important_tokens = [
+            x
+            for x in range(jj, kk)
+            if tokens[x].name
+            not in (
+                ["COMMENT"]
+                if tokens[x].line not in lines_with_comments
+                else ["COMMENT", "NL", "UNIMPORTANT_WS"]
+            )
+        ]
+        tlb = "".join([tokens[i].src.lstrip() for i in important_tokens])
+        if tlb[0] in [",", "|"]:
+            tlb = tlb[1:].lstrip()
+        if tlb in unique_names:
+            to_delete += important_tokens
+        else:
+            unique_names.append(tlb)
+        jj = kk
 
     if tokens[j].line == tokens[k].line:
         del tokens[k]
         for comma in comma_positions:
             tokens[comma] = Token('CODE', ' |')
+        to_delete.sort()
         for paren in reversed(to_delete):
             del tokens[paren]
         del tokens[i:j + 1]
@@ -110,6 +152,15 @@ def _fix_union(
 
         for comma in comma_positions:
             tokens[comma] = Token('CODE', ' |')
+        prev_name=""
+        for kk in [x for x in range(j, k) if x not in to_delete]:
+            if prev_name == "UNIMPORTANT_WS":
+                if tokens[kk].name == "UNIMPORTANT_WS":
+                    to_delete.append(kk)
+                elif tokens[kk].src == " |":
+                    tokens[kk] = Token("CODE", "|")
+            prev_name = tokens[kk].name
+        to_delete.sort()
         for paren in reversed(to_delete):
             del tokens[paren]
         del tokens[i:j]
