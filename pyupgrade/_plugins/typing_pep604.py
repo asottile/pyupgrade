@@ -15,7 +15,6 @@ from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import _OPENING
-from pyupgrade._token_helpers import find_duplicated_types
 from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import is_close
 from pyupgrade._token_helpers import is_open
@@ -117,7 +116,7 @@ def _fix_union(
     else:
         comma_positions = []
 
-    to_delete += find_duplicated_types(tokens, j, top_level_breaks, lines_with_comments)
+    to_delete += _find_duplicated_types(tokens, j, top_level_breaks, lines_with_comments)
 
     if tokens[j].line == tokens[k].line:
         del tokens[k]
@@ -156,6 +155,37 @@ def _find_closing_bracket_and_if_contains_none(tokens: list[Token], i: int) -> t
             contains_none = True
         i += 1
     return i - 1, contains_none
+
+
+def _find_duplicated_types(
+    tokens: list[Token],
+    opening_bracket: int,
+    depth_1_commas: list[int],
+    lines_with_comments: list[int],
+) -> list[int]:
+    unique_names = []
+    to_delete = []
+    i = opening_bracket + 1
+    for d1c in depth_1_commas:
+        important_tokens = [
+            x
+            for x in range(i, d1c)
+            if tokens[x].name
+            not in (
+                ['COMMENT']
+                if tokens[x].line not in lines_with_comments
+                else ['COMMENT', 'NL', 'UNIMPORTANT_WS']
+            )
+        ]
+        type_ = ''.join([tokens[k].src.lstrip() for k in important_tokens])
+        if type_[0] in [',', '|']:
+            type_ = type_[1:].lstrip()
+        if type_ in unique_names:
+            to_delete += important_tokens
+        else:
+            unique_names.append(type_)
+        i = d1c
+    return to_delete
 
 
 def _remove_consecutive_unimportant_ws(
