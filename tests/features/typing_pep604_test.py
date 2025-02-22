@@ -312,13 +312,15 @@ def f(x: int | str) -> None: ...
         ),
         pytest.param(
             'from typing import Union\n'
-            'def f(x: Union[list[Union[int, str]], list[Union[str, int]]]): pass\n',
+            'def f(x: Union[list[Union[int, str]], list[Union[str, int]]]):\n'
+            '    pass\n',
 
             'from typing import Union\n'
-            'def f(x: list[int | str]): pass\n',
+            'def f(x: list[int | str]):\n'
+            '    pass\n',
 
             id='general duplicated types',
-            marks=pytest.mark.xfail(reason='requires recursive type searching'),
+            marks=pytest.mark.xfail(reason='requires deeper type evaluation'),
         ),
     ),
 )

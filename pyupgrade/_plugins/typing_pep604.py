@@ -116,7 +116,9 @@ def _fix_union(
     else:
         comma_positions = []
 
-    to_delete += _find_duplicated_types(tokens, j, top_level_breaks, lines_with_comments)
+    to_delete += _find_duplicated_types(
+        tokens, j, top_level_breaks, lines_with_comments,
+    )
 
     if tokens[j].line == tokens[k].line:
         del tokens[k]
@@ -141,7 +143,10 @@ def _fix_union(
         del tokens[i:j]
 
 
-def _find_closing_bracket_and_if_contains_none(tokens: list[Token], i: int) -> tuple[int, bool]:
+def _find_closing_bracket_and_if_contains_none(
+    tokens: list[Token],
+    i: int,
+) -> tuple[int, bool]:
     assert tokens[i].src in _OPENING
     depth = 1
     i += 1
