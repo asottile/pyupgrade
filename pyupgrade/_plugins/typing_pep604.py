@@ -14,7 +14,7 @@ from pyupgrade._ast_helpers import is_name_attr
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._token_helpers import find_closing_bracket_and_if_contains_none
+from pyupgrade._token_helpers import _OPENING
 from pyupgrade._token_helpers import find_duplicated_types
 from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import is_close
@@ -23,7 +23,7 @@ from pyupgrade._token_helpers import is_open
 
 def _fix_optional(i: int, tokens: list[Token]) -> None:
     j = find_op(tokens, i, '[')
-    k, contains_none = find_closing_bracket_and_if_contains_none(tokens, j)
+    k, contains_none = _find_closing_bracket_and_if_contains_none(tokens, j)
     if tokens[j].line == tokens[k].line:
         if contains_none:
             del tokens[k]
@@ -140,6 +140,22 @@ def _fix_union(
         for paren in reversed(to_delete):
             del tokens[paren]
         del tokens[i:j]
+
+
+def _find_closing_bracket_and_if_contains_none(tokens: list[Token], i: int) -> tuple[int, bool]:
+    assert tokens[i].src in _OPENING
+    depth = 1
+    i += 1
+    contains_none = False
+    while depth:
+        if is_open(tokens[i]):
+            depth += 1
+        elif is_close(tokens[i]):
+            depth -= 1
+        elif depth == 1 and tokens[i].matches(name='NAME', src='None'):
+            contains_none = True
+        i += 1
+    return i - 1, contains_none
 
 
 def _remove_consecutive_unimportant_ws(
