@@ -8,16 +8,12 @@ from pyupgrade._main import _fix_plugins
 
 @pytest.mark.xfail
 @pytest.mark.parametrize(
-    ('s', 'expected'),
+    ("s", "expected"),
     (
         pytest.param(
-            'import asyncio\n\n'
-            '@asyncio.coroutine\n'
-            'def foo():\n'
-            '    pass\n',
-            'async def foo():\n'
-            '    pass\n',
-            id='Convert to async',
+            "import asyncio\n\n@asyncio.coroutine\ndef foo():\n    pass\n",
+            "import asyncio\n\nasync def foo():\n    pass\n",
+            id="Convert to async",
         ),
     ),
 )
