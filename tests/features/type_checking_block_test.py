@@ -11,13 +11,14 @@ from pyupgrade._main import _fix_plugins
     ('s', 'expected'),
     (
         pytest.param(
-            'from typing import TYPE_CHECKING\n\n'
-            'if TYPE_CHECKING:\n'
-            '    from typing import Protocol\n'
-            'else:\n'
-            '    Protocol = object\n',
-            'from typing import TYPE_CHECKING\n\nfrom typing import Protocol\n',
-            id='import of Protocol',
+            "from typing import TYPE_CHECKING\n\n"
+            "if TYPE_CHECKING:\n"
+            "    from typing import Protocol\n"
+            "else:\n"
+            "    Protocol = object\n",
+            "from typing import TYPE_CHECKING\n\n"
+            "from typing import Protocol\n",
+            id="import of Protocol",
         ),
     ),
 )
