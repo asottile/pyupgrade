@@ -8,16 +8,16 @@ from pyupgrade._main import _fix_plugins
 
 @pytest.mark.xfail
 @pytest.mark.parametrize(
-    ("s", "expected"),
+    ('s', 'expected'),
     (
         pytest.param(
-            "from typing import TYPE_CHECKING\n\n"
-            "if TYPE_CHECKING:\n"
-            "    from typing import Protocol\n"
-            "else:\n"
-            "    Protocol = object\n",
-            "from typing import TYPE_CHECKING\n\nfrom typing import Protocol\n",
-            id="import of Protocol",
+            'from typing import TYPE_CHECKING\n\n'
+            'if TYPE_CHECKING:\n'
+            '    from typing import Protocol\n'
+            'else:\n'
+            '    Protocol = object\n',
+            'from typing import TYPE_CHECKING\n\nfrom typing import Protocol\n',
+            id='import of Protocol',
         ),
     ),
 )
