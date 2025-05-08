@@ -87,13 +87,12 @@ def visit_With_fold_nested(
 
     with_stmts = []
     current: ast.AST = node
-    while True:
-        if isinstance(current, ast.With):
-            with_stmts.append(current)
-            if len(current.body) == 1:
-                current = current.body[0]
-                continue
-        break
+    while isinstance(current, ast.With):
+        with_stmts.append(current)
+        if len(current.body) == 1:
+            current = current.body[0]
+        else:
+            break
 
     if len(with_stmts) > 1:
         with_items = flatten(n.items for n in with_stmts)
