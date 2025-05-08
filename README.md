@@ -804,13 +804,6 @@ Availability:
 - with foo:
 -     with bar:
 -         body
-+ with (foo, bar):
-+     body
-```
-
-```diff
-- with (foo as _, bar as _):
--     body
-+ with (foo, bar):
++ with foo, bar:
 +     body
 ```
