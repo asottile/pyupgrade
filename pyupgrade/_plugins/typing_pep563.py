@@ -16,7 +16,10 @@ from pyupgrade._data import TokenFunc
 
 
 def _supported_version(state: State) -> bool:
-    return 'annotations' in state.from_imports['__future__']
+    return (
+        state.settings.min_version >= (3, 14) or
+        'annotations' in state.from_imports['__future__']
+    )
 
 
 def _dequote(i: int, tokens: list[Token], *, new: str) -> None:

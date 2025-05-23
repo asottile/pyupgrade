@@ -372,6 +372,13 @@ def test_fix_typing_pep563(s, expected):
     assert ret == expected
 
 
+def test_fixes_in_py314():
+    src = 'def f(x: "X") -> "Y": pass\n'
+    expected = 'def f(x: X) -> Y: pass\n'
+    ret = _fix_plugins(src, settings=Settings(min_version=(3, 14)))
+    assert ret == expected
+
+
 @pytest.mark.xfail(sys.version_info < (3, 12), reason='3.12+ syntax')
 def test_typevar_bound():
     src = '''\
