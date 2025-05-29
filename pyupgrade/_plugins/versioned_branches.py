@@ -211,6 +211,9 @@ def visit_If(
                         for minor in range(min_version[1])
                     )
                 )
+            ) or (
+                isinstance(node.test.left, ast.Attribute) and
+                node.test.left.attr == "major"
             )
     ):
         if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):

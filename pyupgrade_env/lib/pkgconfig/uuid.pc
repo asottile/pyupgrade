@@ -1,0 +1,11 @@
+prefix=/home/tempuser/Documents/pyupgrade/pyupgrade_env
+exec_prefix=/home/tempuser/Documents/pyupgrade/pyupgrade_env
+libdir=/home/tempuser/Documents/pyupgrade/pyupgrade_env/lib
+includedir=/home/tempuser/Documents/pyupgrade/pyupgrade_env/include
+
+Name: uuid
+Description: Universally unique id library
+Version: 2.32.1
+Requires:
+Cflags: -I${includedir}/uuid
+Libs: -L${libdir} -luuid
