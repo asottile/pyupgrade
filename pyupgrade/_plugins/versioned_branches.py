@@ -213,7 +213,7 @@ def visit_If(
                 )
             ) or (
                 isinstance(node.test.left, ast.Attribute) and
-                node.test.left.attr == "major"
+                node.test.left.attr == 'major'
             )
     ):
         if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
