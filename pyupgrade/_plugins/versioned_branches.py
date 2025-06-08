@@ -82,8 +82,20 @@ def _fix_py3_convert_elif(i: int, tokens: list[Token]) -> None:
 
 
 def _eq(test: ast.Compare, n: int) -> bool:
+    return _cmp(test, ast.Eq, n)
+
+
+def _lt(test: ast.Compare, n: int) -> bool:
+    return _cmp(test, ast.Lt, n)
+
+
+def _gte(test: ast.Compare, n: int) -> bool:
+    return _cmp(test, ast.GtE, n)
+
+
+def _cmp(test: ast.Compare, op: type[ast.cmpop], n: int) -> bool:
     return (
-        isinstance(test.ops[0], ast.Eq) and
+        isinstance(test.ops[0], op) and
         isinstance(test.comparators[0], ast.Constant) and
         test.comparators[0].value == n
     )
@@ -164,6 +176,33 @@ def visit_If(
                         for minor in range(min_version[1])
                     )
                 )
+            ) or
+            # sys.version_info[0] == 2 or < 3
+            # sys.version_info.major == 2 or < 3
+            (
+                isinstance(node.test, ast.Compare) and
+                (
+                    (
+                        isinstance(node.test.left, ast.Subscript) and
+                        isinstance(node.test.left.slice, ast.Constant) and
+                        node.test.left.slice.value == 0
+                    ) or
+                    (
+                        isinstance(node.test.left, ast.Attribute) and
+                        node.test.left.attr == 'major'
+                    )
+                ) and
+                is_name_attr(
+                    node.test.left.value,
+                    state.from_imports,
+                    ('sys',),
+                    ('version_info',),
+                ) and
+                len(node.test.ops) == 1 and
+                (
+                    _eq(node.test, 2) or
+                    _lt(node.test, 3)
+                )
             )
     ):
         if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
@@ -210,6 +249,33 @@ def visit_If(
                         _compare_to_3(node.test, (ast.Gt, ast.GtE), minor)
                         for minor in range(min_version[1])
                     )
+                )
+            ) or
+            # sys.version_info[0] == 3 or >= 3
+            # sys.version_info.major == 3 or >= 3
+            (
+                isinstance(node.test, ast.Compare) and
+                (
+                    (
+                        isinstance(node.test.left, ast.Subscript) and
+                        isinstance(node.test.left.slice, ast.Constant) and
+                        node.test.left.slice.value == 0
+                    ) or
+                    (
+                        isinstance(node.test.left, ast.Attribute) and
+                        node.test.left.attr == 'major'
+                    )
+                ) and
+                is_name_attr(
+                    node.test.left.value,
+                    state.from_imports,
+                    ('sys',),
+                    ('version_info',),
+                ) and
+                len(node.test.ops) == 1 and
+                (
+                    _eq(node.test, 3) or
+                    _gte(node.test, 3)
                 )
             )
     ):

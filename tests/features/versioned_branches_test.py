@@ -317,6 +317,46 @@ def test_fix_py2_block_noop(s):
             id='sys.version_info == 2',
         ),
         pytest.param(
+            'if sys.version_info[0] == 2:\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            '3\n',
+
+            id='sys.version_info[0] == 2',
+        ),
+        pytest.param(
+            'if sys.version_info[0] < 3:\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            '3\n',
+
+            id='sys.version_info[0] < 3',
+        ),
+        pytest.param(
+            'if sys.version_info.major == 2:\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            '3\n',
+
+            id='sys.version_info.major == 2',
+        ),
+        pytest.param(
+            'if sys.version_info.major < 3:\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            '3\n',
+
+            id='sys.version_info.major < 3',
+        ),
+        pytest.param(
             'if sys.version_info < (3,):\n'
             '    2\n'
             'else:\n'
@@ -367,6 +407,46 @@ def test_fix_py2_block_noop(s):
             id='sys.version_info >= (3,)',
         ),
         pytest.param(
+            'if sys.version_info[0] == 3:\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            '3\n',
+
+            id='sys.version_info[0]== 3',
+        ),
+        pytest.param(
+            'if sys.version_info[0] >= 3:\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            '3\n',
+
+            id='sys.version_info[0] >= 3',
+        ),
+        pytest.param(
+            'if sys.version_info.major == 3:\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            '3\n',
+
+            id='testme sys.version_info.major == 3',
+        ),
+        pytest.param(
+            'if sys.version_info.major >= 3:\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            '3\n',
+
+            id='sys.version_info.major >= 3',
+        ),
+        pytest.param(
             'from sys import version_info\n'
             'if version_info > (3,):\n'
             '    3\n'
@@ -377,6 +457,102 @@ def test_fix_py2_block_noop(s):
             '3\n',
 
             id='from sys import version_info, > (3,)',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info[0] == 2:\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            'from sys import version_info\n'
+            '3\n',
+
+            id='from sys import version_info, [0] == 2',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info[0] < 3:\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            'from sys import version_info\n'
+            '3\n',
+
+            id='from sys import version_info, [0] < 3',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info.major == 2:\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            'from sys import version_info\n'
+            '3\n',
+
+            id='from sys import version_info, .major == 2',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info.major < 3:\n'
+            '    2\n'
+            'else:\n'
+            '    3\n',
+
+            'from sys import version_info\n'
+            '3\n',
+
+            id='from sys import version_info, .major < 3',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info[0] == 3:\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            'from sys import version_info\n'
+            '3\n',
+
+            id='from sys import version_info, [0] == 3',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info[0] >= 3:\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            'from sys import version_info\n'
+            '3\n',
+
+            id='from sys import version_info, [0] >= 3',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info.major == 3:\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            'from sys import version_info\n'
+            '3\n',
+
+            id='from sys import version_info, .major == 3',
+        ),
+        pytest.param(
+            'from sys import version_info\n'
+            'if version_info.major >= 3:\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+
+            'from sys import version_info\n'
+            '3\n',
+
+            id='from sys import version_info, .major >= 3',
         ),
         pytest.param(
             'if True:\n'
