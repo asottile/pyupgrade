@@ -373,6 +373,13 @@ Availability:
 
 Note that `if` blocks without an `else` will not be rewritten as it could introduce a syntax error.
 
+```py
+# not rewritten - would cause a syntax error
+if True:
+    if sys.version_info < (3, 5):
+        print('<py3.5')
+```
+
 ### remove `six` compatibility code
 
 ```diff
