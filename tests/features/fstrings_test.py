@@ -84,6 +84,6 @@ def test_fix_fstrings_await_py37():
 def test_keep_string_format():
     s = '"{} {}".format(a, b)'
     assert _fix_plugins(
-        s, 
+        s,
         settings=Settings(min_version=(3, 6), keep_string_format=True),
     ) == s
