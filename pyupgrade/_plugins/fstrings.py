@@ -134,7 +134,8 @@ def visit_Call(
                     i += 1
         else:
             if (
-                    state.settings.min_version >= (3, 7) or
-                    not contains_await(node)
+                    not state.settings.keep_string_format and
+                    (state.settings.min_version >= (3, 7) or
+                     not contains_await(node))
             ):
                 yield ast_to_offset(node), _fix_fstring

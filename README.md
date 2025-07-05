@@ -641,6 +641,7 @@ Availability:
 
 Availability:
 - `--py36-plus` is passed on the commandline.
+- Unless `--keep-string-format` is passed.
 
 ```diff
 -'{foo} {bar}'.format(foo=foo, bar=bar)

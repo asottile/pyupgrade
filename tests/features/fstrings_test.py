@@ -79,3 +79,11 @@ def test_fix_fstrings_await_py37():
     s = "async def c(): return '{}'.format(await 1+foo())"
     expected = "async def c(): return f'{await 1+foo()}'"
     assert _fix_plugins(s, settings=Settings(min_version=(3, 7))) == expected
+
+
+def test_keep_string_format():
+    s = '"{} {}".format(a, b)'
+    assert _fix_plugins(
+        s, 
+        settings=Settings(min_version=(3, 6), keep_string_format=True),
+    ) == s
