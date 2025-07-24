@@ -195,7 +195,7 @@ def _fix_percent_format_dict(
         elif k.value in KEYWORDS:
             return
         seen_keys.add(k.value)
-        keys[ast_to_offset(k)] = k
+        keys[ast_to_offset(k)] = k.value
 
     # TODO: this is overly timid
     brace = i + 4
@@ -211,13 +211,13 @@ def _fix_percent_format_dict(
         if key is None:
             continue
         # we found the key, but the string didn't match (implicit join?)
-        elif ast.literal_eval(token.src) != key.value:
+        elif ast.literal_eval(token.src) != key:
             return
         # the map uses some strange syntax that's not `'key': value`
         elif tokens[j + 1].src != ':' or tokens[j + 2].src != ' ':
             return
         else:
-            key_indices.append((j, key.value))
+            key_indices.append((j, key))
     assert not keys, keys
 
     tokens[brace_end] = tokens[brace_end]._replace(src=')')
