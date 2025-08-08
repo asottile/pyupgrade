@@ -198,3 +198,17 @@ def test_main_stdin_with_changes(capsys):
         assert main(('-',)) == 1
     out, err = capsys.readouterr()
     assert out == '{1, 2}\n'
+
+
+def test_main_keeps_unchanged_with_check_flag(tmpdir, capsys):
+    initial_contents = 'x = set((1, 2, 3))\n'
+    f = tmpdir.join('f.py')
+    f.write(initial_contents)
+    # --check should detect the needed change but not rewrite the file
+    assert main((f.strpath, '--check')) == 1
+
+    out, err = capsys.readouterr()
+    assert err == f'Would rewrite {f.strpath}\n'
+
+    # file content remains unchanged
+    assert f.read() == initial_contents
