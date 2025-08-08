@@ -28,22 +28,22 @@ Sample `.pre-commit-config.yaml`:
 
 ## Options
 
-- `--exit-zero-even-if-changed`  
+- `--exit-zero-even-if-changed`
   Exit with status code 0 even if files were/would be modified.
 
-- `--keep-percent-format`  
+- `--keep-percent-format`
   Keep `%` formatting instead of converting to `.format()` or f-strings.
 
-- `--keep-mock`  
+- `--keep-mock`
   Don’t rewrite `mock` imports to `unittest.mock`.
 
-- `--keep-runtime-typing`  
+- `--keep-runtime-typing`
   Keep older `typing` imports (e.g. `List`, `Optional`) even if newer syntax is available.
 
-- `--check`  
+- `--check`
   Show files that would be changed, but don’t modify them.
 
-Use a `--pyXY-plus` flag to specify the minimum supported Python version (e.g., `--py36-plus`, `--py310-plus`).  
+Use a `--pyXY-plus` flag to specify the minimum supported Python version (e.g., `--py36-plus`, `--py310-plus`).
 This determines which syntax upgrades are applied.
 
 By default, pyupgrade assumes Python 3.0+ (`--py3-plus`).
