@@ -3,8 +3,8 @@ from __future__ import annotations
 import ast
 import collections
 import pkgutil
+from collections.abc import Callable
 from collections.abc import Iterable
-from typing import Callable
 from typing import NamedTuple
 from typing import Protocol
 from typing import TypeVar
