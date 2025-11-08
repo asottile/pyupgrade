@@ -276,6 +276,10 @@ def _fix_encode_to_binary(tokens: list[Token], i: int) -> None:
     del tokens[victims]
 
 
+# copied from 3.15 @ 0ac890bea7
+_cookie_re = re.compile(r'^[ \t\f]*#.*?coding[:=][ \t]*([-\w.]+)', re.ASCII)
+
+
 def _fix_tokens(contents_text: str) -> str:
     try:
         tokens = src_to_tokens(contents_text)
@@ -294,7 +298,7 @@ def _fix_tokens(contents_text: str) -> str:
                 token.utf8_byte_offset == 0 and
                 token.line < 3 and
                 token.name == 'COMMENT' and
-                tokenize.cookie_re.match(token.src)
+                _cookie_re.match(token.src)
         ):
             del tokens[i]
             assert tokens[i].name == 'NL', tokens[i].name
