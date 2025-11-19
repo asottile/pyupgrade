@@ -365,6 +365,20 @@ def test_fix_typing_pep563_noop(s):
 
             id='posonly args',
         ),
+        pytest.param(
+            'from __future__ import annotations\n'
+            'x: (\n'
+            '    "int | "\n'
+            '    "str"\n'
+            ')\n',
+
+            'from __future__ import annotations\n'
+            'x: (\n'
+            '    int | str\n'
+            ')\n',
+
+            id='multiline implicit-concat annotation',
+        ),
     ),
 )
 def test_fix_typing_pep563(s, expected):

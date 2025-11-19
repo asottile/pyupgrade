@@ -6,6 +6,7 @@ import sys
 from collections.abc import Iterable
 from collections.abc import Sequence
 
+from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
 
 from pyupgrade._ast_helpers import ast_to_offset
@@ -23,7 +24,15 @@ def _supported_version(state: State) -> bool:
 
 
 def _dequote(i: int, tokens: list[Token], *, new: str) -> None:
-    tokens[i] = tokens[i]._replace(src=new)
+    end = i + 1
+    for j in range(end, len(tokens)):
+        if tokens[j].name == 'STRING':
+            end = j + 1
+        elif tokens[j].name not in NON_CODING_TOKENS:
+            break
+    else:
+        raise AssertionError('past end?')
+    tokens[i:end] = [tokens[i]._replace(src=new)]
 
 
 def _get_name(node: ast.expr) -> str:
