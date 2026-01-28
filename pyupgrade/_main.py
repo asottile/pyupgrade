@@ -6,6 +6,7 @@ import re
 import sys
 import tokenize
 from collections.abc import Sequence
+from glob import glob
 from re import Match
 
 from tokenize_rt import NON_CODING_TOKENS
@@ -394,7 +395,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     ret = 0
     for filename in args.filenames:
-        ret |= _fix_file(filename, args)
+        if '*' in filename:
+            for f in glob(filename):
+                ret |= _fix_file(f, args)
+        else:
+            ret |= _fix_file(filename, args)
     return ret
 
 
