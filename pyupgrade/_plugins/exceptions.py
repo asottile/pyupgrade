@@ -36,6 +36,7 @@ _TARGETS = (
     _Target('OSError', None, 'WindowsError', (3,)),
     _Target('TimeoutError', 'socket', 'timeout', (3, 10)),
     _Target('TimeoutError', 'asyncio', 'TimeoutError', (3, 11)),
+    _Target('TimeoutError', 'concurrent.futures', 'TimeoutError', (3, 11)),
 )
 
 
@@ -79,6 +80,16 @@ def _get_rewrite(
                 isinstance(node.value, ast.Name) and
                 node.attr == target.name and
                 node.value.id == target.module
+        ):
+            return target
+        elif (
+                target.module is not None and
+                '.' in target.module and
+                isinstance(node, ast.Attribute) and
+                isinstance(node.value, ast.Attribute) and
+                isinstance(node.value.value, ast.Name) and
+                node.attr == target.name and
+                f'{node.value.value.id}.{node.value.attr}' == target.module
         ):
             return target
     else:

@@ -95,6 +95,17 @@ def test_fix_exceptions_noop(s):
             (3, 10),
             id='except asyncio.TimeoutError() is noop <3.11',
         ),
+        pytest.param(
+            'raise concurrent.futures.TimeoutError()',
+            (3, 10),
+            id='raise concurrent.futures.TimeoutError() is noop <3.11',
+        ),
+        pytest.param(
+            'try: ...\n'
+            'except concurrent.futures.TimeoutError: ...\n',
+            (3, 10),
+            id='except concurrent.futures.TimeoutError is noop <3.11',
+        ),
     ),
 )
 def test_fix_exceptions_version_specific_noop(s, version):
@@ -270,6 +281,20 @@ def test_fix_exceptions(s, expected):
             (3, 11),
             id='asyncio.TimeoutError',
         ),
+        pytest.param(
+            'raise concurrent.futures.TimeoutError(1)\n',
+            'raise TimeoutError(1)\n',
+            (3, 11),
+            id='concurrent.futures.TimeoutError',
+        ),
+        pytest.param(
+            'try: ...\n'
+            'except concurrent.futures.TimeoutError: ...\n',
+            'try: ...\n'
+            'except TimeoutError: ...\n',
+            (3, 11),
+            id='except concurrent.futures.TimeoutError',
+        ),
     ),
 )
 def test_fix_exceptions_versioned(s, expected, version):
@@ -284,6 +309,19 @@ except (asyncio.TimeoutError, WindowsError): ...
     expected = '''\
 try: ...
 except (TimeoutError, OSError): ...
+'''
+
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 11))) == expected
+
+
+def test_can_rewrite_concurrent_futures_timeout():
+    s = '''\
+try: ...
+except (concurrent.futures.TimeoutError, asyncio.TimeoutError): ...
+'''
+    expected = '''\
+try: ...
+except TimeoutError: ...
 '''
 
     assert _fix_plugins(s, settings=Settings(min_version=(3, 11))) == expected
