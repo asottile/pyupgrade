@@ -57,6 +57,11 @@ from pyupgrade._main import _fix_plugins
             'C = NamedTuple("C", [("a", int)])\n',
             id='relative imports',
         ),
+        pytest.param(
+            'from typing import NamedTuple, TypedDict\n'
+            'C = NamedTuple("C", [("a", TypedDict("a", {"x": int}))])\n',
+            id='NamedTuple with nested call in type',
+        ),
     ),
 )
 def test_typing_named_tuple_noop(s):
@@ -265,6 +270,16 @@ def test_fix_typing_named_tuple(s, expected):
         pytest.param(
             'D = typing.TypedDict("D", x=int, total=False)',
             id='kw_typed_dict with total',
+        ),
+        pytest.param(
+            'from typing import TypedDict\n'
+            'D = TypedDict("D", {"x": list[TypedDict("x", {"y": int})]})\n',
+            id='nested TypedDict in dict values',
+        ),
+        pytest.param(
+            'from typing import TypedDict\n'
+            'D = TypedDict("D", x=TypedDict("x", {"y": int}))\n',
+            id='nested TypedDict in keyword values',
         ),
     ),
 )

@@ -17,6 +17,15 @@ from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import KEYWORDS
 
 
+def _can_unparse(node: ast.expr) -> bool:
+    try:
+        _unparse(node)
+    except NotImplementedError:
+        return False
+    else:
+        return True
+
+
 def _unparse(node: ast.expr) -> str:
     if isinstance(node, ast.Name):
         return node.id
@@ -178,7 +187,8 @@ def visit_Assign(
                     isinstance(tup.elts[0], ast.Constant) and
                     isinstance(tup.elts[0].value, str) and
                     tup.elts[0].value.isidentifier() and
-                    tup.elts[0].value not in KEYWORDS
+                    tup.elts[0].value not in KEYWORDS and
+                    _can_unparse(tup.elts[1])
                     for tup in node.value.args[1].elts
                 )
         ):
@@ -195,6 +205,10 @@ def visit_Assign(
                 len(node.value.keywords) > 0 and
                 not any(
                     keyword.arg == 'total'
+                    for keyword in node.value.keywords
+                ) and
+                all(
+                    _can_unparse(keyword.value)
                     for keyword in node.value.keywords
                 )
         ):
@@ -224,6 +238,10 @@ def visit_Assign(
                     k.value.isidentifier() and
                     k.value not in KEYWORDS
                     for k in node.value.args[1].keys
+                ) and
+                all(
+                    _can_unparse(v)
+                    for v in node.value.args[1].values
                 )
         ):
             func = functools.partial(_fix_dict_typed_dict, call=node.value)
