@@ -31,6 +31,11 @@ from pyupgrade._main import _fix_plugins
             id='inline import-import',
         ),
         pytest.param(
+            'if True: from async_timeout import timeout, other_name\n',
+            (3, 11),
+            id='inline async_timeout mixed imports',
+        ),
+        pytest.param(
             'import xml.etree.cElementTree',
             (3,),
             id='import without alias',
@@ -44,6 +49,11 @@ from pyupgrade._main import _fix_plugins
             'from typing import Callable\n',
             (3, 9),
             id='skip rewriting of Callable in 3.9 since it is broken',
+        ),
+        pytest.param(
+            'from async_timeout import timeout, timeout_at\n',
+            (3, 10),
+            id='async_timeout timeout imports below 3.11',
         ),
     ),
 )
@@ -78,6 +88,24 @@ def test_mock_noop_keep_mock():
             id='one-name replacement with alias',
         ),
         pytest.param(
+            'from async_timeout import timeout\n',
+            (3, 11),
+            'from asyncio import timeout\n',
+            id='async_timeout timeout',
+        ),
+        pytest.param(
+            'from async_timeout import timeout as t\n',
+            (3, 11),
+            'from asyncio import timeout as t\n',
+            id='async_timeout timeout alias',
+        ),
+        pytest.param(
+            'from async_timeout import timeout, timeout_at\n',
+            (3, 11),
+            'from asyncio import timeout, timeout_at\n',
+            id='async_timeout timeout names',
+        ),
+        pytest.param(
             'from collections import Mapping, Sequence\n',
             (3,),
             'from collections.abc import Mapping, Sequence\n',
@@ -89,6 +117,13 @@ def test_mock_noop_keep_mock():
             'from collections import Counter\n'
             'from collections.abc import Mapping\n',
             id='one name rewritten to new module',
+        ),
+        pytest.param(
+            'from async_timeout import timeout, other_name\n',
+            (3, 11),
+            'from async_timeout import other_name\n'
+            'from asyncio import timeout\n',
+            id='async_timeout mixed imports',
         ),
         pytest.param(
             'from collections import Counter, Mapping',

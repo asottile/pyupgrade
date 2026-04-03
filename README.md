@@ -310,6 +310,11 @@ some examples:
 +from typing import Concatenate
 ```
 
+```diff
+-from async_timeout import timeout, timeout_at
++from asyncio import timeout, timeout_at
+```
+
 ### rewrite `mock` imports
 
 Availability:

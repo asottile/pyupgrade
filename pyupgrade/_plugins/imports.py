@@ -196,6 +196,8 @@ REPLACE_EXACT = {
         ('typing_extensions', 'is_typeddict'): 'typing',
     },
     (3, 11): {
+        ('async_timeout', 'timeout'): 'asyncio',
+        ('async_timeout', 'timeout_at'): 'asyncio',
         ('typing_extensions', 'Any'): 'typing',
         ('typing_extensions', 'LiteralString'): 'typing',
         ('typing_extensions', 'Never'): 'typing',
