@@ -795,3 +795,19 @@ Availability:
 -datetime.timezone.utc
 +datetime.UTC
 ```
+
+### fold nested context managers
+
+Availability:
+- `--py310-plus` is passed on the commandline.
+
+```diff
+-with a:
+-    with b:
+-        pass
++with (
++    a,
++    b,
++):
++    pass
+```
