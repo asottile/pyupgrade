@@ -120,6 +120,14 @@ def test_typing_named_tuple_noop(s):
             id='type with ellipsis',
         ),
         pytest.param(
+            'C = typing.NamedTuple("C", [("a", Literal[-1])])',
+
+            'class C(typing.NamedTuple):\n'
+            '    a: Literal[-1]',
+
+            id='Literal with negative integer',
+        ),
+        pytest.param(
             'C = typing.NamedTuple("C", [("a", Callable[[Any], None])])',
 
             'class C(typing.NamedTuple):\n'

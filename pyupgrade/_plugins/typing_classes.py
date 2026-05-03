@@ -44,6 +44,8 @@ def _unparse(node: ast.expr) -> str:
         return repr(node.value)
     elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
         return f'{_unparse(node.left)} | {_unparse(node.right)}'
+    elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        return f'-{_unparse(node.operand)}'
     else:
         raise NotImplementedError(ast.dump(node))
 
