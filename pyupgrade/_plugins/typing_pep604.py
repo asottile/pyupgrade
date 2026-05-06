@@ -20,6 +20,70 @@ from pyupgrade._token_helpers import is_close
 from pyupgrade._token_helpers import is_open
 
 
+@register(ast.Subscript)
+def visit_Subscript(
+        state: State,
+        node: ast.Subscript,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    if not _supported_version(state):
+        return
+
+    # don't rewrite forward annotations (unless we know they will be dequoted)
+    if 'annotations' not in state.from_imports['__future__']:
+        if _any_arg_is_str(node.slice):
+            return
+
+    if is_name_attr(
+            node.value,
+            state.from_imports,
+            ('typing',),
+            ('Optional',),
+    ):
+        yield ast_to_offset(node), _fix_optional
+    elif is_name_attr(node.value, state.from_imports, ('typing',), ('Union',)):
+        if isinstance(node.slice, ast.Slice):  # not a valid annotation
+            return
+
+        if isinstance(node.slice, ast.Tuple):
+            if node.slice.elts:
+                arg_count = len(node.slice.elts)
+            else:
+                return  # empty Union
+        else:
+            arg_count = 1
+
+        func = functools.partial(_fix_union, arg_count=arg_count)
+        yield ast_to_offset(node), func
+
+
+def _supported_version(state: State) -> bool:
+    return (
+        state.in_annotation and (
+            state.settings.min_version >= (3, 10) or (
+                not state.settings.keep_runtime_typing and
+                'annotations' in state.from_imports['__future__']
+            )
+        )
+    )
+
+
+def _any_arg_is_str(node_slice: ast.expr) -> bool:
+    return (
+        (
+            isinstance(node_slice, ast.Constant) and
+            isinstance(node_slice.value, str)
+        ) or (
+            isinstance(node_slice, ast.Tuple) and
+            any(
+                isinstance(elt, ast.Constant) and
+                isinstance(elt.value, str)
+                for elt in node_slice.elts
+            )
+        )
+    )
+
+
 def _fix_optional(i: int, tokens: list[Token]) -> None:
     j = find_op(tokens, i, '[')
     k = find_closing_bracket(tokens, j)
@@ -113,67 +177,3 @@ def _fix_union(
         for paren in reversed(to_delete):
             del tokens[paren]
         del tokens[i:j]
-
-
-def _supported_version(state: State) -> bool:
-    return (
-        state.in_annotation and (
-            state.settings.min_version >= (3, 10) or (
-                not state.settings.keep_runtime_typing and
-                'annotations' in state.from_imports['__future__']
-            )
-        )
-    )
-
-
-def _any_arg_is_str(node_slice: ast.expr) -> bool:
-    return (
-        (
-            isinstance(node_slice, ast.Constant) and
-            isinstance(node_slice.value, str)
-        ) or (
-            isinstance(node_slice, ast.Tuple) and
-            any(
-                isinstance(elt, ast.Constant) and
-                isinstance(elt.value, str)
-                for elt in node_slice.elts
-            )
-        )
-    )
-
-
-@register(ast.Subscript)
-def visit_Subscript(
-        state: State,
-        node: ast.Subscript,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    if not _supported_version(state):
-        return
-
-    # don't rewrite forward annotations (unless we know they will be dequoted)
-    if 'annotations' not in state.from_imports['__future__']:
-        if _any_arg_is_str(node.slice):
-            return
-
-    if is_name_attr(
-            node.value,
-            state.from_imports,
-            ('typing',),
-            ('Optional',),
-    ):
-        yield ast_to_offset(node), _fix_optional
-    elif is_name_attr(node.value, state.from_imports, ('typing',), ('Union',)):
-        if isinstance(node.slice, ast.Slice):  # not a valid annotation
-            return
-
-        if isinstance(node.slice, ast.Tuple):
-            if node.slice.elts:
-                arg_count = len(node.slice.elts)
-            else:
-                return  # empty Union
-        else:
-            arg_count = 1
-
-        func = functools.partial(_fix_union, arg_count=arg_count)
-        yield ast_to_offset(node), func

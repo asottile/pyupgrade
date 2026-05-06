@@ -24,64 +24,21 @@ from pyupgrade._token_helpers import find_name
 FUNC_TYPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)
 
 
-def _fix_yield(i: int, tokens: list[Token]) -> None:
-    in_token = find_name(tokens, i, 'in')
-    colon = find_block_start(tokens, i)
-    block = Block.find(tokens, i, trim_end=True)
-    container = tokens_to_src(tokens[in_token + 1:colon]).strip()
-    tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
+@register(ast.Module)
+def visit_Module(
+        state: State,
+        node: ast.Module,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    visitor = Visitor()
+    visitor.visit(node)
 
+    super_func = functools.partial(find_and_replace_call, template='super()')
+    for offset in visitor.super_offsets:
+        yield offset, super_func
 
-def _all_isinstance(
-        vals: Iterable[Any],
-        tp: type[Any] | tuple[type[Any], ...],
-) -> bool:
-    return all(isinstance(v, tp) for v in vals)
-
-
-def _fields_same(n1: ast.AST, n2: ast.AST) -> bool:
-    for (a1, v1), (a2, v2) in zip(ast.iter_fields(n1), ast.iter_fields(n2)):
-        # ignore ast attributes, they'll be covered by walk
-        if a1 != a2:
-            return False
-        elif _all_isinstance((v1, v2), ast.AST):
-            continue
-        elif _all_isinstance((v1, v2), (list, tuple)):
-            if len(v1) != len(v2):
-                return False
-            # ignore sequences which are all-ast, they'll be covered by walk
-            elif _all_isinstance(v1, ast.AST) and _all_isinstance(v2, ast.AST):
-                continue
-            elif v1 != v2:
-                return False
-        elif v1 != v2:
-            return False
-    return True
-
-
-def _targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
-    for t1, t2 in zip(ast.walk(target), ast.walk(yield_value)):
-        # ignore `ast.Load` / `ast.Store`
-        if _all_isinstance((t1, t2), ast.expr_context):
-            continue
-        elif type(t1) is not type(t2):
-            return False
-        elif not _fields_same(t1, t2):
-            return False
-    else:
-        return True
-
-
-class Scope:
-    def __init__(self, node: ast.AST) -> None:
-        self.node = node
-
-        self.reads: set[str] = set()
-        self.writes: set[str] = set()
-
-        self.yield_from_fors: set[Offset] = set()
-        self.yield_from_names: dict[str, set[Offset]]
-        self.yield_from_names = collections.defaultdict(set)
+    for offset in visitor.yield_offsets:
+        yield offset, _fix_yield
 
 
 class Visitor(ast.NodeVisitor):
@@ -89,6 +46,10 @@ class Visitor(ast.NodeVisitor):
         self._scopes: list[Scope] = []
         self.super_offsets: set[Offset] = set()
         self.yield_offsets: set[Offset] = set()
+
+    def _visit_scope(self, node: ast.AST) -> None:
+        with self._scope(node):
+            self.generic_visit(node)
 
     @contextlib.contextmanager
     def _scope(self, node: ast.AST) -> Generator[None]:
@@ -105,10 +66,6 @@ class Visitor(ast.NodeVisitor):
             if self._scopes:
                 cell_reads = info.reads - info.writes
                 self._scopes[-1].reads.update(cell_reads)
-
-    def _visit_scope(self, node: ast.AST) -> None:
-        with self._scope(node):
-            self.generic_visit(node)
 
     visit_ClassDef = _visit_scope
     visit_Lambda = visit_FunctionDef = visit_AsyncFunctionDef = _visit_scope
@@ -201,18 +158,61 @@ class Visitor(ast.NodeVisitor):
             self.generic_visit(node)
 
 
-@register(ast.Module)
-def visit_Module(
-        state: State,
-        node: ast.Module,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    visitor = Visitor()
-    visitor.visit(node)
+class Scope:
+    def __init__(self, node: ast.AST) -> None:
+        self.node = node
 
-    super_func = functools.partial(find_and_replace_call, template='super()')
-    for offset in visitor.super_offsets:
-        yield offset, super_func
+        self.reads: set[str] = set()
+        self.writes: set[str] = set()
 
-    for offset in visitor.yield_offsets:
-        yield offset, _fix_yield
+        self.yield_from_fors: set[Offset] = set()
+        self.yield_from_names: dict[str, set[Offset]]
+        self.yield_from_names = collections.defaultdict(set)
+
+
+def _targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
+    for t1, t2 in zip(ast.walk(target), ast.walk(yield_value)):
+        # ignore `ast.Load` / `ast.Store`
+        if _all_isinstance((t1, t2), ast.expr_context):
+            continue
+        elif type(t1) is not type(t2):
+            return False
+        elif not _fields_same(t1, t2):
+            return False
+    else:
+        return True
+
+
+def _fields_same(n1: ast.AST, n2: ast.AST) -> bool:
+    for (a1, v1), (a2, v2) in zip(ast.iter_fields(n1), ast.iter_fields(n2)):
+        # ignore ast attributes, they'll be covered by walk
+        if a1 != a2:
+            return False
+        elif _all_isinstance((v1, v2), ast.AST):
+            continue
+        elif _all_isinstance((v1, v2), (list, tuple)):
+            if len(v1) != len(v2):
+                return False
+            # ignore sequences which are all-ast, they'll be covered by walk
+            elif _all_isinstance(v1, ast.AST) and _all_isinstance(v2, ast.AST):
+                continue
+            elif v1 != v2:
+                return False
+        elif v1 != v2:
+            return False
+    return True
+
+
+def _all_isinstance(
+        vals: Iterable[Any],
+        tp: type[Any] | tuple[type[Any], ...],
+) -> bool:
+    return all(isinstance(v, tp) for v in vals)
+
+
+def _fix_yield(i: int, tokens: list[Token]) -> None:
+    in_token = find_name(tokens, i, 'in')
+    colon = find_block_start(tokens, i)
+    block = Block.find(tokens, i, trim_end=True)
+    container = tokens_to_src(tokens[in_token + 1:colon]).strip()
+    tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]

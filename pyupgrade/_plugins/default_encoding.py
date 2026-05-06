@@ -16,12 +16,6 @@ from pyupgrade._token_helpers import find_call
 from pyupgrade._token_helpers import find_closing_bracket
 
 
-def _fix_default_encoding(i: int, tokens: list[Token]) -> None:
-    i = find_call(tokens, i + 1)
-    j = find_closing_bracket(tokens, i)
-    del tokens[i + 1:j]
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -44,3 +38,9 @@ def visit_Call(
             is_codec(node.args[0].value, 'utf-8')
     ):
         yield ast_to_offset(node), _fix_default_encoding
+
+
+def _fix_default_encoding(i: int, tokens: list[Token]) -> None:
+    i = find_call(tokens, i + 1)
+    j = find_closing_bracket(tokens, i)
+    del tokens[i + 1:j]

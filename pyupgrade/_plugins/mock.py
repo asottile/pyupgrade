@@ -13,11 +13,6 @@ from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_name
 
 
-def _fix_mock_mock(i: int, tokens: list[Token]) -> None:
-    j = find_name(tokens, i + 1, 'mock')
-    del tokens[i + 1:j + 1]
-
-
 @register(ast.Attribute)
 def visit_Attribute(
         state: State,
@@ -31,3 +26,8 @@ def visit_Attribute(
             node.attr == 'mock'
     ):
         yield ast_to_offset(node), _fix_mock_mock
+
+
+def _fix_mock_mock(i: int, tokens: list[Token]) -> None:
+    j = find_name(tokens, i + 1, 'mock')
+    del tokens[i + 1:j + 1]

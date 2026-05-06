@@ -15,16 +15,6 @@ from pyupgrade._token_helpers import find_closing_bracket
 from pyupgrade._token_helpers import find_op
 
 
-def _fix(i: int, tokens: list[Token]) -> None:
-    dot_pos = find_op(tokens, i, '.')
-    open_pos = find_op(tokens, dot_pos, '(')
-    close_pos = find_closing_bracket(tokens, open_pos)
-    for string_idx in rfind_string_parts(tokens, dot_pos - 1):
-        tok = tokens[string_idx]
-        tokens[string_idx] = tok._replace(src=f'f{tok.src}')
-    del tokens[dot_pos:close_pos + 1]
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -47,3 +37,13 @@ def visit_Call(
             len(node.keywords[0].value.keywords) == 0
     ):
         yield ast_to_offset(node), _fix
+
+
+def _fix(i: int, tokens: list[Token]) -> None:
+    dot_pos = find_op(tokens, i, '.')
+    open_pos = find_op(tokens, dot_pos, '(')
+    close_pos = find_closing_bracket(tokens, open_pos)
+    for string_idx in rfind_string_parts(tokens, dot_pos - 1):
+        tok = tokens[string_idx]
+        tokens[string_idx] = tok._replace(src=f'f{tok.src}')
+    del tokens[dot_pos:close_pos + 1]

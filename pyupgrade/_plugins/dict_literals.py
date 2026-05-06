@@ -17,6 +17,26 @@ from pyupgrade._token_helpers import remove_brace
 from pyupgrade._token_helpers import victims
 
 
+@register(ast.Call)
+def visit_Call(
+        state: State,
+        node: ast.Call,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    if (
+            not isinstance(parent, ast.FormattedValue) and
+            isinstance(node.func, ast.Name) and
+            node.func.id == 'dict' and
+            len(node.args) == 1 and
+            not node.keywords and
+            isinstance(node.args[0], (ast.ListComp, ast.GeneratorExp)) and
+            isinstance(node.args[0].elt, (ast.Tuple, ast.List)) and
+            len(node.args[0].elt.elts) == 2
+    ):
+        func = functools.partial(_fix_dict_comp, arg=node.args[0])
+        yield ast_to_offset(node.func), func
+
+
 def _fix_dict_comp(
         i: int,
         tokens: list[Token],
@@ -44,23 +64,3 @@ def _fix_dict_comp(
     for index in reversed(dict_victims.starts + elt_victims.starts):
         remove_brace(tokens, index)
     tokens[i:i + 2] = [Token('OP', '{')]
-
-
-@register(ast.Call)
-def visit_Call(
-        state: State,
-        node: ast.Call,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    if (
-            not isinstance(parent, ast.FormattedValue) and
-            isinstance(node.func, ast.Name) and
-            node.func.id == 'dict' and
-            len(node.args) == 1 and
-            not node.keywords and
-            isinstance(node.args[0], (ast.ListComp, ast.GeneratorExp)) and
-            isinstance(node.args[0].elt, (ast.Tuple, ast.List)) and
-            len(node.args[0].elt.elts) == 2
-    ):
-        func = functools.partial(_fix_dict_comp, arg=node.args[0])
-        yield ast_to_offset(node.func), func

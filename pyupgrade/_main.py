@@ -30,29 +30,6 @@ from pyupgrade._token_helpers import is_open
 from pyupgrade._token_helpers import remove_brace
 
 
-def inty(s: str) -> bool:
-    try:
-        int(s)
-        return True
-    except (ValueError, TypeError):
-        return False
-
-
-def _fixup_dedent_tokens(tokens: list[Token]) -> None:
-    """For whatever reason the DEDENT / UNIMPORTANT_WS tokens are misordered
-
-    | if True:
-    |     if True:
-    |         pass
-    |     else:
-    |^    ^- DEDENT
-    |+----UNIMPORTANT_WS
-    """
-    for i, token in enumerate(tokens):
-        if token.name == UNIMPORTANT_WS and tokens[i + 1].name == 'DEDENT':
-            tokens[i], tokens[i + 1] = tokens[i + 1], tokens[i]
-
-
 def _fix_plugins(contents_text: str, settings: Settings) -> str:
     try:
         ast_obj = ast_parse(contents_text)
@@ -82,6 +59,29 @@ def _fix_plugins(contents_text: str, settings: Settings) -> str:
     return tokens_to_src(tokens).lstrip()
 
 
+def _fixup_dedent_tokens(tokens: list[Token]) -> None:
+    """For whatever reason the DEDENT / UNIMPORTANT_WS tokens are misordered
+
+    | if True:
+    |     if True:
+    |         pass
+    |     else:
+    |^    ^- DEDENT
+    |+----UNIMPORTANT_WS
+    """
+    for i, token in enumerate(tokens):
+        if token.name == UNIMPORTANT_WS and tokens[i + 1].name == 'DEDENT':
+            tokens[i], tokens[i + 1] = tokens[i + 1], tokens[i]
+
+
+def inty(s: str) -> bool:
+    try:
+        int(s)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
 # https://docs.python.org/3/reference/lexical_analysis.html
 ESCAPE_STARTS = frozenset((
     '\n', '\r', '\\', "'", '"', 'a', 'b', 'f', 'n', 'r', 't', 'v',
@@ -90,6 +90,47 @@ ESCAPE_STARTS = frozenset((
 ))
 ESCAPE_RE = re.compile(r'\\.', re.DOTALL)
 NAMED_ESCAPE_NAME = re.compile(r'\{[^}]+\}')
+
+
+def _fix_format_literal(tokens: list[Token], end: int) -> None:
+    parts = rfind_string_parts(tokens, end)
+    parsed_parts = []
+    last_int = -1
+    for i in parts:
+        # f'foo {0}'.format(...) would get turned into a SyntaxError
+        prefix, _ = parse_string_literal(tokens[i].src)
+        if 'f' in prefix.lower():  # pragma: <3.12 cover
+            return
+
+        try:
+            parsed = parse_format(tokens[i].src)
+        except ValueError:
+            # the format literal was malformed, skip it
+            return
+
+        # The last segment will always be the end of the string and not a
+        # format, slice avoids the `None` format key
+        for _, fmtkey, spec, _ in parsed[:-1]:
+            if (
+                    fmtkey is not None and inty(fmtkey) and
+                    int(fmtkey) == last_int + 1 and
+                    spec is not None and '{' not in spec
+            ):
+                last_int += 1
+            else:
+                return
+
+        parsed_parts.append([_remove_fmt(tup) for tup in parsed])
+
+    for i, parsed in zip(parts, parsed_parts):
+        tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed))
+
+
+def _remove_fmt(tup: DotFormatPart) -> DotFormatPart:
+    if tup[1] is None:
+        return tup
+    else:
+        return (tup[0], '', tup[2], tup[3])
 
 
 def _fix_escape_sequences(token: Token) -> Token:
@@ -181,47 +222,6 @@ def _fix_extraneous_parens(tokens: list[Token], i: int) -> None:
         remove_brace(tokens, start)
 
 
-def _remove_fmt(tup: DotFormatPart) -> DotFormatPart:
-    if tup[1] is None:
-        return tup
-    else:
-        return (tup[0], '', tup[2], tup[3])
-
-
-def _fix_format_literal(tokens: list[Token], end: int) -> None:
-    parts = rfind_string_parts(tokens, end)
-    parsed_parts = []
-    last_int = -1
-    for i in parts:
-        # f'foo {0}'.format(...) would get turned into a SyntaxError
-        prefix, _ = parse_string_literal(tokens[i].src)
-        if 'f' in prefix.lower():  # pragma: <3.12 cover
-            return
-
-        try:
-            parsed = parse_format(tokens[i].src)
-        except ValueError:
-            # the format literal was malformed, skip it
-            return
-
-        # The last segment will always be the end of the string and not a
-        # format, slice avoids the `None` format key
-        for _, fmtkey, spec, _ in parsed[:-1]:
-            if (
-                    fmtkey is not None and inty(fmtkey) and
-                    int(fmtkey) == last_int + 1 and
-                    spec is not None and '{' not in spec
-            ):
-                last_int += 1
-            else:
-                return
-
-        parsed_parts.append([_remove_fmt(tup) for tup in parsed])
-
-    for i, parsed in zip(parts, parsed_parts):
-        tokens[i] = tokens[i]._replace(src=unparse_parsed_string(parsed))
-
-
 def _fix_encode_to_binary(tokens: list[Token], i: int) -> None:
     parts = rfind_string_parts(tokens, i - 2)
     if not parts:
@@ -280,69 +280,6 @@ def _fix_encode_to_binary(tokens: list[Token], i: int) -> None:
 _cookie_re = re.compile(r'^[ \t\f]*#.*?coding[:=][ \t]*([-\w.]+)', re.ASCII)
 
 
-def _fix_tokens(contents_text: str) -> str:
-    try:
-        tokens = src_to_tokens(contents_text)
-    except tokenize.TokenError:
-        return contents_text
-    for i, token in reversed_enumerate(tokens):
-        if token.name == 'STRING':
-            tokens[i] = _fix_escape_sequences(_remove_u_prefix(tokens[i]))
-        elif token.matches(name='OP', src='('):
-            _fix_extraneous_parens(tokens, i)
-        elif token.src == 'format' and i > 0 and tokens[i - 1].src == '.':
-            _fix_format_literal(tokens, i - 2)
-        elif token.src == 'encode' and i > 0 and tokens[i - 1].src == '.':
-            _fix_encode_to_binary(tokens, i)
-        elif (
-                token.utf8_byte_offset == 0 and
-                token.line < 3 and
-                token.name == 'COMMENT' and
-                _cookie_re.match(token.src)
-        ):
-            del tokens[i]
-            assert tokens[i].name == 'NL', tokens[i].name
-            del tokens[i]
-    return tokens_to_src(tokens).lstrip()
-
-
-def _fix_file(filename: str, args: argparse.Namespace) -> int:
-    if filename == '-':
-        contents_bytes = sys.stdin.buffer.read()
-    else:
-        with open(filename, 'rb') as fb:
-            contents_bytes = fb.read()
-
-    try:
-        contents_text_orig = contents_text = contents_bytes.decode()
-    except UnicodeDecodeError:
-        print(f'{filename} is non-utf-8 (not supported)')
-        return 1
-
-    contents_text = _fix_plugins(
-        contents_text,
-        settings=Settings(
-            min_version=args.min_version,
-            keep_percent_format=args.keep_percent_format,
-            keep_mock=args.keep_mock,
-            keep_runtime_typing=args.keep_runtime_typing,
-        ),
-    )
-    contents_text = _fix_tokens(contents_text)
-
-    if filename == '-':
-        print(contents_text, end='')
-    elif contents_text != contents_text_orig:
-        print(f'Rewriting {filename}', file=sys.stderr)
-        with open(filename, 'w', encoding='UTF-8', newline='') as f:
-            f.write(contents_text)
-
-    if args.exit_zero_even_if_changed:
-        return 0
-    else:
-        return contents_text != contents_text_orig
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
@@ -396,6 +333,69 @@ def main(argv: Sequence[str] | None = None) -> int:
     for filename in args.filenames:
         ret |= _fix_file(filename, args)
     return ret
+
+
+def _fix_file(filename: str, args: argparse.Namespace) -> int:
+    if filename == '-':
+        contents_bytes = sys.stdin.buffer.read()
+    else:
+        with open(filename, 'rb') as fb:
+            contents_bytes = fb.read()
+
+    try:
+        contents_text_orig = contents_text = contents_bytes.decode()
+    except UnicodeDecodeError:
+        print(f'{filename} is non-utf-8 (not supported)')
+        return 1
+
+    contents_text = _fix_plugins(
+        contents_text,
+        settings=Settings(
+            min_version=args.min_version,
+            keep_percent_format=args.keep_percent_format,
+            keep_mock=args.keep_mock,
+            keep_runtime_typing=args.keep_runtime_typing,
+        ),
+    )
+    contents_text = _fix_tokens(contents_text)
+
+    if filename == '-':
+        print(contents_text, end='')
+    elif contents_text != contents_text_orig:
+        print(f'Rewriting {filename}', file=sys.stderr)
+        with open(filename, 'w', encoding='UTF-8', newline='') as f:
+            f.write(contents_text)
+
+    if args.exit_zero_even_if_changed:
+        return 0
+    else:
+        return contents_text != contents_text_orig
+
+
+def _fix_tokens(contents_text: str) -> str:
+    try:
+        tokens = src_to_tokens(contents_text)
+    except tokenize.TokenError:
+        return contents_text
+    for i, token in reversed_enumerate(tokens):
+        if token.name == 'STRING':
+            tokens[i] = _fix_escape_sequences(_remove_u_prefix(tokens[i]))
+        elif token.matches(name='OP', src='('):
+            _fix_extraneous_parens(tokens, i)
+        elif token.src == 'format' and i > 0 and tokens[i - 1].src == '.':
+            _fix_format_literal(tokens, i - 2)
+        elif token.src == 'encode' and i > 0 and tokens[i - 1].src == '.':
+            _fix_encode_to_binary(tokens, i)
+        elif (
+                token.utf8_byte_offset == 0 and
+                token.line < 3 and
+                token.name == 'COMMENT' and
+                _cookie_re.match(token.src)
+        ):
+            del tokens[i]
+            assert tokens[i].name == 'NL', tokens[i].name
+            del tokens[i]
+    return tokens_to_src(tokens).lstrip()
 
 
 if __name__ == '__main__':

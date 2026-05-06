@@ -16,6 +16,33 @@ from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 
 
+@register(ast.Call)
+def visit_Call(
+        state: State,
+        node: ast.Call,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    if (
+            is_name_attr(
+                node.func,
+                state.from_imports,
+                ('collections',),
+                ('defaultdict',),
+            ) and
+            node.args and
+            isinstance(node.args[0], ast.Lambda)
+    ):
+        replacement = _eligible_lambda_replacement(node.args[0])
+        if replacement is None:
+            return
+
+        func = functools.partial(
+            _fix_defaultdict_first_arg,
+            replacement=replacement,
+        )
+        yield ast_to_offset(node), func
+
+
 def _eligible_lambda_replacement(lambda_expr: ast.Lambda) -> str | None:
     if isinstance(lambda_expr.body, ast.Constant):
         if lambda_expr.body.value == 0:
@@ -52,30 +79,3 @@ def _fix_defaultdict_first_arg(
     func_args, end = parse_call_args(tokens, start)
 
     tokens[slice(*func_args[0])] = [Token('CODE', replacement)]
-
-
-@register(ast.Call)
-def visit_Call(
-        state: State,
-        node: ast.Call,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    if (
-            is_name_attr(
-                node.func,
-                state.from_imports,
-                ('collections',),
-                ('defaultdict',),
-            ) and
-            node.args and
-            isinstance(node.args[0], ast.Lambda)
-    ):
-        replacement = _eligible_lambda_replacement(node.args[0])
-        if replacement is None:
-            return
-
-        func = functools.partial(
-            _fix_defaultdict_first_arg,
-            replacement=replacement,
-        )
-        yield ast_to_offset(node), func

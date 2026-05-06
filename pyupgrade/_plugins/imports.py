@@ -300,43 +300,126 @@ REPLACE_MODS = {
     'six.moves.xmlrpc_server': 'xmlrpc.server',
     'xml.etree.cElementTree': 'xml.etree.ElementTree',
 }
-# END GENERATED
+@register(ast.ImportFrom)
+def visit_ImportFrom(
+        state: State,
+        node: ast.ImportFrom,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    removals, exact, mods = _for_version(
+        state.settings.min_version,
+        keep_mock=state.settings.keep_mock,
+    )
 
+    # we don't have any relative rewrites
+    if node.level != 0 or node.module is None:
+        return
 
-@functools.cache
-def _for_version(
-        version: tuple[int, ...],
-        *,
-        keep_mock: bool,
-) -> tuple[
-        Mapping[str, set[str]],
-        Mapping[tuple[str, str], str],
-        Mapping[str, str],
-]:
-    removals = collections.defaultdict(set)
-    for ver, ver_removals in REMOVALS.items():
-        if ver <= version:
-            for base, names in ver_removals.items():
-                removals[base].update(names)
+    mod = node.module
 
-    exact = {}
-    for ver, ver_exact in REPLACE_EXACT.items():
-        if ver <= version:
-            exact.update(ver_exact)
+    removal_idxs = []
+    if node.col_offset == 0:
+        removals_for_mod = removals.get(mod)
+        if removals_for_mod is not None:
+            removal_idxs = [
+                i
+                for i, alias in enumerate(node.names)
+                if not alias.asname and alias.name in removals_for_mod
+            ]
 
-    mods = {**REPLACE_MODS}
-    if not keep_mock:
-        exact['mock', 'mock'] = 'unittest'
-        mods.update({
-            'mock': 'unittest.mock',
-            'mock.mock': 'unittest.mock',
-        })
+    exact_moves = []
+    for i, alias in enumerate(node.names):
+        new_mod = exact.get((mod, alias.name))
+        if new_mod is not None:
+            exact_moves.append((i, new_mod, alias))
 
-    return removals, exact, mods
+    module_moves = []
+    for i, alias in enumerate(node.names):
+        new_mod = mods.get(f'{node.module}.{alias.name}')
+        if new_mod is not None and (alias.asname or alias.name == new_mod):
+            module_moves.append((i, new_mod, alias))
+
+    if len(removal_idxs) == len(node.names):
+        yield ast_to_offset(node), _remove_import
+    elif (
+            len(exact_moves) == len(node.names) and
+            len({mod for _, mod, _ in exact_moves}) == 1
+    ):
+        _, modname, _ = exact_moves[0]
+        func = functools.partial(_replace_from_modname, modname=modname)
+        yield ast_to_offset(node), func
+    elif removal_idxs or exact_moves or module_moves:
+        func = functools.partial(
+            _replace_from_mixed,
+            removal_idxs=removal_idxs,
+            exact_moves=exact_moves,
+            module_moves=module_moves,
+        )
+        yield ast_to_offset(node), func
+    elif mod in mods:
+        func = functools.partial(_replace_from_modname, modname=mods[mod])
+        yield ast_to_offset(node), func
 
 
 def _remove_import(i: int, tokens: list[Token]) -> None:
     del tokens[i:find_end(tokens, i)]
+
+
+def _replace_from_modname(
+        i: int,
+        tokens: list[Token],
+        *,
+        modname: str,
+) -> None:
+    FromImport.parse(i, tokens).replace_modname(tokens, modname)
+
+
+def _replace_from_mixed(
+        i: int,
+        tokens: list[Token],
+        *,
+        removal_idxs: list[int],
+        exact_moves: list[tuple[int, str, ast.alias]],
+        module_moves: list[tuple[int, str, ast.alias]],
+) -> None:
+    try:
+        indent = indented_amount(i, tokens)
+    except ValueError:
+        return
+
+    parsed = FromImport.parse(i, tokens)
+
+    added_from_imports = collections.defaultdict(list)
+    for idx, mod, alias in exact_moves:
+        added_from_imports[mod].append(_alias_to_s(alias))
+        bisect.insort(removal_idxs, idx)
+
+    new_imports = []
+    for idx, new_mod, alias in module_moves:
+        new_mod, _, new_sym = new_mod.rpartition('.')
+        new_alias = ast.alias(name=new_sym, asname=alias.asname)
+        if new_mod:
+            added_from_imports[new_mod].append(_alias_to_s(new_alias))
+        else:
+            new_imports.append(f'{indent}import {_alias_to_s(new_alias)}\n')
+        bisect.insort(removal_idxs, idx)
+
+    new_imports.extend(
+        f'{indent}from {mod} import {", ".join(names)}\n'
+        for mod, names in added_from_imports.items()
+    )
+    new_imports.sort()
+
+    if new_imports and tokens[parsed.end - 1].src != '\n':
+        new_imports.insert(0, '\n')
+
+    tokens[parsed.end:parsed.end] = [Token('CODE', ''.join(new_imports))]
+
+    # all names rewritten -- delete import
+    if len(parsed.names) == len(removal_idxs):
+        parsed.remove_self(tokens)
+    else:
+        parsed.remove_parts(tokens, removal_idxs)
 
 
 class FromImport(NamedTuple):
@@ -400,129 +483,71 @@ class FromImport(NamedTuple):
                 del tokens[j:self.ends[idx] + 1]
 
 
-def _alias_to_s(alias: ast.alias) -> str:
-    if alias.asname:
-        return f'{alias.name} as {alias.asname}'
-    else:
-        return alias.name
-
-
-def _replace_from_modname(
-        i: int,
-        tokens: list[Token],
-        *,
-        modname: str,
-) -> None:
-    FromImport.parse(i, tokens).replace_modname(tokens, modname)
-
-
-def _replace_from_mixed(
-        i: int,
-        tokens: list[Token],
-        *,
-        removal_idxs: list[int],
-        exact_moves: list[tuple[int, str, ast.alias]],
-        module_moves: list[tuple[int, str, ast.alias]],
-) -> None:
-    try:
-        indent = indented_amount(i, tokens)
-    except ValueError:
-        return
-
-    parsed = FromImport.parse(i, tokens)
-
-    added_from_imports = collections.defaultdict(list)
-    for idx, mod, alias in exact_moves:
-        added_from_imports[mod].append(_alias_to_s(alias))
-        bisect.insort(removal_idxs, idx)
-
-    new_imports = []
-    for idx, new_mod, alias in module_moves:
-        new_mod, _, new_sym = new_mod.rpartition('.')
-        new_alias = ast.alias(name=new_sym, asname=alias.asname)
-        if new_mod:
-            added_from_imports[new_mod].append(_alias_to_s(new_alias))
-        else:
-            new_imports.append(f'{indent}import {_alias_to_s(new_alias)}\n')
-        bisect.insort(removal_idxs, idx)
-
-    new_imports.extend(
-        f'{indent}from {mod} import {", ".join(names)}\n'
-        for mod, names in added_from_imports.items()
-    )
-    new_imports.sort()
-
-    if new_imports and tokens[parsed.end - 1].src != '\n':
-        new_imports.insert(0, '\n')
-
-    tokens[parsed.end:parsed.end] = [Token('CODE', ''.join(new_imports))]
-
-    # all names rewritten -- delete import
-    if len(parsed.names) == len(removal_idxs):
-        parsed.remove_self(tokens)
-    else:
-        parsed.remove_parts(tokens, removal_idxs)
-
-
-@register(ast.ImportFrom)
-def visit_ImportFrom(
+@register(ast.Import)
+def visit_Import(
         state: State,
-        node: ast.ImportFrom,
+        node: ast.Import,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    removals, exact, mods = _for_version(
+    _, _, mods = _for_version(
         state.settings.min_version,
         keep_mock=state.settings.keep_mock,
     )
 
-    # we don't have any relative rewrites
-    if node.level != 0 or node.module is None:
-        return
-
-    mod = node.module
-
-    removal_idxs = []
-    if node.col_offset == 0:
-        removals_for_mod = removals.get(mod)
-        if removals_for_mod is not None:
-            removal_idxs = [
-                i
-                for i, alias in enumerate(node.names)
-                if not alias.asname and alias.name in removals_for_mod
-            ]
-
+    to_from = []
     exact_moves = []
     for i, alias in enumerate(node.names):
-        new_mod = exact.get((mod, alias.name))
+        new_mod = mods.get(alias.name)
         if new_mod is not None:
-            exact_moves.append((i, new_mod, alias))
+            alias_base, _, _ = alias.name.partition('.')
+            new_mod_base, _, new_sym = new_mod.rpartition('.')
+            if new_mod_base and new_sym == alias_base:
+                to_from.append((i, new_mod_base, new_sym, alias))
+            elif alias.asname is not None:
+                exact_moves.append((i, new_mod, alias))
 
-    module_moves = []
-    for i, alias in enumerate(node.names):
-        new_mod = mods.get(f'{node.module}.{alias.name}')
-        if new_mod is not None and (alias.asname or alias.name == new_mod):
-            module_moves.append((i, new_mod, alias))
-
-    if len(removal_idxs) == len(node.names):
-        yield ast_to_offset(node), _remove_import
-    elif (
-            len(exact_moves) == len(node.names) and
-            len({mod for _, mod, _ in exact_moves}) == 1
-    ):
-        _, modname, _ = exact_moves[0]
-        func = functools.partial(_replace_from_modname, modname=modname)
-        yield ast_to_offset(node), func
-    elif removal_idxs or exact_moves or module_moves:
+    if to_from or exact_moves:
         func = functools.partial(
-            _replace_from_mixed,
-            removal_idxs=removal_idxs,
+            _replace_import,
             exact_moves=exact_moves,
-            module_moves=module_moves,
+            to_from=to_from,
         )
         yield ast_to_offset(node), func
-    elif mod in mods:
-        func = functools.partial(_replace_from_modname, modname=mods[mod])
-        yield ast_to_offset(node), func
+
+
+# END GENERATED
+
+
+@functools.cache
+def _for_version(
+        version: tuple[int, ...],
+        *,
+        keep_mock: bool,
+) -> tuple[
+        Mapping[str, set[str]],
+        Mapping[tuple[str, str], str],
+        Mapping[str, str],
+]:
+    removals = collections.defaultdict(set)
+    for ver, ver_removals in REMOVALS.items():
+        if ver <= version:
+            for base, names in ver_removals.items():
+                removals[base].update(names)
+
+    exact = {}
+    for ver, ver_exact in REPLACE_EXACT.items():
+        if ver <= version:
+            exact.update(ver_exact)
+
+    mods = {**REPLACE_MODS}
+    if not keep_mock:
+        exact['mock', 'mock'] = 'unittest'
+        mods.update({
+            'mock': 'unittest.mock',
+            'mock.mock': 'unittest.mock',
+        })
+
+    return removals, exact, mods
 
 
 def _replace_import(
@@ -588,33 +613,8 @@ def _replace_import(
                 del tokens[j:part_end + 1]
 
 
-@register(ast.Import)
-def visit_Import(
-        state: State,
-        node: ast.Import,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    _, _, mods = _for_version(
-        state.settings.min_version,
-        keep_mock=state.settings.keep_mock,
-    )
-
-    to_from = []
-    exact_moves = []
-    for i, alias in enumerate(node.names):
-        new_mod = mods.get(alias.name)
-        if new_mod is not None:
-            alias_base, _, _ = alias.name.partition('.')
-            new_mod_base, _, new_sym = new_mod.rpartition('.')
-            if new_mod_base and new_sym == alias_base:
-                to_from.append((i, new_mod_base, new_sym, alias))
-            elif alias.asname is not None:
-                exact_moves.append((i, new_mod, alias))
-
-    if to_from or exact_moves:
-        func = functools.partial(
-            _replace_import,
-            exact_moves=exact_moves,
-            to_from=to_from,
-        )
-        yield ast_to_offset(node), func
+def _alias_to_s(alias: ast.alias) -> str:
+    if alias.asname:
+        return f'{alias.name} as {alias.asname}'
+    else:
+        return alias.name

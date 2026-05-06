@@ -17,17 +17,17 @@ from pyupgrade import _plugins
 Version = tuple[int, ...]
 
 
+class State(NamedTuple):
+    settings: Settings
+    from_imports: dict[str, set[str]]
+    in_annotation: bool = False
+
+
 class Settings(NamedTuple):
     min_version: Version = (3,)
     keep_percent_format: bool = False
     keep_mock: bool = False
     keep_runtime_typing: bool = False
-
-
-class State(NamedTuple):
-    settings: Settings
-    from_imports: dict[str, set[str]]
-    in_annotation: bool = False
 
 
 AST_T = TypeVar('AST_T', bound=ast.AST)
@@ -54,17 +54,6 @@ RECORD_FROM_IMPORTS = frozenset((
 
 FUNCS: ASTCallbackMapping  # python/mypy#17566
 FUNCS = collections.defaultdict(list)  # type: ignore[assignment]
-
-
-def register(tp: type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
-    def register_decorator(func: ASTFunc[AST_T]) -> ASTFunc[AST_T]:
-        FUNCS[tp].append(func)
-        return func
-    return register_decorator
-
-
-class ASTCallbackMapping(Protocol):
-    def __getitem__(self, tp: type[AST_T]) -> list[ASTFunc[AST_T]]: ...
 
 
 def visit(
@@ -111,6 +100,17 @@ def visit(
                     if isinstance(value, ast.AST):
                         nodes.append((next_state, value, node))
     return ret
+
+
+class ASTCallbackMapping(Protocol):
+    def __getitem__(self, tp: type[AST_T]) -> list[ASTFunc[AST_T]]: ...
+
+
+def register(tp: type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
+    def register_decorator(func: ASTFunc[AST_T]) -> ASTFunc[AST_T]:
+        FUNCS[tp].append(func)
+        return func
+    return register_decorator
 
 
 def _import_plugins() -> None:

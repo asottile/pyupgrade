@@ -20,15 +20,28 @@ from pyupgrade._token_helpers import replace_call
 SIX_NATIVE_STR = frozenset(('ensure_str', 'ensure_text', 'text_type'))
 
 
-def _fix_literal(i: int, tokens: list[Token], *, empty: str) -> None:
-    j = find_op(tokens, i, '(')
-    func_args, end = parse_call_args(tokens, j)
-    if any(tok.name == 'NL' for tok in tokens[i:end]):
-        return
-    if func_args:
-        replace_call(tokens, i, end, func_args, '{args[0]}')
-    else:
-        tokens[i:end] = [tokens[i]._replace(name='STRING', src=empty)]
+@register(ast.Call)
+def visit_Call(
+        state: State,
+        node: ast.Call,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    if is_a_native_literal_call(node, state.from_imports):
+        func = functools.partial(_fix_literal, empty="''")
+        yield ast_to_offset(node), func
+    elif (
+            isinstance(node.func, ast.Name) and node.func.id == 'bytes' and
+            not node.keywords and not has_starargs(node) and
+            (
+                len(node.args) == 0 or (
+                    len(node.args) == 1 and
+                    isinstance(node.args[0], ast.Constant) and
+                    isinstance(node.args[0].value, bytes)
+                )
+            )
+    ):
+        func = functools.partial(_fix_literal, empty="b''")
+        yield ast_to_offset(node), func
 
 
 def is_a_native_literal_call(
@@ -53,25 +66,12 @@ def is_a_native_literal_call(
     )
 
 
-@register(ast.Call)
-def visit_Call(
-        state: State,
-        node: ast.Call,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    if is_a_native_literal_call(node, state.from_imports):
-        func = functools.partial(_fix_literal, empty="''")
-        yield ast_to_offset(node), func
-    elif (
-            isinstance(node.func, ast.Name) and node.func.id == 'bytes' and
-            not node.keywords and not has_starargs(node) and
-            (
-                len(node.args) == 0 or (
-                    len(node.args) == 1 and
-                    isinstance(node.args[0], ast.Constant) and
-                    isinstance(node.args[0].value, bytes)
-                )
-            )
-    ):
-        func = functools.partial(_fix_literal, empty="b''")
-        yield ast_to_offset(node), func
+def _fix_literal(i: int, tokens: list[Token], *, empty: str) -> None:
+    j = find_op(tokens, i, '(')
+    func_args, end = parse_call_args(tokens, j)
+    if any(tok.name == 'NL' for tok in tokens[i:end]):
+        return
+    if func_args:
+        replace_call(tokens, i, end, func_args, '{args[0]}')
+    else:
+        tokens[i:end] = [tokens[i]._replace(name='STRING', src=empty)]

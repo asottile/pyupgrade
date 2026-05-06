@@ -24,18 +24,6 @@ _TYPES = {
 }
 
 
-def _rewrite_type_of_primitive(
-        i: int,
-        tokens: list[Token],
-        *,
-        src: str,
-) -> None:
-    open_paren = find_op(tokens, i + 1, '(')
-    j = find_closing_bracket(tokens, open_paren)
-    tokens[i] = tokens[i]._replace(src=src)
-    del tokens[i + 1:j + 1]
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -54,3 +42,15 @@ def visit_Call(
             src=_TYPES[type(node.args[0].value)],
         )
         yield ast_to_offset(node), func
+
+
+def _rewrite_type_of_primitive(
+        i: int,
+        tokens: list[Token],
+        *,
+        src: str,
+) -> None:
+    open_paren = find_op(tokens, i + 1, '(')
+    j = find_closing_bracket(tokens, open_paren)
+    tokens[i] = tokens[i]._replace(src=src)
+    del tokens[i + 1:j + 1]

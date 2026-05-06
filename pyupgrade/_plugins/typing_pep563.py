@@ -16,6 +16,22 @@ from pyupgrade._data import Token
 from pyupgrade._data import TokenFunc
 
 
+def _visit_func(
+        state: State,
+        node: ast.AsyncFunctionDef | ast.FunctionDef,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    if not _supported_version(state):
+        return
+
+    yield from _process_args([node.args.vararg, node.args.kwarg])
+    yield from _process_args(node.args.args)
+    yield from _process_args(node.args.kwonlyargs)
+    yield from _process_args(node.args.posonlyargs)
+    if node.returns is not None:
+        yield from _replace_string_literal(node.returns)
+
+
 def _supported_version(state: State) -> bool:
     return (
         state.settings.min_version >= (3, 14) or
@@ -23,36 +39,34 @@ def _supported_version(state: State) -> bool:
     )
 
 
-def _dequote(i: int, tokens: list[Token], *, new: str) -> None:
-    end = i + 1
-    for j in range(end, len(tokens)):
-        if tokens[j].name == 'STRING':
-            end = j + 1
-        elif tokens[j].name not in NON_CODING_TOKENS:
-            break
-    else:
-        raise AssertionError('past end?')
-    tokens[i:end] = [tokens[i]._replace(src=new)]
+def _process_args(
+        args: Sequence[ast.arg | None],
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    for arg in args:
+        if arg is not None and arg.annotation is not None:
+            yield from _replace_string_literal(arg.annotation)
 
 
-def _get_name(node: ast.expr) -> str:
-    if isinstance(node, ast.Name):
-        return node.id
-    elif isinstance(node, ast.Attribute):
-        return node.attr
-    else:
-        raise AssertionError(f'expected Name or Attribute: {ast.dump(node)}')
-
-
-def _get_keyword_value(
-        keywords: list[ast.keyword],
-        keyword: str,
-) -> ast.expr | None:
-    for kw in keywords:
-        if kw.arg == keyword:
-            return kw.value
-    else:
-        return None
+def _replace_string_literal(
+        annotation: ast.expr,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    nodes: list[ast.AST] = [annotation]
+    while nodes:
+        node = nodes.pop()
+        if isinstance(node, ast.Call):
+            nodes.extend(_process_call(node))
+        elif isinstance(node, ast.Subscript):
+            nodes.extend(_process_subscript(node))
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            func = functools.partial(_dequote, new=node.value)
+            yield ast_to_offset(node), func
+        else:
+            for name in node._fields:
+                value = getattr(node, name)
+                if isinstance(value, ast.AST):
+                    nodes.append(value)
+                elif isinstance(value, list):
+                    nodes.extend(value)
 
 
 def _process_call(node: ast.Call) -> Iterable[ast.AST]:
@@ -99,6 +113,17 @@ def _process_call(node: ast.Call) -> Iterable[ast.AST]:
                 yield keyword_value
 
 
+def _get_keyword_value(
+        keywords: list[ast.keyword],
+        keyword: str,
+) -> ast.expr | None:
+    for kw in keywords:
+        if kw.arg == keyword:
+            return kw.value
+    else:
+        return None
+
+
 def _process_subscript(node: ast.Subscript) -> Iterable[ast.AST]:
     name = _get_name(node.value)
     if name == 'Annotated':
@@ -108,50 +133,25 @@ def _process_subscript(node: ast.Subscript) -> Iterable[ast.AST]:
         yield node.slice
 
 
-def _replace_string_literal(
-        annotation: ast.expr,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    nodes: list[ast.AST] = [annotation]
-    while nodes:
-        node = nodes.pop()
-        if isinstance(node, ast.Call):
-            nodes.extend(_process_call(node))
-        elif isinstance(node, ast.Subscript):
-            nodes.extend(_process_subscript(node))
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            func = functools.partial(_dequote, new=node.value)
-            yield ast_to_offset(node), func
-        else:
-            for name in node._fields:
-                value = getattr(node, name)
-                if isinstance(value, ast.AST):
-                    nodes.append(value)
-                elif isinstance(value, list):
-                    nodes.extend(value)
+def _get_name(node: ast.expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    elif isinstance(node, ast.Attribute):
+        return node.attr
+    else:
+        raise AssertionError(f'expected Name or Attribute: {ast.dump(node)}')
 
 
-def _process_args(
-        args: Sequence[ast.arg | None],
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    for arg in args:
-        if arg is not None and arg.annotation is not None:
-            yield from _replace_string_literal(arg.annotation)
-
-
-def _visit_func(
-        state: State,
-        node: ast.AsyncFunctionDef | ast.FunctionDef,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    if not _supported_version(state):
-        return
-
-    yield from _process_args([node.args.vararg, node.args.kwarg])
-    yield from _process_args(node.args.args)
-    yield from _process_args(node.args.kwonlyargs)
-    yield from _process_args(node.args.posonlyargs)
-    if node.returns is not None:
-        yield from _replace_string_literal(node.returns)
+def _dequote(i: int, tokens: list[Token], *, new: str) -> None:
+    end = i + 1
+    for j in range(end, len(tokens)):
+        if tokens[j].name == 'STRING':
+            end = j + 1
+        elif tokens[j].name not in NON_CODING_TOKENS:
+            break
+    else:
+        raise AssertionError('past end?')
+    tokens[i:end] = [tokens[i]._replace(src=new)]
 
 
 register(ast.AsyncFunctionDef)(_visit_func)

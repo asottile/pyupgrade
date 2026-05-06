@@ -16,40 +16,6 @@ from pyupgrade._token_helpers import find_and_replace_call
 from pyupgrade._token_helpers import find_op
 
 
-def _remove_call(i: int, tokens: list[Token]) -> None:
-    i = find_op(tokens, i, '(')
-    j = find_op(tokens, i, ')')
-    del tokens[i:j + 1]
-
-
-def _is_literal_kwarg(
-        keyword: ast.keyword, name: str, value: bool | None,
-) -> bool:
-    return (
-        keyword.arg == name and
-        isinstance(keyword.value, ast.Constant) and
-        keyword.value.value is value
-    )
-
-
-def _eligible(keywords: list[ast.keyword]) -> bool:
-    if len(keywords) == 1:
-        return _is_literal_kwarg(keywords[0], 'maxsize', None)
-    elif len(keywords) == 2:
-        return (
-            (
-                _is_literal_kwarg(keywords[0], 'maxsize', None) and
-                _is_literal_kwarg(keywords[1], 'typed', False)
-            ) or
-            (
-                _is_literal_kwarg(keywords[1], 'maxsize', None) and
-                _is_literal_kwarg(keywords[0], 'typed', False)
-            )
-        )
-    else:
-        return False
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -81,3 +47,37 @@ def visit_Call(
             find_and_replace_call, template='functools.cache',
         )
         yield ast_to_offset(node), func
+
+
+def _remove_call(i: int, tokens: list[Token]) -> None:
+    i = find_op(tokens, i, '(')
+    j = find_op(tokens, i, ')')
+    del tokens[i:j + 1]
+
+
+def _eligible(keywords: list[ast.keyword]) -> bool:
+    if len(keywords) == 1:
+        return _is_literal_kwarg(keywords[0], 'maxsize', None)
+    elif len(keywords) == 2:
+        return (
+            (
+                _is_literal_kwarg(keywords[0], 'maxsize', None) and
+                _is_literal_kwarg(keywords[1], 'typed', False)
+            ) or
+            (
+                _is_literal_kwarg(keywords[1], 'maxsize', None) and
+                _is_literal_kwarg(keywords[0], 'typed', False)
+            )
+        )
+    else:
+        return False
+
+
+def _is_literal_kwarg(
+        keyword: ast.keyword, name: str, value: bool | None,
+) -> bool:
+    return (
+        keyword.arg == name and
+        isinstance(keyword.value, ast.Constant) and
+        keyword.value.value is value
+    )

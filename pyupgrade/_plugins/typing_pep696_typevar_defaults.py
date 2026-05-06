@@ -15,27 +15,6 @@ from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 
 
-def _fix_typevar_default(i: int, tokens: list[Token]) -> None:
-    j = find_op(tokens, i, '[')
-    args, end = parse_call_args(tokens, j)
-    # remove the trailing `None` arguments
-    del tokens[args[0][1]:args[-1][1]]
-
-
-def _should_rewrite(state: State) -> bool:
-    return (
-        state.settings.min_version >= (3, 13) or (
-            not state.settings.keep_runtime_typing and
-            state.in_annotation and
-            'annotations' in state.from_imports['__future__']
-        )
-    )
-
-
-def _is_none(node: ast.AST) -> bool:
-    return isinstance(node, ast.Constant) and node.value is None
-
-
 @register(ast.Subscript)
 def visit_Subscript(
         state: State,
@@ -70,3 +49,24 @@ def visit_Subscript(
             _is_none(node.slice.elts[1])
     ):
         yield ast_to_offset(node), _fix_typevar_default
+
+
+def _should_rewrite(state: State) -> bool:
+    return (
+        state.settings.min_version >= (3, 13) or (
+            not state.settings.keep_runtime_typing and
+            state.in_annotation and
+            'annotations' in state.from_imports['__future__']
+        )
+    )
+
+
+def _is_none(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and node.value is None
+
+
+def _fix_typevar_default(i: int, tokens: list[Token]) -> None:
+    j = find_op(tokens, i, '[')
+    args, end = parse_call_args(tokens, j)
+    # remove the trailing `None` arguments
+    del tokens[args[0][1]:args[-1][1]]

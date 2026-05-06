@@ -17,16 +17,6 @@ from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import victims
 
 
-def _fix_shlex_join(i: int, tokens: list[Token], *, arg: ast.expr) -> None:
-    j = find_op(tokens, i, '(')
-    comp_victims = victims(tokens, j, arg, gen=True)
-    k = find_name(tokens, comp_victims.arg_index, 'in') + 1
-    while tokens[k].name in NON_CODING_TOKENS:
-        k += 1
-    tokens[comp_victims.ends[0]:comp_victims.ends[-1] + 1] = [Token('OP', ')')]
-    tokens[i:k] = [Token('CODE', 'shlex.join'), Token('OP', '(')]
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -60,3 +50,13 @@ def visit_Call(
     ):
         func = functools.partial(_fix_shlex_join, arg=node.args[0])
         yield ast_to_offset(node), func
+
+
+def _fix_shlex_join(i: int, tokens: list[Token], *, arg: ast.expr) -> None:
+    j = find_op(tokens, i, '(')
+    comp_victims = victims(tokens, j, arg, gen=True)
+    k = find_name(tokens, comp_victims.arg_index, 'in') + 1
+    while tokens[k].name in NON_CODING_TOKENS:
+        k += 1
+    tokens[comp_victims.ends[0]:comp_victims.ends[-1] + 1] = [Token('OP', ')')]
+    tokens[i:k] = [Token('CODE', 'shlex.join'), Token('OP', '(')]

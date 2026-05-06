@@ -18,49 +18,6 @@ from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_argument
 
 
-def _use_capture_output(
-    i: int,
-    tokens: list[Token],
-    *,
-    stdout_arg_idx: int,
-    stderr_arg_idx: int,
-) -> None:
-    j = find_op(tokens, i, '(')
-    func_args, _ = parse_call_args(tokens, j)
-    if stdout_arg_idx < stderr_arg_idx:
-        delete_argument(stderr_arg_idx, tokens, func_args)
-        replace_argument(
-            stdout_arg_idx,
-            tokens,
-            func_args,
-            new='capture_output=True',
-        )
-    else:
-        replace_argument(
-            stdout_arg_idx,
-            tokens,
-            func_args,
-            new='capture_output=True',
-        )
-        delete_argument(stderr_arg_idx, tokens, func_args)
-
-
-def _replace_universal_newlines_with_text(
-    i: int,
-    tokens: list[Token],
-    *,
-    arg_idx: int,
-) -> None:
-    j = find_op(tokens, i, '(')
-    func_args, _ = parse_call_args(tokens, j)
-    for i in range(*func_args[arg_idx]):
-        if tokens[i].src == 'universal_newlines':
-            tokens[i] = tokens[i]._replace(src='text')
-            break
-    else:
-        raise AssertionError('`universal_newlines` argument not found')
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -115,3 +72,46 @@ def visit_Call(
                 stderr_arg_idx=len(node.args) + stderr_idx,
             )
             yield ast_to_offset(node), func
+
+
+def _replace_universal_newlines_with_text(
+    i: int,
+    tokens: list[Token],
+    *,
+    arg_idx: int,
+) -> None:
+    j = find_op(tokens, i, '(')
+    func_args, _ = parse_call_args(tokens, j)
+    for i in range(*func_args[arg_idx]):
+        if tokens[i].src == 'universal_newlines':
+            tokens[i] = tokens[i]._replace(src='text')
+            break
+    else:
+        raise AssertionError('`universal_newlines` argument not found')
+
+
+def _use_capture_output(
+    i: int,
+    tokens: list[Token],
+    *,
+    stdout_arg_idx: int,
+    stderr_arg_idx: int,
+) -> None:
+    j = find_op(tokens, i, '(')
+    func_args, _ = parse_call_args(tokens, j)
+    if stdout_arg_idx < stderr_arg_idx:
+        delete_argument(stderr_arg_idx, tokens, func_args)
+        replace_argument(
+            stdout_arg_idx,
+            tokens,
+            func_args,
+            new='capture_output=True',
+        )
+    else:
+        replace_argument(
+            stdout_arg_idx,
+            tokens,
+            func_args,
+            new='capture_output=True',
+        )
+        delete_argument(stderr_arg_idx, tokens, func_args)

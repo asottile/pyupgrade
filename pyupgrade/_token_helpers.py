@@ -15,70 +15,6 @@ _CLOSING = frozenset(')]}')
 KEYWORDS = frozenset(keyword.kwlist)
 
 
-def immediately_paren(func: str, tokens: list[Token], i: int) -> bool:
-    return tokens[i].src == func and tokens[i + 1].src == '('
-
-
-class Victims(NamedTuple):
-    starts: list[int]
-    ends: list[int]
-    first_comma_index: int | None
-    arg_index: int
-
-
-def is_open(token: Token) -> bool:
-    return token.name == 'OP' and token.src in _OPENING
-
-
-def is_close(token: Token) -> bool:
-    return token.name == 'OP' and token.src in _CLOSING
-
-
-def _find_token(tokens: list[Token], i: int, name: str, src: str) -> int:
-    while not tokens[i].matches(name=name, src=src):
-        i += 1
-    return i
-
-
-def find_name(tokens: list[Token], i: int, src: str) -> int:
-    return _find_token(tokens, i, 'NAME', src)
-
-
-def find_op(tokens: list[Token], i: int, src: str) -> int:
-    return _find_token(tokens, i, 'OP', src)
-
-
-def find_call(tokens: list[Token], i: int) -> int:
-    depth = 0
-    while depth or not tokens[i].matches(name='OP', src='('):
-        if is_open(tokens[i]):  # pragma: >3.12 cover
-            depth += 1
-        elif is_close(tokens[i]):
-            # why max(...)? --
-            # ("something").method(...)
-            #  ^--start   target--^
-            depth = max(depth - 1, 0)
-        i += 1
-    return i
-
-
-def find_end(tokens: list[Token], i: int) -> int:
-    while tokens[i].name != 'NEWLINE':
-        i += 1
-
-    return i + 1
-
-
-def _arg_token_index(tokens: list[Token], i: int, arg: ast.expr) -> int:
-    offset = (arg.lineno, arg.col_offset)
-    while tokens[i].offset != offset:
-        i += 1
-    i += 1
-    while tokens[i].name in NON_CODING_TOKENS:
-        i += 1
-    return i
-
-
 def victims(
         tokens: list[Token],
         start: int,
@@ -142,6 +78,156 @@ def victims(
     return Victims(starts, sorted(set(ends)), first_comma_index, arg_index)
 
 
+class Victims(NamedTuple):
+    starts: list[int]
+    ends: list[int]
+    first_comma_index: int | None
+    arg_index: int
+
+
+def _arg_token_index(tokens: list[Token], i: int, arg: ast.expr) -> int:
+    offset = (arg.lineno, arg.col_offset)
+    while tokens[i].offset != offset:
+        i += 1
+    i += 1
+    while tokens[i].name in NON_CODING_TOKENS:
+        i += 1
+    return i
+
+
+def find_and_replace_call(
+        i: int,
+        tokens: list[Token],
+        *,
+        template: str,
+        parens: tuple[int, ...] = (),
+) -> None:
+    j = find_op(tokens, i, '(')
+    func_args, end = parse_call_args(tokens, j)
+    replace_call(tokens, i, end, func_args, template, parens=parens)
+
+
+def replace_call(
+        tokens: list[Token],
+        start: int,
+        end: int,
+        args: list[tuple[int, int]],
+        tmpl: str,
+        *,
+        parens: Sequence[int] = (),
+) -> None:
+    arg_strs = [arg_str(tokens, *arg) for arg in args]
+    for paren in parens:
+        arg_strs[paren] = f'({arg_strs[paren]})'
+
+    # there are a few edge cases which cause syntax errors when the first
+    # argument contains newlines (especially when moved outside of a natural
+    # continuation context)
+    if _arg_contains_newline(tokens, *args[0]) and 0 not in parens:
+        # this attempts to preserve more of the whitespace by using the
+        # original non-stripped argument string
+        arg_strs[0] = f'({tokens_to_src(tokens[slice(*args[0])])})'
+
+    start_rest = args[0][1] + 1
+    while (
+            start_rest < end and
+            tokens[start_rest].name in {'COMMENT', UNIMPORTANT_WS}
+    ):
+        start_rest += 1
+
+    # Remove trailing comma
+    end_rest = end - 1
+    if tokens[end_rest - 1].matches(name='OP', src=','):
+        end_rest -= 1
+
+    rest = tokens_to_src(tokens[start_rest:end_rest])
+    src = tmpl.format(args=arg_strs, rest=rest)
+    tokens[start:end] = [Token('CODE', src)]
+
+
+def arg_str(tokens: list[Token], start: int, end: int) -> str:
+    return tokens_to_src(tokens[start:end]).strip()
+
+
+def _arg_contains_newline(tokens: list[Token], start: int, end: int) -> bool:
+    while tokens[start].name in {'NL', 'NEWLINE', UNIMPORTANT_WS}:
+        start += 1
+    for i in range(start, end):
+        if tokens[i].name in {'NL', 'NEWLINE'}:
+            return True
+    else:
+        return False
+
+
+def constant_fold_tuple(i: int, tokens: list[Token]) -> None:
+    start = find_op(tokens, i, '(')
+    func_args, end = parse_call_args(tokens, start)
+    arg_strs = [_arg_str_no_comment(tokens, *arg) for arg in func_args]
+
+    unique_args = tuple(dict.fromkeys(arg_strs))
+
+    if len(unique_args) > 1:
+        joined = '({})'.format(', '.join(unique_args))
+    elif tokens[start - 1].name != 'UNIMPORTANT_WS':
+        joined = f' {unique_args[0]}'
+    else:
+        joined = unique_args[0]
+
+    tokens[start:end] = [Token('CODE', joined)]
+
+
+def find_op(tokens: list[Token], i: int, src: str) -> int:
+    return _find_token(tokens, i, 'OP', src)
+
+
+def parse_call_args(
+        tokens: list[Token],
+        i: int,
+) -> tuple[list[tuple[int, int]], int]:
+    args = []
+    depth = 1
+    i += 1
+    arg_start = i
+
+    while depth:
+        if depth == 1 and tokens[i].src == ',':
+            args.append((arg_start, i))
+            arg_start = i + 1
+        elif is_open(tokens[i]):
+            depth += 1
+        elif is_close(tokens[i]):
+            depth -= 1
+            # if we're at the end, append that argument
+            if not depth and tokens_to_src(tokens[arg_start:i]).strip():
+                args.append((arg_start, i))
+
+        i += 1
+
+    return args, i
+
+
+def _arg_str_no_comment(tokens: list[Token], start: int, end: int) -> str:
+    arg_tokens = [
+        token for token in tokens[start:end]
+        if token.name != 'COMMENT'
+    ]
+    return tokens_to_src(arg_tokens).strip()
+
+
+def find_call(tokens: list[Token], i: int) -> int:
+    depth = 0
+    while depth or not tokens[i].matches(name='OP', src='('):
+        if is_open(tokens[i]):  # pragma: >3.12 cover
+            depth += 1
+        elif is_close(tokens[i]):
+            # why max(...)? --
+            # ("something").method(...)
+            #  ^--start   target--^
+            depth = max(depth - 1, 0)
+        i += 1
+    return i
+
+
 def find_closing_bracket(tokens: list[Token], i: int) -> int:
     assert tokens[i].src in _OPENING
     depth = 1
@@ -155,17 +241,6 @@ def find_closing_bracket(tokens: list[Token], i: int) -> int:
     return i - 1
 
 
-def find_block_start(tokens: list[Token], i: int) -> int:
-    depth = 0
-    while depth or not tokens[i].matches(name='OP', src=':'):
-        if is_open(tokens[i]):
-            depth += 1
-        elif is_close(tokens[i]):
-            depth -= 1
-        i += 1
-    return i
-
-
 class Block(NamedTuple):
     start: int
     colon: int
@@ -173,11 +248,20 @@ class Block(NamedTuple):
     end: int
     line: bool
 
-    def _initial_indent(self, tokens: list[Token]) -> int:
-        if tokens[self.start].src.isspace():
-            return len(tokens[self.start].src)
-        else:
-            return 0
+    def dedent(self, tokens: list[Token]) -> None:
+        if self.line:
+            return
+        initial_indent = self._initial_indent(tokens)
+        diff = self._minimum_indent(tokens) - initial_indent
+        for i in range(self.block, self.end):
+            if (
+                    tokens[i - 1].name in ('DEDENT', 'NL', 'NEWLINE') and
+                    tokens[i].name in ('INDENT', UNIMPORTANT_WS)
+            ):
+                # make sure we preserve *at least* the initial indent
+                s = tokens[i].src
+                s = s[:initial_indent] + s[initial_indent + diff:]
+                tokens[i] = tokens[i]._replace(src=s)
 
     def _minimum_indent(self, tokens: list[Token]) -> int:
         block_indent = None
@@ -197,27 +281,6 @@ class Block(NamedTuple):
         assert block_indent is not None
         return block_indent
 
-    def dedent(self, tokens: list[Token]) -> None:
-        if self.line:
-            return
-        initial_indent = self._initial_indent(tokens)
-        diff = self._minimum_indent(tokens) - initial_indent
-        for i in range(self.block, self.end):
-            if (
-                    tokens[i - 1].name in ('DEDENT', 'NL', 'NEWLINE') and
-                    tokens[i].name in ('INDENT', UNIMPORTANT_WS)
-            ):
-                # make sure we preserve *at least* the initial indent
-                s = tokens[i].src
-                s = s[:initial_indent] + s[initial_indent + diff:]
-                tokens[i] = tokens[i]._replace(src=s)
-
-    def replace_condition(self, tokens: list[Token], new: list[Token]) -> None:
-        start = self.start
-        while tokens[start].name == 'UNIMPORTANT_WS':
-            start += 1
-        tokens[start:self.colon] = new
-
     def _trim_end(self, tokens: list[Token]) -> Block:
         """the tokenizer reports the end of the block at the beginning of
         the next block
@@ -236,6 +299,18 @@ class Block(NamedTuple):
                 last_token = i
             i -= 1
         return self._replace(end=last_token + 1)
+
+    def _initial_indent(self, tokens: list[Token]) -> int:
+        if tokens[self.start].src.isspace():
+            return len(tokens[self.start].src)
+        else:
+            return 0
+
+    def replace_condition(self, tokens: list[Token], new: list[Token]) -> None:
+        start = self.start
+        while tokens[start].name == 'UNIMPORTANT_WS':
+            start += 1
+        tokens[start:self.colon] = new
 
     @classmethod
     def find(
@@ -276,6 +351,49 @@ class Block(NamedTuple):
             return cls(start, colon, block, j, line=True)
 
 
+def find_block_start(tokens: list[Token], i: int) -> int:
+    depth = 0
+    while depth or not tokens[i].matches(name='OP', src=':'):
+        if is_open(tokens[i]):
+            depth += 1
+        elif is_close(tokens[i]):
+            depth -= 1
+        i += 1
+    return i
+
+
+def is_open(token: Token) -> bool:
+    return token.name == 'OP' and token.src in _OPENING
+
+
+def is_close(token: Token) -> bool:
+    return token.name == 'OP' and token.src in _CLOSING
+
+
+def find_end(tokens: list[Token], i: int) -> int:
+    while tokens[i].name != 'NEWLINE':
+        i += 1
+
+    return i + 1
+
+
+def find_name(tokens: list[Token], i: int, src: str) -> int:
+    return _find_token(tokens, i, 'NAME', src)
+
+
+def _find_token(tokens: list[Token], i: int, name: str, src: str) -> int:
+    while not tokens[i].matches(name=name, src=src):
+        i += 1
+    return i
+
+
+def remove_brace(tokens: list[Token], i: int) -> None:
+    if _is_on_a_line_by_self(tokens, i):
+        del tokens[i - 1:i + 2]
+    else:
+        del tokens[i]
+
+
 def _is_on_a_line_by_self(tokens: list[Token], i: int) -> bool:
     return (
         tokens[i - 2].name == 'NL' and
@@ -284,11 +402,26 @@ def _is_on_a_line_by_self(tokens: list[Token], i: int) -> bool:
     )
 
 
-def remove_brace(tokens: list[Token], i: int) -> None:
-    if _is_on_a_line_by_self(tokens, i):
-        del tokens[i - 1:i + 2]
+def indented_amount(i: int, tokens: list[Token]) -> str:
+    if i == 0:
+        return ''
+    elif has_space_before(i, tokens):
+        if i >= 2 and tokens[i - 2].name in {'NL', 'NEWLINE', 'DEDENT'}:
+            return tokens[i - 1].src
+        else:  # inline import
+            raise ValueError('not at beginning of line')
+    elif tokens[i - 1].name not in {'NL', 'NEWLINE', 'DEDENT'}:
+        raise ValueError('not at beginning of line')
     else:
-        del tokens[i]
+        return ''
+
+
+def has_space_before(i: int, tokens: list[Token]) -> bool:
+    return i >= 1 and tokens[i - 1].name in {UNIMPORTANT_WS, 'INDENT'}
+
+
+def immediately_paren(func: str, tokens: list[Token], i: int) -> bool:
+    return tokens[i].src == func and tokens[i + 1].src == '('
 
 
 def remove_base_class(i: int, tokens: list[Token]) -> None:
@@ -353,104 +486,6 @@ def remove_decorator(i: int, tokens: list[Token]) -> None:
     del tokens[i - 1:end + 1]
 
 
-def parse_call_args(
-        tokens: list[Token],
-        i: int,
-) -> tuple[list[tuple[int, int]], int]:
-    args = []
-    depth = 1
-    i += 1
-    arg_start = i
-
-    while depth:
-        if depth == 1 and tokens[i].src == ',':
-            args.append((arg_start, i))
-            arg_start = i + 1
-        elif is_open(tokens[i]):
-            depth += 1
-        elif is_close(tokens[i]):
-            depth -= 1
-            # if we're at the end, append that argument
-            if not depth and tokens_to_src(tokens[arg_start:i]).strip():
-                args.append((arg_start, i))
-
-        i += 1
-
-    return args, i
-
-
-def arg_str(tokens: list[Token], start: int, end: int) -> str:
-    return tokens_to_src(tokens[start:end]).strip()
-
-
-def _arg_str_no_comment(tokens: list[Token], start: int, end: int) -> str:
-    arg_tokens = [
-        token for token in tokens[start:end]
-        if token.name != 'COMMENT'
-    ]
-    return tokens_to_src(arg_tokens).strip()
-
-
-def _arg_contains_newline(tokens: list[Token], start: int, end: int) -> bool:
-    while tokens[start].name in {'NL', 'NEWLINE', UNIMPORTANT_WS}:
-        start += 1
-    for i in range(start, end):
-        if tokens[i].name in {'NL', 'NEWLINE'}:
-            return True
-    else:
-        return False
-
-
-def replace_call(
-        tokens: list[Token],
-        start: int,
-        end: int,
-        args: list[tuple[int, int]],
-        tmpl: str,
-        *,
-        parens: Sequence[int] = (),
-) -> None:
-    arg_strs = [arg_str(tokens, *arg) for arg in args]
-    for paren in parens:
-        arg_strs[paren] = f'({arg_strs[paren]})'
-
-    # there are a few edge cases which cause syntax errors when the first
-    # argument contains newlines (especially when moved outside of a natural
-    # continuation context)
-    if _arg_contains_newline(tokens, *args[0]) and 0 not in parens:
-        # this attempts to preserve more of the whitespace by using the
-        # original non-stripped argument string
-        arg_strs[0] = f'({tokens_to_src(tokens[slice(*args[0])])})'
-
-    start_rest = args[0][1] + 1
-    while (
-            start_rest < end and
-            tokens[start_rest].name in {'COMMENT', UNIMPORTANT_WS}
-    ):
-        start_rest += 1
-
-    # Remove trailing comma
-    end_rest = end - 1
-    if tokens[end_rest - 1].matches(name='OP', src=','):
-        end_rest -= 1
-
-    rest = tokens_to_src(tokens[start_rest:end_rest])
-    src = tmpl.format(args=arg_strs, rest=rest)
-    tokens[start:end] = [Token('CODE', src)]
-
-
-def find_and_replace_call(
-        i: int,
-        tokens: list[Token],
-        *,
-        template: str,
-        parens: tuple[int, ...] = (),
-) -> None:
-    j = find_op(tokens, i, '(')
-    func_args, end = parse_call_args(tokens, j)
-    replace_call(tokens, i, end, func_args, template, parens=parens)
-
-
 def replace_name(i: int, tokens: list[Token], *, name: str, new: str) -> None:
     # preserve token offset in case we need to match it later
     new_token = tokens[i]._replace(name='CODE', src=new)
@@ -490,38 +525,3 @@ def replace_argument(
     while tokens[start_idx].name in {'UNIMPORTANT_WS', 'NL'}:
         start_idx += 1
     tokens[start_idx:end_idx] = [Token('SRC', new)]
-
-
-def constant_fold_tuple(i: int, tokens: list[Token]) -> None:
-    start = find_op(tokens, i, '(')
-    func_args, end = parse_call_args(tokens, start)
-    arg_strs = [_arg_str_no_comment(tokens, *arg) for arg in func_args]
-
-    unique_args = tuple(dict.fromkeys(arg_strs))
-
-    if len(unique_args) > 1:
-        joined = '({})'.format(', '.join(unique_args))
-    elif tokens[start - 1].name != 'UNIMPORTANT_WS':
-        joined = f' {unique_args[0]}'
-    else:
-        joined = unique_args[0]
-
-    tokens[start:end] = [Token('CODE', joined)]
-
-
-def has_space_before(i: int, tokens: list[Token]) -> bool:
-    return i >= 1 and tokens[i - 1].name in {UNIMPORTANT_WS, 'INDENT'}
-
-
-def indented_amount(i: int, tokens: list[Token]) -> str:
-    if i == 0:
-        return ''
-    elif has_space_before(i, tokens):
-        if i >= 2 and tokens[i - 2].name in {'NL', 'NEWLINE', 'DEDENT'}:
-            return tokens[i - 1].src
-        else:  # inline import
-            raise ValueError('not at beginning of line')
-    elif tokens[i - 1].name not in {'NL', 'NEWLINE', 'DEDENT'}:
-        raise ValueError('not at beginning of line')
-    else:
-        return ''

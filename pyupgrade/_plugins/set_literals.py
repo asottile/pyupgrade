@@ -20,6 +20,28 @@ from pyupgrade._token_helpers import victims
 SET_TRANSFORM = (ast.List, ast.ListComp, ast.GeneratorExp, ast.Tuple)
 
 
+@register(ast.Call)
+def visit_Call(
+        state: State,
+        node: ast.Call,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    if (
+            not isinstance(parent, ast.FormattedValue) and
+            isinstance(node.func, ast.Name) and
+            node.func.id == 'set' and
+            len(node.args) == 1 and
+            not node.keywords and
+            isinstance(node.args[0], SET_TRANSFORM)
+    ):
+        arg, = node.args
+        if isinstance(arg, (ast.List, ast.Tuple)) and not arg.elts:
+            yield ast_to_offset(node.func), _fix_set_empty_literal
+        else:
+            func = functools.partial(_fix_set_literal, arg=arg)
+            yield ast_to_offset(node.func), func
+
+
 def _fix_set_empty_literal(i: int, tokens: list[Token]) -> None:
     i = find_op(tokens, i, '(')
     j = find_closing_bracket(tokens, i)
@@ -41,25 +63,3 @@ def _fix_set_literal(i: int, tokens: list[Token], *, arg: ast.expr) -> None:
     for index in reversed(set_victims.starts + set_victims.ends):
         remove_brace(tokens, index)
     tokens[i:i + 2] = [Token('OP', '{')]
-
-
-@register(ast.Call)
-def visit_Call(
-        state: State,
-        node: ast.Call,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    if (
-            not isinstance(parent, ast.FormattedValue) and
-            isinstance(node.func, ast.Name) and
-            node.func.id == 'set' and
-            len(node.args) == 1 and
-            not node.keywords and
-            isinstance(node.args[0], SET_TRANSFORM)
-    ):
-        arg, = node.args
-        if isinstance(arg, (ast.List, ast.Tuple)) and not arg.elts:
-            yield ast_to_offset(node.func), _fix_set_empty_literal
-        else:
-            func = functools.partial(_fix_set_literal, arg=arg)
-            yield ast_to_offset(node.func), func

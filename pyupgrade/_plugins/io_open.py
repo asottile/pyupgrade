@@ -13,11 +13,6 @@ from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_op
 
 
-def _replace_io_open(i: int, tokens: list[Token]) -> None:
-    j = find_op(tokens, i, '(')
-    tokens[i:j] = [tokens[i]._replace(name='NAME', src='open')]
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -31,3 +26,8 @@ def visit_Call(
             node.func.attr == 'open'
     ):
         yield ast_to_offset(node.func), _replace_io_open
+
+
+def _replace_io_open(i: int, tokens: list[Token]) -> None:
+    j = find_op(tokens, i, '(')
+    tokens[i:j] = [tokens[i]._replace(name='NAME', src='open')]

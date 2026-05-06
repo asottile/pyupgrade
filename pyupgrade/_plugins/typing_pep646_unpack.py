@@ -16,15 +16,6 @@ from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import remove_brace
 
 
-def _replace_unpack_with_star(i: int, tokens: list[Token]) -> None:
-    start = find_op(tokens, i, '[')
-    end = find_closing_bracket(tokens, start)
-
-    remove_brace(tokens, end)
-    # replace `Unpack` with `*`
-    tokens[i:start + 1] = [tokens[i]._replace(name='OP', src='*')]
-
-
 @register(ast.Subscript)
 def visit_Subscript(
     state: State,
@@ -37,6 +28,24 @@ def visit_Subscript(
     if is_name_attr(node.value, state.from_imports, ('typing',), ('Unpack',)):
         if isinstance(parent, ast.Subscript):
             yield ast_to_offset(node.value), _replace_unpack_with_star
+
+
+@register(ast.AsyncFunctionDef)
+def visit_AsyncFunctionDef(
+        state: State,
+        node: ast.AsyncFunctionDef,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    yield from _visit_func(state, node, parent)
+
+
+@register(ast.FunctionDef)
+def visit_FunctionDef(
+        state: State,
+        node: ast.FunctionDef,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    yield from _visit_func(state, node, parent)
 
 
 def _visit_func(
@@ -60,19 +69,10 @@ def _visit_func(
         yield ast_to_offset(vararg.annotation.value), _replace_unpack_with_star
 
 
-@register(ast.AsyncFunctionDef)
-def visit_AsyncFunctionDef(
-        state: State,
-        node: ast.AsyncFunctionDef,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    yield from _visit_func(state, node, parent)
+def _replace_unpack_with_star(i: int, tokens: list[Token]) -> None:
+    start = find_op(tokens, i, '[')
+    end = find_closing_bracket(tokens, start)
 
-
-@register(ast.FunctionDef)
-def visit_FunctionDef(
-        state: State,
-        node: ast.FunctionDef,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    yield from _visit_func(state, node, parent)
+    remove_brace(tokens, end)
+    # replace `Unpack` with `*`
+    tokens[i:start + 1] = [tokens[i]._replace(name='OP', src='*')]

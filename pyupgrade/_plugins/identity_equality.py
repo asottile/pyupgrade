@@ -13,6 +13,31 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 
 
+@register(ast.Compare)
+def visit_Compare(
+        state: State,
+        node: ast.Compare,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    left = node.left
+    for op, right in zip(node.ops, node.comparators):
+        if (
+                isinstance(op, (ast.Is, ast.IsNot)) and
+                (_is_literal(left) or _is_literal(right))
+        ):
+            func = functools.partial(_fix_is_literal, op=op)
+            yield ast_to_offset(right), func
+        left = right
+
+
+def _is_literal(n: ast.AST) -> bool:
+    return (
+        isinstance(n, ast.Constant) and
+        n.value not in {True, False} and
+        isinstance(n.value, (str, bytes, int, float))
+    )
+
+
 def _fix_is_literal(
         i: int,
         tokens: list[Token],
@@ -31,28 +56,3 @@ def _fix_is_literal(
             tokens[i] = Token('EMPTY', '')
             i += 1
         tokens[i] = Token('EMPTY', '')
-
-
-def _is_literal(n: ast.AST) -> bool:
-    return (
-        isinstance(n, ast.Constant) and
-        n.value not in {True, False} and
-        isinstance(n.value, (str, bytes, int, float))
-    )
-
-
-@register(ast.Compare)
-def visit_Compare(
-        state: State,
-        node: ast.Compare,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    left = node.left
-    for op, right in zip(node.ops, node.comparators):
-        if (
-                isinstance(op, (ast.Is, ast.IsNot)) and
-                (_is_literal(left) or _is_literal(right))
-        ):
-            func = functools.partial(_fix_is_literal, op=op)
-            yield ast_to_offset(right), func
-        left = right

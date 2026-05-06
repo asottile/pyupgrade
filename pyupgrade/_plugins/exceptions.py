@@ -39,6 +39,31 @@ _TARGETS = (
 )
 
 
+@register(ast.Try)
+def visit_Try(
+        state: State,
+        node: ast.Try,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    targets = [
+        target for target in _TARGETS
+        if state.settings.min_version >= target.min_version
+    ]
+    for handler in node.handlers:
+        if isinstance(handler.type, ast.Tuple):
+            at_idx = {}
+            for i, elt in enumerate(handler.type.elts):
+                target = _get_rewrite(elt, state, targets)
+                if target is not None:
+                    at_idx[i] = target
+
+            if at_idx:
+                func = functools.partial(_fix_except, at_idx=at_idx)
+                yield ast_to_offset(handler.type), func
+        elif handler.type is not None:
+            yield from _alias_cbs(handler.type, state, targets)
+
+
 def _fix_except(
         i: int,
         tokens: list[Token],
@@ -52,6 +77,37 @@ def _fix_except(
         tokens[slice(*func_args[i])] = [Token('NAME', target.target)]
 
     constant_fold_tuple(start, tokens)
+
+
+@register(ast.Raise)
+def visit_Raise(
+        state: State,
+        node: ast.Raise,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    targets = [
+        target for target in _TARGETS
+        if state.settings.min_version >= target.min_version
+    ]
+    if node.exc is not None:
+        yield from _alias_cbs(node.exc, state, targets)
+        if isinstance(node.exc, ast.Call):
+            yield from _alias_cbs(node.exc.func, state, targets)
+
+
+def _alias_cbs(
+        node: ast.expr,
+        state: State,
+        targets: list[_Target],
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    target = _get_rewrite(node, state, targets)
+    if target is not None:
+        func = functools.partial(
+            replace_name,
+            name=target.name,
+            new=target.target,
+        )
+        yield ast_to_offset(node), func
 
 
 def _get_rewrite(
@@ -83,59 +139,3 @@ def _get_rewrite(
             return target
     else:
         return None
-
-
-def _alias_cbs(
-        node: ast.expr,
-        state: State,
-        targets: list[_Target],
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    target = _get_rewrite(node, state, targets)
-    if target is not None:
-        func = functools.partial(
-            replace_name,
-            name=target.name,
-            new=target.target,
-        )
-        yield ast_to_offset(node), func
-
-
-@register(ast.Raise)
-def visit_Raise(
-        state: State,
-        node: ast.Raise,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    targets = [
-        target for target in _TARGETS
-        if state.settings.min_version >= target.min_version
-    ]
-    if node.exc is not None:
-        yield from _alias_cbs(node.exc, state, targets)
-        if isinstance(node.exc, ast.Call):
-            yield from _alias_cbs(node.exc.func, state, targets)
-
-
-@register(ast.Try)
-def visit_Try(
-        state: State,
-        node: ast.Try,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    targets = [
-        target for target in _TARGETS
-        if state.settings.min_version >= target.min_version
-    ]
-    for handler in node.handlers:
-        if isinstance(handler.type, ast.Tuple):
-            at_idx = {}
-            for i, elt in enumerate(handler.type.elts):
-                target = _get_rewrite(elt, state, targets)
-                if target is not None:
-                    at_idx[i] = target
-
-            if at_idx:
-                func = functools.partial(_fix_except, at_idx=at_idx)
-                yield ast_to_offset(handler.type), func
-        elif handler.type is not None:
-            yield from _alias_cbs(handler.type, state, targets)

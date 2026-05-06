@@ -21,6 +21,39 @@ from pyupgrade._token_helpers import remove_decorator
 from pyupgrade._token_helpers import replace_call
 
 
+@register(ast.ClassDef)
+def visit_ClassDef(
+        state: State,
+        node: ast.ClassDef,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    for decorator in node.decorator_list:
+        if (
+                isinstance(decorator, ast.Call) and
+                is_name_attr(
+                    decorator.func,
+                    state.from_imports,
+                    ('six',),
+                    ('add_metaclass',),
+                ) and
+                not has_starargs(decorator)
+        ):
+            yield ast_to_offset(decorator), _fix_add_metaclass
+
+    if (
+            len(node.bases) == 1 and
+            isinstance(node.bases[0], ast.Call) and
+            is_name_attr(
+                node.bases[0].func,
+                state.from_imports,
+                ('six',),
+                ('with_metaclass',),
+            ) and
+            not has_starargs(node.bases[0])
+    ):
+        yield ast_to_offset(node.bases[0]), _fix_with_metaclass
+
+
 def _fix_add_metaclass(i: int, tokens: list[Token]) -> None:
     j = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, j)
@@ -68,36 +101,3 @@ def _fix_with_metaclass(i: int, tokens: list[Token]) -> None:
     else:
         tmpl = '{rest}, metaclass={args[0]}'
     replace_call(tokens, i, end, func_args, tmpl)
-
-
-@register(ast.ClassDef)
-def visit_ClassDef(
-        state: State,
-        node: ast.ClassDef,
-        parent: ast.AST,
-) -> Iterable[tuple[Offset, TokenFunc]]:
-    for decorator in node.decorator_list:
-        if (
-                isinstance(decorator, ast.Call) and
-                is_name_attr(
-                    decorator.func,
-                    state.from_imports,
-                    ('six',),
-                    ('add_metaclass',),
-                ) and
-                not has_starargs(decorator)
-        ):
-            yield ast_to_offset(decorator), _fix_add_metaclass
-
-    if (
-            len(node.bases) == 1 and
-            isinstance(node.bases[0], ast.Call) and
-            is_name_attr(
-                node.bases[0].func,
-                state.from_imports,
-                ('six',),
-                ('with_metaclass',),
-            ) and
-            not has_starargs(node.bases[0])
-    ):
-        yield ast_to_offset(node.bases[0]), _fix_with_metaclass

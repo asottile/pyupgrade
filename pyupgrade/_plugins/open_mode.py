@@ -35,32 +35,6 @@ MODE_REMOVE_U = frozenset(_permute('rUb'))
 MODE_REPLACE = MODE_REPLACE_R | MODE_REMOVE_T | MODE_REMOVE_U
 
 
-class FunctionArg(NamedTuple):
-    arg_idx: int
-    value: ast.expr
-
-
-def _fix_open_mode(i: int, tokens: list[Token], *, arg_idx: int) -> None:
-    j = find_op(tokens, i, '(')
-    func_args, end = parse_call_args(tokens, j)
-    mode = tokens_to_src(tokens[slice(*func_args[arg_idx])])
-    mode_stripped = mode.split('=')[-1]
-    mode_stripped = ast.literal_eval(mode_stripped.strip())
-    if mode_stripped in MODE_REMOVE:
-        delete_argument(arg_idx, tokens, func_args)
-    elif mode_stripped in MODE_REPLACE_R:
-        new_mode = mode.replace('U', 'r')
-        tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
-    elif mode_stripped in MODE_REMOVE_T:
-        new_mode = mode.replace('t', '')
-        tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
-    elif mode_stripped in MODE_REMOVE_U:
-        new_mode = mode.replace('U', '')
-        tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
-    else:
-        raise AssertionError(f'unreachable: {mode!r}')
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -115,3 +89,29 @@ def visit_Call(
                     arg_idx=len(node.args) + mode.arg_idx,
                 )
                 yield ast_to_offset(node), func
+
+
+def _fix_open_mode(i: int, tokens: list[Token], *, arg_idx: int) -> None:
+    j = find_op(tokens, i, '(')
+    func_args, end = parse_call_args(tokens, j)
+    mode = tokens_to_src(tokens[slice(*func_args[arg_idx])])
+    mode_stripped = mode.split('=')[-1]
+    mode_stripped = ast.literal_eval(mode_stripped.strip())
+    if mode_stripped in MODE_REMOVE:
+        delete_argument(arg_idx, tokens, func_args)
+    elif mode_stripped in MODE_REPLACE_R:
+        new_mode = mode.replace('U', 'r')
+        tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
+    elif mode_stripped in MODE_REMOVE_T:
+        new_mode = mode.replace('t', '')
+        tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
+    elif mode_stripped in MODE_REMOVE_U:
+        new_mode = mode.replace('U', '')
+        tokens[slice(*func_args[arg_idx])] = [Token('SRC', new_mode)]
+    else:
+        raise AssertionError(f'unreachable: {mode!r}')
+
+
+class FunctionArg(NamedTuple):
+    arg_idx: int
+    value: ast.expr

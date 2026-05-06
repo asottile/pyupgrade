@@ -13,11 +13,6 @@ from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_end
 
 
-def _remove_metaclass_type(i: int, tokens: list[Token]) -> None:
-    j = find_end(tokens, i)
-    del tokens[i:j]
-
-
 @register(ast.Assign)
 def visit_Assign(
         state: State,
@@ -33,3 +28,8 @@ def visit_Assign(
             node.value.id == 'type'
     ):
         yield ast_to_offset(node), _remove_metaclass_type
+
+
+def _remove_metaclass_type(i: int, tokens: list[Token]) -> None:
+    j = find_end(tokens, i)
+    del tokens[i:j]

@@ -52,17 +52,6 @@ RERAISE_2_TMPL = 'raise {args[1]}.with_traceback(None)'
 RERAISE_3_TMPL = 'raise {args[1]}.with_traceback({args[2]})'
 
 
-def _fix_six_b(i: int, tokens: list[Token]) -> None:
-    j = find_op(tokens, i, '(')
-    if (
-            tokens[j + 1].name == 'STRING' and
-            tokens[j + 1].src.isascii() and
-            tokens[j + 2].src == ')'
-    ):
-        func_args, end = parse_call_args(tokens, j)
-        replace_call(tokens, i, end, func_args, 'b{args[0]}')
-
-
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -206,3 +195,14 @@ def visit_Call(
                 template=RERAISE_TMPL,
             )
             yield ast_to_offset(node), func
+
+
+def _fix_six_b(i: int, tokens: list[Token]) -> None:
+    j = find_op(tokens, i, '(')
+    if (
+            tokens[j + 1].name == 'STRING' and
+            tokens[j + 1].src.isascii() and
+            tokens[j + 2].src == ')'
+    ):
+        func_args, end = parse_call_args(tokens, j)
+        replace_call(tokens, i, end, func_args, 'b{args[0]}')

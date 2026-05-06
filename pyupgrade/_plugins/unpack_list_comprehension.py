@@ -14,13 +14,6 @@ from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_closing_bracket
 
 
-def _replace_list_comprehension(i: int, tokens: list[Token]) -> None:
-    start = i
-    end = find_closing_bracket(tokens, start)
-    tokens[start] = tokens[start]._replace(src='(')
-    tokens[end] = tokens[end]._replace(src=')')
-
-
 @register(ast.Assign)
 def visit_Assign(
         state: State,
@@ -34,3 +27,10 @@ def visit_Assign(
             not is_async_listcomp(node.value)
     ):
         yield ast_to_offset(node.value), _replace_list_comprehension
+
+
+def _replace_list_comprehension(i: int, tokens: list[Token]) -> None:
+    start = i
+    end = find_closing_bracket(tokens, start)
+    tokens[start] = tokens[start]._replace(src='(')
+    tokens[end] = tokens[end]._replace(src=')')
