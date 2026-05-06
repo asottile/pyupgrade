@@ -300,6 +300,8 @@ REPLACE_MODS = {
     'six.moves.xmlrpc_server': 'xmlrpc.server',
     'xml.etree.cElementTree': 'xml.etree.ElementTree',
 }
+
+
 @register(ast.ImportFrom)
 def visit_ImportFrom(
         state: State,
