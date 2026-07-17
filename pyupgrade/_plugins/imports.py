@@ -236,7 +236,6 @@ REPLACE_EXACT = {
         ('typing_extensions', 'TypeIs'): 'typing',
         ('typing_extensions', 'TypeVar'): 'typing',
         ('typing_extensions', 'TypeVarTuple'): 'typing',
-        ('typing_extensions', 'TypedDict'): 'typing',
         ('typing_extensions', 'deprecated'): 'warnings',
         ('typing_extensions', 'get_protocol_members'): 'typing',
         ('typing_extensions', 'is_protocol'): 'typing',
