@@ -40,8 +40,14 @@ def _unparse(node: ast.expr) -> str:
         return '...'
     elif isinstance(node, ast.List):
         return '[{}]'.format(', '.join(_unparse(elt) for elt in node.elts))
-    elif isinstance(node, ast.Constant) and node.value in {True, False, None}:
+    elif (
+            isinstance(node, ast.Constant) and (
+                node.value is None or isinstance(node.value, (bool, int))
+            )
+    ):
         return repr(node.value)
+    elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        return f'-{_unparse(node.operand)}'
     elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
         return f'{_unparse(node.left)} | {_unparse(node.right)}'
     else:
