@@ -783,7 +783,6 @@ Availability:
 +def f(x: queue.Queue[int]) -> C:
 ```
 
-
 ### use `datetime.UTC` alias
 
 Availability:
@@ -794,4 +793,17 @@ Availability:
 
 -datetime.timezone.utc
 +datetime.UTC
+```
+
+### Fold nested context managers
+
+Availability:
+- `--py310-plus` and higher
+
+```diff
+- with foo:
+-     with bar:
+-         body
++ with foo, bar:
++     body
 ```
