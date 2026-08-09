@@ -220,6 +220,16 @@ def test_typing_named_tuple_noop(s):
 
             id='BitOr unparse error',
         ),
+        pytest.param(
+            'from typing import Literal, NamedTuple\n'
+            'C = NamedTuple("C", [("field", Literal[-1])])\n',
+
+            'from typing import Literal, NamedTuple\n'
+            'class C(NamedTuple):\n'
+            '    field: Literal[-1]\n',
+
+            id='negative integer literal',
+        ),
     ),
 )
 def test_fix_typing_named_tuple(s, expected):

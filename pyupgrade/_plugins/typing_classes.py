@@ -42,6 +42,13 @@ def _unparse(node: ast.expr) -> str:
         return '[{}]'.format(', '.join(_unparse(elt) for elt in node.elts))
     elif isinstance(node, ast.Constant) and node.value in {True, False, None}:
         return repr(node.value)
+    elif (
+            isinstance(node, ast.UnaryOp) and
+            isinstance(node.op, ast.USub) and
+            isinstance(node.operand, ast.Constant) and
+            isinstance(node.operand.value, int)
+    ):
+        return f'-{node.operand.value}'
     elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
         return f'{_unparse(node.left)} | {_unparse(node.right)}'
     else:
