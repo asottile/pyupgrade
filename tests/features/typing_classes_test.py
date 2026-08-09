@@ -220,6 +220,17 @@ def test_typing_named_tuple_noop(s):
 
             id='BitOr unparse error',
         ),
+        pytest.param(
+            'from typing import NamedTuple, Literal\n'
+            'C = NamedTuple("C", [("a", Literal[-1]), ("b", Literal[+1])])',
+
+            'from typing import NamedTuple, Literal\n'
+            'class C(NamedTuple):\n'
+            '    a: Literal[-1]\n'
+            '    b: Literal[+1]',
+
+            id='Literal with signed numbers (#1060)',
+        ),
     ),
 )
 def test_fix_typing_named_tuple(s, expected):
@@ -412,6 +423,16 @@ def test_typing_typed_dict_noop(s):
             '    union: str | int | None',
 
             id='BitOr unparse error',
+        ),
+        pytest.param(
+            'from typing import TypedDict, Literal\n'
+            'D = TypedDict("D", {"field": Literal[-1]})',
+
+            'from typing import TypedDict, Literal\n'
+            'class D(TypedDict):\n'
+            '    field: Literal[-1]',
+
+            id='Literal with negative number (#1060)',
         ),
     ),
 )
