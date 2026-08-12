@@ -390,6 +390,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         '--py314-plus',
         action='store_const', dest='min_version', const=(3, 14),
     )
+    parser.add_argument(
+        '--py315-plus',
+        action='store_const', dest='min_version', const=(3, 15),
+    )
     args = parser.parse_args(argv)
 
     ret = 0
