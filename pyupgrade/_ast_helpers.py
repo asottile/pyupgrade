@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import warnings
 from collections.abc import Container
+from typing import NamedTuple
 
 from tokenize_rt import Offset
 
@@ -66,3 +67,16 @@ def is_type_check(node: ast.AST) -> bool:
         len(node.args) == 2 and
         not has_starargs(node)
     )
+
+
+class FunctionArg(NamedTuple):
+    arg_idx: int
+    value: ast.expr
+
+
+def find_named_arg(node: ast.Call, arg: str) -> FunctionArg | None:
+    for n, keyword in enumerate(node.keywords):
+        if keyword.arg == arg:
+            return FunctionArg(n, keyword.value)
+    else:
+        return None

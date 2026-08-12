@@ -4,13 +4,13 @@ import ast
 import functools
 import itertools
 from collections.abc import Iterable
-from typing import NamedTuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 
 from pyupgrade._ast_helpers import ast_to_offset
+from pyupgrade._ast_helpers import find_named_arg
 from pyupgrade._ast_helpers import has_starargs
 from pyupgrade._data import register
 from pyupgrade._data import State
@@ -33,11 +33,6 @@ MODE_REPLACE_R = frozenset(_permute('Ub'))
 MODE_REMOVE_T = frozenset(_plus(_permute('at', 'rt', 'wt', 'xt')))
 MODE_REMOVE_U = frozenset(_permute('rUb'))
 MODE_REPLACE = MODE_REPLACE_R | MODE_REMOVE_T | MODE_REMOVE_U
-
-
-class FunctionArg(NamedTuple):
-    arg_idx: int
-    value: ast.expr
 
 
 def _fix_open_mode(i: int, tokens: list[Token], *, arg_idx: int) -> None:
@@ -93,14 +88,7 @@ def visit_Call(
                 func = functools.partial(_fix_open_mode, arg_idx=1)
                 yield ast_to_offset(node), func
         elif node.keywords and (len(node.keywords) + len(node.args) > 1):
-            mode = next(
-                (
-                    FunctionArg(n, keyword.value)
-                    for n, keyword in enumerate(node.keywords)
-                    if keyword.arg == 'mode'
-                ),
-                None,
-            )
+            mode = find_named_arg(node, 'mode')
             if (
                 mode is not None and
                 isinstance(mode.value, ast.Constant) and

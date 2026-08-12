@@ -805,3 +805,13 @@ Availability:
 -_MISSING = object()
 +_MISSING = sentinel('_MISSING')
 ```
+
+### utf-8 mode for `open`
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-with open(fname, encoding="utf-8") as f:
++with open(fname) as f:
+```
