@@ -795,3 +795,13 @@ Availability:
 -datetime.timezone.utc
 +datetime.UTC
 ```
+
+### sentinel
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-_MISSING = object()
++_MISSING = sentinel('_MISSING')
+```
