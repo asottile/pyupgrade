@@ -19,7 +19,7 @@ from pyupgrade._main import _fix_plugins
             id='set directly inside f-string placeholder',
         ),
         pytest.param(
-            'f"{set(x for x in y)}"',
+            'f"{set(x.z for x in y)}"',
             id='set comp directly inside f-string placeholder',
         ),
     ),
@@ -40,11 +40,11 @@ def test_fix_sets_noop(s):
         # Some "normal" test cases
         ('set((1, 2))', '{1, 2}'),
         ('set([1, 2])', '{1, 2}'),
-        ('set(x for x in y)', '{x for x in y}'),
-        ('set([x for x in y])', '{x for x in y}'),
+        ('set(x.z for x in y)', '{x.z for x in y}'),
+        ('set([x.z for x in y])', '{x.z for x in y}'),
         # These are strange cases -- the ast doesn't tell us about the parens
         # here so we have to parse ourselves
-        ('set((x for x in y))', '{x for x in y}'),
+        ('set((x.z for x in y))', '{x.z for x in y}'),
         ('set(((1, 2)))', '{1, 2}'),
         # The ast also doesn't tell us about the start of the tuple in this
         # generator expression
@@ -79,13 +79,13 @@ def test_fix_sets_noop(s):
         ('set((1, ))', '{1}'),
         # Remove trailing commas after things
         ('set([1, 2, 3,],)', '{1, 2, 3}'),
-        ('set((x for x in y),)', '{x for x in y}'),
+        ('set((x.z for x in y),)', '{x.z for x in y}'),
         (
             'set(\n'
-            '    (x for x in y),\n'
+            '    (x.z for x in y),\n'
             ')',
             '{\n'
-            '    x for x in y\n'
+            '    x.z for x in y\n'
             '}',
         ),
         (
