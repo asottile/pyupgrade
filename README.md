@@ -850,3 +850,13 @@ Availability:
 -    from typing import Self
 +lazy from typing import Self
 ```
+
+### remove `ArgumentParser(suggest_on_error=True)`
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-parser = argparse.ArgumentParser(suggest_on_error=True)
++parser = argparse.ArgumentParser()
+```

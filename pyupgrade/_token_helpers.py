@@ -468,10 +468,13 @@ def delete_argument(
         func_args: Sequence[tuple[int, int]],
 ) -> None:
     if i == 0:
-        # delete leading whitespace before next token
-        end_idx, _ = func_args[i + 1]
-        while tokens[end_idx].name == 'UNIMPORTANT_WS':
-            end_idx += 1
+        if len(func_args) > 1:
+            # delete leading whitespace before next token
+            end_idx, _ = func_args[i + 1]
+            while tokens[end_idx].name == 'UNIMPORTANT_WS':
+                end_idx += 1
+        else:
+            end_idx = func_args[i][1]
 
         del tokens[func_args[i][0]:end_idx]
     else:
@@ -525,3 +528,9 @@ def indented_amount(i: int, tokens: list[Token]) -> str:
         raise ValueError('not at beginning of line')
     else:
         return ''
+
+
+def remove_arg_at_idx(i: int, tokens: list[Token], *, arg_idx: int) -> None:
+    j = find_op(tokens, i, '(')
+    func_args, _ = parse_call_args(tokens, j)
+    delete_argument(arg_idx, tokens, func_args)
