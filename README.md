@@ -839,3 +839,14 @@ of version:
 -listcomp = [x for x in y]
 +listcomp = [*y]
 ```
+
+### `lazy`-ify TYPE_CHECKING imports
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-if TYPE_CHECKING
+-    from typing import Self
++lazy from typing import Self
+```
