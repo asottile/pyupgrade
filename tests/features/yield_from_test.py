@@ -29,10 +29,10 @@ from pyupgrade._plugins.legacy import _targets_same
         ),
         (
             'def f():\n'
-            '    for x in {x for x in y}:\n'
+            '    for x in {x.z for x in y}:\n'
             '        yield x',
             'def f():\n'
-            '    yield from {x for x in y}\n',
+            '    yield from {x.z for x in y}\n',
         ),
         (
             'def f():\n'

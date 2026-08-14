@@ -19,7 +19,7 @@ from pyupgrade._main import _fix_plugins
         ),
     ),
 )
-def test_fix_typing_text_noop(s):
+def test_noop(s):
     assert _fix_plugins(s, settings=Settings()) == s
 
 
@@ -34,9 +34,9 @@ def test_fix_typing_text_noop(s):
             id='single-line assignment',
         ),
         pytest.param(
-            'foo, bar, baz = [[i for i in fn(x)] for x in items]\n',
+            'foo, bar, baz = [[i.z for i in fn(x)] for x in items]\n',
 
-            'foo, bar, baz = ([i for i in fn(x)] for x in items)\n',
+            'foo, bar, baz = ([i.z for i in fn(x)] for x in items)\n',
 
             id='nested list comprehension',
         ),
@@ -55,6 +55,6 @@ def test_fix_typing_text_noop(s):
         ),
     ),
 )
-def test_fix_typing_text(s, expected):
+def test_fix(s, expected):
     ret = _fix_plugins(s, settings=Settings())
     assert ret == expected

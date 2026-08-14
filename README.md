@@ -815,3 +815,27 @@ Availability:
 -with open(fname, encoding="utf-8") as f:
 +with open(fname) as f:
 ```
+
+### comprehension unpackings
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-listcomp = [x for a in b for x in a]
++listcomp = [*a for a in b]
+-setcomp = {x for a in b for x in a}
++setcomp = {*a for a in b}
+-genexpr = (x for a in b for x in a)
++genexpr = (*a for a in b)
+-dictcomp = {k: v for a in b for k, v in a.items()}
++dictcomp = {**a for a in b}
+```
+
+note: pyupgrade will rewrite non-nested redundant comprehensions independent
+of version:
+
+```diff
+-listcomp = [x for x in y]
++listcomp = [*y]
+```

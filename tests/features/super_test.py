@@ -56,7 +56,7 @@ from pyupgrade._main import Settings
         '    def f(self):\n'
         '        return [\n'
         '            (\n'
-        '                [_ for _ in ()],\n'
+        '                [_.z for _ in ()],\n'
         '                super(C, self).f(),\n'
         '            )\n'
         '            for _ in ()'
