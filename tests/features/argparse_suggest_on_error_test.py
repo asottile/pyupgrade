@@ -18,6 +18,8 @@ def test_noop_before_315():
         'argparse.ArgumentParser()',
         # explicitly off
         'argparse.ArgumentParser(suggest_on_error=False)',
+        # regression test
+        'argparse.ArgumentPar(suggest_on_error=True)',
     ),
 )
 def test_noop(s):

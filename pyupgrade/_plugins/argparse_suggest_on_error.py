@@ -27,7 +27,7 @@ def visit_Call(
                 node.func,
                 state.from_imports,
                 ('argparse',),
-                'ArgumentParser',
+                ('ArgumentParser',),
             ) and
             node.keywords
     ):
