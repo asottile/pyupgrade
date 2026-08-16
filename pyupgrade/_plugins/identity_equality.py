@@ -36,7 +36,7 @@ def _fix_is_literal(
 def _is_literal(n: ast.AST) -> bool:
     return (
         isinstance(n, ast.Constant) and
-        n.value not in {True, False} and
+        not isinstance(n.value, bool) and
         isinstance(n.value, (str, bytes, int, float))
     )
 
