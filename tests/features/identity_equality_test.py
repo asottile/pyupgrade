@@ -12,6 +12,7 @@ from pyupgrade._main import _fix_plugins
         'x is True',
         'x is False',
         'x is None',
+        'x is ...',
         'x is (not 5)',
         'x is 5 + 5',
         # pyupgrade is timid about containers since the original can be
