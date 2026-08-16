@@ -38,6 +38,11 @@ def _is_literal(n: ast.AST) -> bool:
         isinstance(n, ast.Constant) and
         not isinstance(n.value, bool) and
         isinstance(n.value, (str, bytes, int, float, complex))
+    ) or (
+        # Nested tuples are ignored, since CPython never optimizes them
+        # and hence never warns.
+        isinstance(n, ast.Tuple) and
+        all(isinstance(el, ast.Constant) for el in n.elts)
     )
 
 
