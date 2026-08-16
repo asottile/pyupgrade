@@ -35,6 +35,9 @@ def test_fix_is_compare_to_literal_noop(s):
         pytest.param('x is u""', 'x == u""', id='unicode string'),
         pytest.param('x is b""', 'x == b""', id='bytes'),
         pytest.param('x is 1.5', 'x == 1.5', id='float'),
+        # Regression tests - ensure we don't mistake those cases for `x is True`.
+        pytest.param('x is 1', 'x == 1', id='int equals bool True'),
+        pytest.param('x is 1.0', 'x == 1.0', id='float equals bool True'),
         pytest.param('x == 5 is 5', 'x == 5 == 5', id='compound compare'),
         pytest.param(
             'if (\n'
