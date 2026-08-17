@@ -44,7 +44,7 @@ def test_fix_is_compare_to_literal_noop(s):
         pytest.param('x is (None,)', 'x == (None,)', id='tuple with None'),
         pytest.param('x is (True, 1)', 'x == (True, 1)', id='tuple with bool'),
         pytest.param('x is (...,)', 'x == (...,)', id='tuple with ellipsis'),
-        # Regression tests - ensure we don't mistake those cases for `x is True`.
+        # Regression tests - ensure we don't mistake the cases for `x is True`.
         pytest.param('x is 1', 'x == 1', id='int equals bool True'),
         pytest.param('x is 1.0', 'x == 1.0', id='float equals bool True'),
         pytest.param('x == 5 is 5', 'x == 5 == 5', id='compound compare'),
