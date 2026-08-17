@@ -31,6 +31,7 @@ def test_fix_is_compare_to_literal_noop(s):
     (
         pytest.param('x is 5', 'x == 5', id='`is`'),
         pytest.param('x is not 5', 'x != 5', id='`is not`'),
+        pytest.param('5 is x', '5 == x', id='literal on the left'),
         pytest.param('x is ""', 'x == ""', id='string'),
         pytest.param('x is u""', 'x == u""', id='unicode string'),
         pytest.param('x is b""', 'x == b""', id='bytes'),
