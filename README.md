@@ -720,6 +720,20 @@ Availability:
      ...
 ```
 
+### `removeprefix` / `removesuffix`
+
+Availability:
+- `--py39-plus` is passed on the commandline.
+
+```diff
+-if x.startswith(y):
+-    x = x[len(y):]
++x = x.removeprefix(y)
+
+-if x.endswith(y):
+-    x = x[:-1 * len(y)]
++x = x.removesuffix(y)
+```
 
 ### pep 585 typing rewrites
 

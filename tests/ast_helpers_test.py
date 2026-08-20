@@ -1,0 +1,21 @@
+from __future__ import annotations
+
+import ast
+
+from pyupgrade._ast_helpers import _fields_same
+from pyupgrade._ast_helpers import ast_eq
+
+
+def test_ast_eq():
+    assert ast_eq(ast.parse('global a, b'), ast.parse('global a, b'))
+    assert not ast_eq(ast.parse('global a'), ast.parse('global b'))
+
+
+def _get_body(expr):
+    body = ast.parse(expr).body[0]
+    assert isinstance(body, ast.Expr)
+    return body.value
+
+
+def test_fields_same():
+    assert not _fields_same(_get_body('x'), _get_body('1'))

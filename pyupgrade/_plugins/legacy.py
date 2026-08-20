@@ -6,12 +6,12 @@ import contextlib
 import functools
 from collections.abc import Generator
 from collections.abc import Iterable
-from typing import Any
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 
+from pyupgrade._ast_helpers import ast_eq
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._data import register
 from pyupgrade._data import State
@@ -30,46 +30,6 @@ def _fix_yield(i: int, tokens: list[Token]) -> None:
     block = Block.find(tokens, i, trim_end=True)
     container = tokens_to_src(tokens[in_token + 1:colon]).strip()
     tokens[i:block.end] = [Token('CODE', f'yield from {container}\n')]
-
-
-def _all_isinstance(
-        vals: Iterable[Any],
-        tp: type[Any] | tuple[type[Any], ...],
-) -> bool:
-    return all(isinstance(v, tp) for v in vals)
-
-
-def _fields_same(n1: ast.AST, n2: ast.AST) -> bool:
-    for (a1, v1), (a2, v2) in zip(ast.iter_fields(n1), ast.iter_fields(n2)):
-        # ignore ast attributes, they'll be covered by walk
-        if a1 != a2:
-            return False
-        elif _all_isinstance((v1, v2), ast.AST):
-            continue
-        elif _all_isinstance((v1, v2), (list, tuple)):
-            if len(v1) != len(v2):
-                return False
-            # ignore sequences which are all-ast, they'll be covered by walk
-            elif _all_isinstance(v1, ast.AST) and _all_isinstance(v2, ast.AST):
-                continue
-            elif v1 != v2:
-                return False
-        elif v1 != v2:
-            return False
-    return True
-
-
-def _targets_same(target: ast.AST, yield_value: ast.AST) -> bool:
-    for t1, t2 in zip(ast.walk(target), ast.walk(yield_value)):
-        # ignore `ast.Load` / `ast.Store`
-        if _all_isinstance((t1, t2), ast.expr_context):
-            continue
-        elif type(t1) is not type(t2):
-            return False
-        elif not _fields_same(t1, t2):
-            return False
-    else:
-        return True
 
 
 class Scope:
@@ -178,7 +138,7 @@ class Visitor(ast.NodeVisitor):
             isinstance(node.body[0], ast.Expr) and
             isinstance(node.body[0].value, ast.Yield) and
             node.body[0].value.value is not None and
-            _targets_same(node.target, node.body[0].value.value) and
+            ast_eq(node.target, node.body[0].value.value) and
             not node.orelse
         ):
             offset = ast_to_offset(node)
