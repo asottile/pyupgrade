@@ -35,6 +35,13 @@ if TYPE_CHECKING:
             '    class SomeClass: pass\n',
             id='has other junk',
         ),
+        pytest.param(
+            'from typing import TYPE_CHECKING\n'
+            'def f():\n'
+            '    if TYPE_CHECKING:\n'
+            '        from typing import LiteralString\n',
+            id='not at module scope',
+        ),
     ),
 )
 def test_noop(s):
