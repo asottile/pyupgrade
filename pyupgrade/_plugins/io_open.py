@@ -14,20 +14,19 @@ from pyupgrade._token_helpers import find_op
 
 
 def _replace_io_open(i: int, tokens: list[Token]) -> None:
-    j = find_op(tokens, i, '(')
-    tokens[i:j] = [tokens[i]._replace(name='NAME', src='open')]
+    j = find_op(tokens, i, '.')
+    del tokens[i:j + 1]
 
 
-@register(ast.Call)
-def visit_Call(
+@register(ast.Attribute)
+def visit_Attribute(
         state: State,
-        node: ast.Call,
+        node: ast.Attribute,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            isinstance(node.func, ast.Attribute) and
-            isinstance(node.func.value, ast.Name) and
-            node.func.value.id == 'io' and
-            node.func.attr == 'open'
+            isinstance(node.value, ast.Name) and
+            node.value.id == 'io' and
+            node.attr == 'open'
     ):
-        yield ast_to_offset(node.func), _replace_io_open
+        yield ast_to_offset(node), _replace_io_open

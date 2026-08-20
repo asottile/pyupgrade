@@ -32,6 +32,15 @@ with open("f.txt") as f:
             'with open("f.txt", mode="r", buffering=-1, **kwargs) as f:\n'
             '   print(f.read())\n',
         ),
+        pytest.param(
+            'import io\n'
+            'x = io.open\n',
+
+            'import io\n'
+            'x = open\n',
+
+            id='not a call',
+        ),
     ),
 )
 def test_fix_io_open(s, expected):
