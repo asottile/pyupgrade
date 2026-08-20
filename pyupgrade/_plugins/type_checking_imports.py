@@ -46,7 +46,8 @@ def visit_If(
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
-            state.settings.min_version >= (3, 15) and (
+            state.settings.min_version >= (3, 15) and
+            node.col_offset == 0 and (
                 (
                     isinstance(node.test, ast.Constant) and
                     not node.test.value
