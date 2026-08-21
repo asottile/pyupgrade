@@ -373,6 +373,17 @@ Availability:
 
 Note that `if` blocks without an `else` will not be rewritten as it could introduce a syntax error.
 
+### versioned `@pytest.mark.skipif` decorators
+
+similar to [#python2-and-old-python3x-blocks](above): redundant `skipif` marks
+are removed.
+
+```diff
+-@pytest.mark.skipif(sys.version_info < (3, 6), reason="py36+")
+ def test_func():
+     ...
+```
+
 ### remove `six` compatibility code
 
 ```diff

@@ -7,12 +7,13 @@ from tokenize_rt import Offset
 from tokenize_rt import Token
 
 from pyupgrade._ast_helpers import ast_to_offset
-from pyupgrade._ast_helpers import is_name_attr
 from pyupgrade._data import register
 from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
-from pyupgrade._data import Version
 from pyupgrade._token_helpers import Block
+from pyupgrade._version_expr import always_false
+from pyupgrade._version_expr import always_true
+from pyupgrade._version_expr import norm_min_version
 
 
 def _find_if_else_block(tokens: list[Token], i: int) -> tuple[Block, Block]:
@@ -80,205 +81,22 @@ def _fix_py3_convert_elif(i: int, tokens: list[Token]) -> None:
     del tokens[if_block.start:if_block.block]
 
 
-def _eq(test: ast.Compare, n: int) -> bool:
-    return _cmp(test, ast.Eq, n)
-
-
-def _lt(test: ast.Compare, n: int) -> bool:
-    return _cmp(test, ast.Lt, n)
-
-
-def _gte(test: ast.Compare, n: int) -> bool:
-    return _cmp(test, ast.GtE, n)
-
-
-def _cmp(test: ast.Compare, op: type[ast.cmpop], n: int) -> bool:
-    return (
-        isinstance(test.ops[0], op) and
-        isinstance(test.comparators[0], ast.Constant) and
-        test.comparators[0].value == n
-    )
-
-
-def _compare_to_3(
-    test: ast.Compare,
-    op: type[ast.cmpop] | tuple[type[ast.cmpop], ...],
-    minor: int = 0,
-) -> bool:
-    if not (
-            isinstance(test.ops[0], op) and
-            isinstance(test.comparators[0], ast.Tuple) and
-            len(test.comparators[0].elts) >= 1
-    ):
-        return False
-
-    elts_l = []
-    for n in test.comparators[0].elts:
-        if isinstance(n, ast.Constant) and isinstance(n.value, int):
-            elts_l.append(n.value)
-        else:
-            return False
-
-    # padding a 0 for compatibility with (3,) used as a spec
-    elts = (*elts_l, 0)
-
-    return elts[:2] == (3, minor) and all(n == 0 for n in elts[2:])
-
-
 @register(ast.If)
 def visit_If(
         state: State,
         node: ast.If,
         parent: ast.AST,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
+    min_version = norm_min_version(state.settings.min_version)
 
-    min_version: Version
-    if state.settings.min_version == (3,):
-        min_version = (3, 0)
-    else:
-        min_version = state.settings.min_version
-    assert len(min_version) >= 2
-
-    if (
-            # if six.PY2:
-            is_name_attr(
-                node.test,
-                state.from_imports,
-                ('six',),
-                ('PY2',),
-            ) or
-            # if not six.PY3:
-            (
-                isinstance(node.test, ast.UnaryOp) and
-                isinstance(node.test.op, ast.Not) and
-                is_name_attr(
-                    node.test.operand,
-                    state.from_imports,
-                    ('six',),
-                    ('PY3',),
-                )
-            ) or
-            # sys.version_info == 2 or < (3,)
-            # or < (3, n) or <= (3, n) (with n<m)
-            (
-                isinstance(node.test, ast.Compare) and
-                is_name_attr(
-                    node.test.left,
-                    state.from_imports,
-                    ('sys',),
-                    ('version_info',),
-                ) and
-                len(node.test.ops) == 1 and (
-                    _eq(node.test, 2) or
-                    _compare_to_3(node.test, ast.Lt, min_version[1]) or
-                    any(
-                        _compare_to_3(node.test, (ast.Lt, ast.LtE), minor)
-                        for minor in range(min_version[1])
-                    )
-                )
-            ) or
-            # sys.version_info[0] == 2 or < 3
-            # sys.version_info.major == 2 or < 3
-            (
-                isinstance(node.test, ast.Compare) and
-                (
-                    (
-                        isinstance(node.test.left, ast.Subscript) and
-                        isinstance(node.test.left.slice, ast.Constant) and
-                        node.test.left.slice.value == 0
-                    ) or
-                    (
-                        isinstance(node.test.left, ast.Attribute) and
-                        node.test.left.attr == 'major'
-                    )
-                ) and
-                is_name_attr(
-                    node.test.left.value,
-                    state.from_imports,
-                    ('sys',),
-                    ('version_info',),
-                ) and
-                len(node.test.ops) == 1 and
-                (
-                    _eq(node.test, 2) or
-                    _lt(node.test, 3)
-                )
-            )
-    ):
+    if always_false(node.test, state, min_version):
         if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
             yield ast_to_offset(node), _fix_py2_convert_elif
         elif node.orelse:
             yield ast_to_offset(node), _fix_py2_block
         elif node.col_offset == 0:
             yield ast_to_offset(node), _fix_remove_block
-    elif (
-            # if six.PY3:
-            is_name_attr(
-                node.test,
-                state.from_imports,
-                ('six',),
-                ('PY3',),
-            ) or
-            # if not six.PY2:
-            (
-                isinstance(node.test, ast.UnaryOp) and
-                isinstance(node.test.op, ast.Not) and
-                is_name_attr(
-                    node.test.operand,
-                    state.from_imports,
-                    ('six',),
-                    ('PY2',),
-                )
-            ) or
-            # sys.version_info == 3 or >= (3,) or > (3,)
-            # sys.version_info >= (3, n) (with n<=m)
-            # or sys.version_info > (3, n) (with n<m)
-            (
-                isinstance(node.test, ast.Compare) and
-                is_name_attr(
-                    node.test.left,
-                    state.from_imports,
-                    ('sys',),
-                    ('version_info',),
-                ) and
-                len(node.test.ops) == 1 and (
-                    _eq(node.test, 3) or
-                    _compare_to_3(node.test, (ast.Gt, ast.GtE)) or
-                    _compare_to_3(node.test, ast.GtE, min_version[1]) or
-                    any(
-                        _compare_to_3(node.test, (ast.Gt, ast.GtE), minor)
-                        for minor in range(min_version[1])
-                    )
-                )
-            ) or
-            # sys.version_info[0] == 3 or >= 3
-            # sys.version_info.major == 3 or >= 3
-            (
-                isinstance(node.test, ast.Compare) and
-                (
-                    (
-                        isinstance(node.test.left, ast.Subscript) and
-                        isinstance(node.test.left.slice, ast.Constant) and
-                        node.test.left.slice.value == 0
-                    ) or
-                    (
-                        isinstance(node.test.left, ast.Attribute) and
-                        node.test.left.attr == 'major'
-                    )
-                ) and
-                is_name_attr(
-                    node.test.left.value,
-                    state.from_imports,
-                    ('sys',),
-                    ('version_info',),
-                ) and
-                len(node.test.ops) == 1 and
-                (
-                    _eq(node.test, 3) or
-                    _gte(node.test, 3)
-                )
-            )
-    ):
+    elif always_true(node.test, state, min_version):
         if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
             yield ast_to_offset(node), _fix_py3_convert_elif
         elif node.orelse:
