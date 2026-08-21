@@ -99,6 +99,15 @@ def visit_Call(
                 universal_newlines_idx = n
             elif keyword.arg == 'text' or keyword.arg is None:
                 skip_universal_newlines_rewrite = True
+        # Callbacks are evaluated in the reversed order,
+        # so callback with an argument removal should be yielded first.
+        if stdout_idx is not None and stderr_idx is not None:
+            func = functools.partial(
+                _use_capture_output,
+                stdout_arg_idx=len(node.args) + stdout_idx,
+                stderr_arg_idx=len(node.args) + stderr_idx,
+            )
+            yield ast_to_offset(node), func
         if (
                 universal_newlines_idx is not None and
                 not skip_universal_newlines_rewrite
@@ -106,12 +115,5 @@ def visit_Call(
             func = functools.partial(
                 _replace_universal_newlines_with_text,
                 arg_idx=len(node.args) + universal_newlines_idx,
-            )
-            yield ast_to_offset(node), func
-        if stdout_idx is not None and stderr_idx is not None:
-            func = functools.partial(
-                _use_capture_output,
-                stdout_arg_idx=len(node.args) + stdout_idx,
-                stderr_arg_idx=len(node.args) + stderr_idx,
             )
             yield ast_to_offset(node), func
