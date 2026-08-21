@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Iterable
-from typing import cast
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -109,18 +108,19 @@ def _compare_to_3(
     if not (
             isinstance(test.ops[0], op) and
             isinstance(test.comparators[0], ast.Tuple) and
-            len(test.comparators[0].elts) >= 1 and
-            all(
-                isinstance(n, ast.Constant) and isinstance(n.value, int)
-                for n in test.comparators[0].elts
-            )
+            len(test.comparators[0].elts) >= 1
     ):
         return False
 
-    # checked above but mypy needs help
-    ast_elts = cast('list[ast.Constant]', test.comparators[0].elts)
+    elts_l = []
+    for n in test.comparators[0].elts:
+        if isinstance(n, ast.Constant) and isinstance(n.value, int):
+            elts_l.append(n.value)
+        else:
+            return False
+
     # padding a 0 for compatibility with (3,) used as a spec
-    elts = tuple(e.value for e in ast_elts) + (0,)
+    elts = (*elts_l, 0)
 
     return elts[:2] == (3, minor) and all(n == 0 for n in elts[2:])
 

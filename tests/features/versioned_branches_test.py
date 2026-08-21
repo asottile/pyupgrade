@@ -34,6 +34,13 @@ from pyupgrade._main import _fix_plugins
         '    3.6\n'
         'else:\n'
         '    3.5\n',
+        pytest.param(
+            'if sys.version_info >= (3, 0.):\n'
+            '    3\n'
+            'else:\n'
+            '    2\n',
+            id='not an int',
+        ),
         # don't try and think about `sys.version`
         'from sys import version\n'
         'if sys.version[0] > "2":\n'
