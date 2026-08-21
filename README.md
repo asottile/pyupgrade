@@ -375,7 +375,7 @@ Note that `if` blocks without an `else` will not be rewritten as it could introd
 
 ### versioned `@pytest.mark.skipif` decorators
 
-similar to [#python2-and-old-python3x-blocks](above): redundant `skipif` marks
+similar to [above](#python2-and-old-python3x-blocks): redundant `skipif` marks
 are removed.
 
 ```diff
