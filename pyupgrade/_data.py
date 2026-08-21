@@ -43,6 +43,7 @@ RECORD_FROM_IMPORTS = frozenset((
     'functools',
     'mmap',
     'os',
+    'pytest',
     'select',
     'six',
     'six.moves',
