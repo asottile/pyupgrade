@@ -76,9 +76,7 @@ def _fix_plugins(contents_text: str, settings: Settings) -> str:
             continue
         # though this is a defaultdict, by using `.get()` this function's
         # self time is almost 50% faster
-        # Reversed order is needed to properly handle to the nested attrs.
-        # E.g. in `a.xxx.yyy`, `.xxx` to get fix applied before `.yyy`.
-        for callback in reversed(callbacks.get(token.offset, ())):
+        for callback in callbacks.get(token.offset, ()):
             callback(i, tokens)
 
     return tokens_to_src(tokens).lstrip()
