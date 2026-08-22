@@ -748,6 +748,20 @@ Availability:
      ...
 ```
 
+### rewrite `__aiter__`/`__anext__` in Python 3.10+
+
+Availability:
+- `--py310-plus` is passed on the commandline.
+
+```diff
+-x.__aiter__()
++aiter(x)
+```
+
+```diff
+-x.__anext__()
++anext(x)
+```
 
 ### pep 604 typing rewrites
 
@@ -873,19 +887,4 @@ Availability:
 ```diff
 -parser = argparse.ArgumentParser(suggest_on_error=True)
 +parser = argparse.ArgumentParser()
-```
-
-### rewrite `__aiter__`/`__anext__` in Python 3.10+
-
-Availability:
-- `--py310-plus` is passed on the commandline.
-
-```diff
--x.__aiter__()
-+aiter(x)
-```
-
-```diff
--x.__anext__()
-+anext(x)
 ```
