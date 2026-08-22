@@ -60,6 +60,21 @@ def test_noop(s):
             id='chained aiter and anext',
         ),
         pytest.param(
+            'a.__aiter__().something().__anext__()',
+            'anext(aiter(a).something())',
+            id='chained aiter and anext with unrelated call in between',
+        ),
+        pytest.param(
+            'a.__aiter__().something.__anext__()',
+            'anext(aiter(a).something)',
+            id='chained aiter and anext with unrelated attribute in between',
+        ),
+        pytest.param(
+            'a.__aiter__().something[0].__anext__()',
+            'anext(aiter(a).something[0])',
+            id='chained aiter and anext with unrelated subscript in between',
+        ),
+        pytest.param(
             '(x async for x in y if x.__anext__ is not None).__anext__()',
             'anext((x async for x in y if x.__anext__ is not None))',
             id='unrelated bare dunder attribute',

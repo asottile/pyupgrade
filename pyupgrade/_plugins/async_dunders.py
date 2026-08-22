@@ -52,6 +52,47 @@ def _fix(i: int, tokens: list[Token], *, dunder: str) -> None:
     tokens.insert(i, Token('CODE', f"{call_name}("))
 
 
+_visited_nodes: set[ast.Call] = set()
+
+
+def _is_dunder_call(node: ast.Call) -> bool:
+    return (
+        not node.args and
+        not node.keywords and
+        isinstance(node.func, ast.Attribute) and
+        node.func.attr in _DUNDER_TO_BUILTIN
+    )
+
+
+def _walk_trailing_nodes(node: ast.expr) -> Iterable[ast.Call]:
+    while True:
+        if isinstance(node, ast.Call):
+            # a.__aiter__().__anext__()
+            if _is_dunder_call(node):
+                yield node
+            # a.__aiter__().something().__anext__()
+            node = node.func
+        elif isinstance(node, ast.Attribute):
+            # a.__aiter__().something.__anext__()
+            node = node.value
+        elif isinstance(node, ast.Subscript):
+            # a.__aiter__().something[x].__anext__()
+            node = node.value
+        else:
+            return
+
+
+@register(ast.Module)
+def visit_Module(
+        state: State,
+        node: ast.Module,
+        parent: ast.AST,
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    _visited_nodes.clear()
+    return
+    yield
+
+
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -60,10 +101,18 @@ def visit_Call(
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
             state.settings.min_version >= (3, 10) and
-            not node.args and
-            not node.keywords and
-            isinstance(node.func, ast.Attribute) and
-            node.func.attr in _DUNDER_TO_BUILTIN
+            _is_dunder_call(node) and
+            node not in _visited_nodes
     ):
-        func = functools.partial(_fix, dunder=node.func.attr)
-        yield ast_to_offset(node), func
+        # By default pyupgrade applies fixes in the order nodes are visited.
+        # So in `a.__aiter__().__anext__()` the `anext` fix is applied first
+        # before `aiter`, resulting in incorrect `aiter(anext(a))`.
+        # To define correct order of fixes, we walk the whole chain
+        # to gather all fixes first, so they can be applied in reversed order.
+        dunder_calls = list(_walk_trailing_nodes(node))
+        _visited_nodes.update(dunder_calls)
+
+        for call in reversed(dunder_calls):
+            assert isinstance(call.func, ast.Attribute)
+            func = functools.partial(_fix, dunder=call.func.attr)
+            yield ast_to_offset(call), func
