@@ -865,6 +865,22 @@ of version:
 +listcomp = [*y]
 ```
 
+### itertools.chain
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-itertools.chain.from_iterable(x)
++(*it for it in x)
+-itertools.chain(x)
++iter(x)
+-itertools.chain(*x)
++(*it for it in x)
+-itertools.chain(a, b, c)
++(*it for it in (a, b, c))
+```
+
 ### `lazy`-ify TYPE_CHECKING imports
 
 Availability:
