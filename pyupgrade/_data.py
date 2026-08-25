@@ -41,6 +41,7 @@ RECORD_FROM_IMPORTS = frozenset((
     'collections',
     'collections.abc',
     'functools',
+    'itertools',
     'mmap',
     'os',
     'pytest',
