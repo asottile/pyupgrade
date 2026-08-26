@@ -46,7 +46,7 @@ def _fix_py2_block(i: int, tokens: list[Token]) -> None:
 
 
 def _fix_remove_block(i: int, tokens: list[Token]) -> None:
-    block = Block.find(tokens, i)
+    block = Block.find(tokens, i, trim_end=True)
     del tokens[block.start:block.end]
 
 
