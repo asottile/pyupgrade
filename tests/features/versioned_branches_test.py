@@ -790,6 +790,27 @@ def test_fix_py3_only_code(s, expected):
 
             id='elif becomes if',
         ),
+        pytest.param(
+            'if sys.version_info < (3, 5) and something():\n'
+            '    print("old")\n'
+            'elif something_else():\n'
+            '    print("new")\n',
+
+            'if something_else():\n'
+            '    print("new")\n',
+
+            id='compound and, always-false',
+        ),
+        pytest.param(
+            'if sys.version_info >= (3, 5) or something():\n'
+            '    print("new")\n'
+            'else:\n'
+            '    print("old")\n',
+
+            'print("new")\n',
+
+            id='compound or, always-true',
+        ),
     ),
 )
 def test_fix_py3x_only_code(s, expected):
