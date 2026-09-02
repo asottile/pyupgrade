@@ -53,6 +53,10 @@ from pyupgrade._main import _fix_plugins
             id='NamedTuple starargs',
         ),
         pytest.param(
+            'C = typing.NamedTuple("C", [("a", f(int))])',
+            id='NamedTuple with unparsable (call) attribute type',
+        ),
+        pytest.param(
             'from .typing import NamedTuple\n'
             'C = NamedTuple("C", [("a", int)])\n',
             id='relative imports',
@@ -265,6 +269,22 @@ def test_fix_typing_named_tuple(s, expected):
         pytest.param(
             'D = typing.TypedDict("D", x=int, total=False)',
             id='kw_typed_dict with total',
+        ),
+        pytest.param(
+            'D = typing.TypedDict("D", x=f(int))',
+            id='kw_typed_dict with unparsable (call) value',
+        ),
+        pytest.param(
+            'D = typing.TypedDict("D", {"x": f(int)})',
+            id='dict TypedDict with unparsable (call) value',
+        ),
+        pytest.param(
+            'import typing\n'
+            'D = typing.TypedDict(\n'
+            '    "D",\n'
+            '    {"x": list[typing.TypedDict("X", {"y": int})]},\n'
+            ')\n',
+            id='dict TypedDict with nested TypedDict call value (#804)',
         ),
     ),
 )
