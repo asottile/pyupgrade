@@ -119,6 +119,10 @@ def always_false(
                 _eq(test, 2) or
                 _lt(test, 3)
             )
+        ) or (
+            isinstance(test, ast.BoolOp) and
+            isinstance(test.op, ast.And) and
+            any(always_false(val, state, min_version) for val in test.values)
         )
     )
 
@@ -184,5 +188,9 @@ def always_true(
                 _eq(test, 3) or
                 _gte(test, 3)
             )
+        ) or (
+            isinstance(test, ast.BoolOp) and
+            isinstance(test.op, ast.Or) and
+            any(always_true(val, state, min_version) for val in test.values)
         )
     )
