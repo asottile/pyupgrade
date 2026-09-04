@@ -74,6 +74,16 @@ def test_noop(s):
             'iter(x)\n',
             id='single arg to iter',
         ),
+        pytest.param(
+            'itertools.chain(\n'
+            '    x,\n'
+            '    # comment\n'
+            ')\n',
+
+            'iter(x)\n',
+
+            id='comment after single arg',
+        ),
     ),
 )
 def test_fix(s, expected):
