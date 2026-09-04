@@ -148,14 +148,13 @@ def victims(
 def find_closing_bracket(tokens: list[Token], i: int) -> int:
     assert tokens[i].src in _OPENING
     depth = 1
-    i += 1
     while depth:
+        i += 1
         if is_open(tokens[i]):
             depth += 1
         elif is_close(tokens[i]):
             depth -= 1
-        i += 1
-    return i - 1
+    return i
 
 
 def find_block_start(tokens: list[Token], i: int) -> int:
