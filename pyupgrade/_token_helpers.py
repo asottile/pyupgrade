@@ -34,6 +34,12 @@ def is_close(token: Token) -> bool:
     return token.name == 'OP' and token.src in _CLOSING
 
 
+def to_coding_token(tokens: list[Token], i: int) -> int:
+    while tokens[i].name in NON_CODING_TOKENS:
+        i += 1
+    return i
+
+
 def _find_token(tokens: list[Token], i: int, name: str, src: str) -> int:
     while not tokens[i].matches(name=name, src=src):
         i += 1
@@ -73,10 +79,7 @@ def _arg_token_index(tokens: list[Token], i: int, arg: ast.expr) -> int:
     offset = (arg.lineno, arg.col_offset)
     while tokens[i].offset != offset:
         i += 1
-    i += 1
-    while tokens[i].name in NON_CODING_TOKENS:
-        i += 1
-    return i
+    return to_coding_token(tokens, i + 1)
 
 
 def victims(
@@ -249,13 +252,7 @@ class Block(NamedTuple):
         start = i
         colon = find_block_start(tokens, i)
 
-        j = colon + 1
-        while (
-                tokens[j].name != 'NEWLINE' and
-                tokens[j].name in NON_CODING_TOKENS
-        ):
-            j += 1
-
+        j = to_coding_token(tokens, colon + 1)
         if tokens[j].name == 'NEWLINE':  # multi line block
             block = j + 1
             while tokens[j].name != 'INDENT':
@@ -305,9 +302,7 @@ def remove_base_class(i: int, tokens: list[Token]) -> None:
         brace_stack.pop()
     else:
         # if there's a close-paren after a trailing comma
-        j = right + 1
-        while tokens[j].name in NON_CODING_TOKENS:
-            j += 1
+        j = to_coding_token(tokens, right + 1)
         if tokens[j].src == ')':
             while tokens[j].src != ':':
                 j += 1

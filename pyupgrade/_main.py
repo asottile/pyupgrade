@@ -28,6 +28,7 @@ from pyupgrade._string_helpers import unparse_parsed_string
 from pyupgrade._token_helpers import is_close
 from pyupgrade._token_helpers import is_open
 from pyupgrade._token_helpers import remove_brace
+from pyupgrade._token_helpers import to_coding_token
 
 
 def inty(s: str) -> bool:
@@ -146,10 +147,7 @@ def _remove_u_prefix(token: Token) -> Token:
 
 
 def _fix_extraneous_parens(tokens: list[Token], i: int) -> None:
-    # search forward for another non-coding token
-    i += 1
-    while tokens[i].name in NON_CODING_TOKENS:
-        i += 1
+    i = to_coding_token(tokens, i + 1)
     # if we did not find another brace, return immediately
     if tokens[i].src != '(':
         return
@@ -171,11 +169,7 @@ def _fix_extraneous_parens(tokens: list[Token], i: int) -> None:
     if all(t.name in NON_CODING_TOKENS for t in tokens[start + 1:i]):
         return
 
-    # search forward for the next non-coding token
-    i += 1
-    while tokens[i].name in NON_CODING_TOKENS:
-        i += 1
-
+    i = to_coding_token(tokens, i + 1)
     if tokens[i].src == ')':
         remove_brace(tokens, end)
         remove_brace(tokens, start)
