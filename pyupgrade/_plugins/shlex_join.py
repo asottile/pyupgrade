@@ -4,7 +4,6 @@ import ast
 import functools
 from collections.abc import Iterable
 
-from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
 from tokenize_rt import Token
 
@@ -14,6 +13,7 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._token_helpers import find_name
 from pyupgrade._token_helpers import find_op
+from pyupgrade._token_helpers import to_coding_token
 from pyupgrade._token_helpers import victims
 
 
@@ -21,8 +21,7 @@ def _fix_shlex_join(i: int, tokens: list[Token], *, arg: ast.expr) -> None:
     j = find_op(tokens, i, '(')
     comp_victims = victims(tokens, j, arg, gen=True)
     k = find_name(tokens, comp_victims.arg_index, 'in') + 1
-    while tokens[k].name in NON_CODING_TOKENS:
-        k += 1
+    k = to_coding_token(tokens, k)
     tokens[comp_victims.ends[0]:comp_victims.ends[-1] + 1] = [Token('OP', ')')]
     tokens[i:k] = [Token('CODE', 'shlex.join'), Token('OP', '(')]
 
