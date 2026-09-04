@@ -365,17 +365,14 @@ def parse_call_args(
             depth += 1
         elif is_close(tokens[i]):
             depth -= 1
-            # if we're at the end, append that argument
-            if (
-                    not depth and
-                    any(
-                        tokens[i].name not in NON_CODING_TOKENS
-                        for i in range(arg_start, i)
-                    )
-            ):
-                args.append((arg_start, i))
-
         i += 1
+
+    # append last argument (if not ended with a `,`)
+    if any(
+            tokens[i].name not in NON_CODING_TOKENS
+            for i in range(arg_start, i - 1)
+    ):
+        args.append((arg_start, i - 1))
 
     return args, i
 
