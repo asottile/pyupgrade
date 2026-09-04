@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from pyupgrade._data import Settings
@@ -88,4 +90,17 @@ def test_constant_fold_noop(s):
     ),
 )
 def test_constant_fold(s, expected):
+    assert _fix_plugins(s, settings=Settings()) == expected
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason='py314+ syntax')
+def test_py314_non_paren_except():
+    s = '''\
+try: ...
+except a, a: ...
+'''
+    expected = '''\
+try: ...
+except a: ...
+'''
     assert _fix_plugins(s, settings=Settings()) == expected

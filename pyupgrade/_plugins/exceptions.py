@@ -14,8 +14,7 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._data import Version
 from pyupgrade._token_helpers import constant_fold_tuple
-from pyupgrade._token_helpers import find_op
-from pyupgrade._token_helpers import parse_call_args
+from pyupgrade._token_helpers import parse_except_tuple
 from pyupgrade._token_helpers import replace_name
 
 
@@ -45,8 +44,7 @@ def _fix_except(
         *,
         at_idx: dict[int, _Target],
 ) -> None:
-    start = find_op(tokens, i, '(')
-    func_args, end = parse_call_args(tokens, start)
+    start, func_args, end = parse_except_tuple(tokens, i)
 
     for i, target in reversed(at_idx.items()):
         tokens[slice(*func_args[i])] = [Token('NAME', target.target)]

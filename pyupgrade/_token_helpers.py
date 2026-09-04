@@ -493,9 +493,18 @@ def replace_argument(
     tokens[start_idx:end_idx] = [Token('SRC', new)]
 
 
+def parse_except_tuple(
+        tokens: list[Token], i: int,
+) -> tuple[int, list[tuple[int, int]], int]:
+    start = to_coding_token(tokens, i)
+    if tokens[start].matches(name='OP', src='('):
+        return start, *parse_call_args(tokens, start)
+    else:
+        breakpoint()
+
+
 def constant_fold_tuple(i: int, tokens: list[Token]) -> None:
-    start = find_op(tokens, i, '(')
-    func_args, end = parse_call_args(tokens, start)
+    start, func_args, end = parse_except_tuple(tokens, i)
     arg_strs = [_arg_str_no_comment(tokens, *arg) for arg in func_args]
 
     unique_args = tuple(dict.fromkeys(arg_strs))

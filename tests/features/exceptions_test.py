@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from pyupgrade._data import Settings
@@ -286,4 +288,17 @@ try: ...
 except (TimeoutError, OSError): ...
 '''
 
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 11))) == expected
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason='py314+ syntax')
+def test_py314_non_paren_syntax():
+    s = '''\
+try: ...
+except asyncio.TimeoutError, WindowsError: ...
+'''
+    expected = '''\
+try: ...
+except TimeoutError, OSError: ...
+'''
     assert _fix_plugins(s, settings=Settings(min_version=(3, 11))) == expected
