@@ -14,9 +14,9 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._data import Version
 from pyupgrade._token_helpers import constant_fold_tuple
-from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_name
+from pyupgrade._token_helpers import to_coding_token
 
 
 class _Target(NamedTuple):
@@ -44,14 +44,24 @@ def _fix_except(
         tokens: list[Token],
         *,
         at_idx: dict[int, _Target],
+        at_offsets: tuple[tuple[Offset, _Target], ...],
 ) -> None:
-    start = find_op(tokens, i, '(')
-    func_args, end = parse_call_args(tokens, start)
+    if tokens[i].src == '(':
+        func_args, end = parse_call_args(tokens, i)
+        end = to_coding_token(tokens, end)
+        if tokens[end].src in {':', 'as'}:
+            for idx, target in reversed(at_idx.items()):
+                tokens[slice(*func_args[idx])] = [
+                    Token('NAME', target.target),
+                ]
 
-    for i, target in reversed(at_idx.items()):
-        tokens[slice(*func_args[i])] = [Token('NAME', target.target)]
+            constant_fold_tuple(i, tokens)
+            return
 
-    constant_fold_tuple(start, tokens)
+    for offset, target in at_offsets:
+        while tokens[i].offset != offset:
+            i += 1
+        replace_name(i, tokens, name=target.name, new=target.target)
 
 
 def _get_rewrite(
@@ -129,13 +139,19 @@ def visit_Try(
     for handler in node.handlers:
         if isinstance(handler.type, ast.Tuple):
             at_idx = {}
+            at_offsets = []
             for i, elt in enumerate(handler.type.elts):
                 target = _get_rewrite(elt, state, targets)
                 if target is not None:
                     at_idx[i] = target
+                    at_offsets.append((ast_to_offset(elt), target))
 
             if at_idx:
-                func = functools.partial(_fix_except, at_idx=at_idx)
+                func = functools.partial(
+                    _fix_except,
+                    at_idx=at_idx,
+                    at_offsets=tuple(at_offsets),
+                )
                 yield ast_to_offset(handler.type), func
         elif handler.type is not None:
             yield from _alias_cbs(handler.type, state, targets)

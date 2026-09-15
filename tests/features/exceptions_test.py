@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from pyupgrade._data import Settings
@@ -287,3 +289,54 @@ except (TimeoutError, OSError): ...
 '''
 
     assert _fix_plugins(s, settings=Settings(min_version=(3, 11))) == expected
+
+
+def test_can_rewrite_parenthesized_captured_exceptions():
+    s = '''\
+try: ...
+except (asyncio.TimeoutError, WindowsError) as exc: ...
+'''
+    expected = '''\
+try: ...
+except (TimeoutError, OSError) as exc: ...
+'''
+
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 11))) == expected
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason='3.14+ syntax')
+def test_can_rewrite_unparenthesized_exceptions():
+    s = '''\
+import asyncio
+
+try: ...
+except asyncio.TimeoutError, ValueError: ...
+
+
+def f(x) -> None: ...
+'''
+    expected = '''\
+import asyncio
+
+try: ...
+except TimeoutError, ValueError: ...
+
+
+def f(x) -> None: ...
+'''
+
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 14))) == expected
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason='3.14+ syntax')
+def test_can_rewrite_multiple_unparenthesized_exceptions():
+    s = '''\
+try: ...
+except asyncio.TimeoutError, WindowsError: ...
+'''
+    expected = '''\
+try: ...
+except TimeoutError, OSError: ...
+'''
+
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 14))) == expected
