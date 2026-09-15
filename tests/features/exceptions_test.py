@@ -305,7 +305,7 @@ except (TimeoutError, OSError) as exc: ...
 
 
 @pytest.mark.skipif(sys.version_info < (3, 14), reason='3.14+ syntax')
-def test_can_rewrite_unparenthesized_exceptions():
+def test_unparenthesized_exceptions():  # pragma: >=3.14 cover
     s = '''\
 import asyncio
 
@@ -329,7 +329,21 @@ def f(x) -> None: ...
 
 
 @pytest.mark.skipif(sys.version_info < (3, 14), reason='3.14+ syntax')
-def test_can_rewrite_multiple_unparenthesized_exceptions():
+def test_partially_parenthesized_exceptions():  # pragma: >=3.14 cover
+    s = '''\
+try: ...
+except (asyncio.TimeoutError), ValueError: ...
+'''
+    expected = '''\
+try: ...
+except (TimeoutError), ValueError: ...
+'''
+
+    assert _fix_plugins(s, settings=Settings(min_version=(3, 14))) == expected
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason='3.14+ syntax')
+def test_multiple_unparenthesized_exceptions():  # pragma: >=3.14 cover
     s = '''\
 try: ...
 except asyncio.TimeoutError, WindowsError: ...

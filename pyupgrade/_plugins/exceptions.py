@@ -58,7 +58,7 @@ def _fix_except(
             constant_fold_tuple(i, tokens)
             return
 
-    for offset, target in at_offsets:
+    for offset, target in at_offsets:  # pragma: >=3.14 cover
         while tokens[i].offset != offset:
             i += 1
         replace_name(i, tokens, name=target.name, new=target.target)
