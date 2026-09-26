@@ -37,7 +37,7 @@ def _is_literal(n: ast.AST) -> bool:
     return (
         isinstance(n, ast.Constant) and
         not isinstance(n.value, bool) and
-        isinstance(n.value, (str, bytes, int, float))
+        isinstance(n.value, (str, bytes, int, float, complex))
     )
 
 
