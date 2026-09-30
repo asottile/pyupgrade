@@ -14,9 +14,9 @@ from pyupgrade._data import State
 from pyupgrade._data import TokenFunc
 from pyupgrade._data import Version
 from pyupgrade._token_helpers import constant_fold_tuple
-from pyupgrade._token_helpers import find_op
 from pyupgrade._token_helpers import parse_call_args
 from pyupgrade._token_helpers import replace_name
+from pyupgrade._token_helpers import to_coding_token
 
 
 class _Target(NamedTuple):
@@ -43,15 +43,30 @@ def _fix_except(
         i: int,
         tokens: list[Token],
         *,
+        node: ast.Tuple,
         at_idx: dict[int, _Target],
 ) -> None:
-    start = find_op(tokens, i, '(')
-    func_args, end = parse_call_args(tokens, start)
+    # PEP 758 (3.14+) allows an unparenthesized tuple of exception types,
+    # in which case there's no enclosing `(` to anchor the rewrite to --
+    # renaming each target in place avoids clobbering unrelated code that
+    # happens to contain the next `(` in the file.  a leading `(` might
+    # only wrap the *first* exception (`(A), B`) rather than the whole
+    # tuple, so confirm the matching `)` is immediately followed by `:`
+    # or `as` before treating this as the fully-parenthesized case.
+    if tokens[i].src == '(':
+        func_args, end = parse_call_args(tokens, i)
+        after = to_coding_token(tokens, end)
+        if tokens[after].src in {':', 'as'}:
+            for idx, target in reversed(at_idx.items()):
+                tokens[slice(*func_args[idx])] = [Token('NAME', target.target)]
+            constant_fold_tuple(i, tokens)
+            return
 
-    for i, target in reversed(at_idx.items()):
-        tokens[slice(*func_args[i])] = [Token('NAME', target.target)]
-
-    constant_fold_tuple(start, tokens)
+    for idx, target in at_idx.items():
+        offset = ast_to_offset(node.elts[idx])
+        while tokens[i].offset != offset:
+            i += 1
+        replace_name(i, tokens, name=target.name, new=target.target)
 
 
 def _get_rewrite(
@@ -135,7 +150,11 @@ def visit_Try(
                     at_idx[i] = target
 
             if at_idx:
-                func = functools.partial(_fix_except, at_idx=at_idx)
+                func = functools.partial(
+                    _fix_except,
+                    node=handler.type,
+                    at_idx=at_idx,
+                )
                 yield ast_to_offset(handler.type), func
         elif handler.type is not None:
             yield from _alias_cbs(handler.type, state, targets)
