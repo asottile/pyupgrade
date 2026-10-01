@@ -270,6 +270,18 @@ def test_fix_exceptions(s, expected):
             (3, 11),
             id='asyncio.TimeoutError',
         ),
+        pytest.param(
+            'raise concurrent.futures.TimeoutError(1)\n',
+            'raise TimeoutError(1)\n',
+            (3, 11),
+            id='concurrent.futures.TimeoutError',
+        ),
+        pytest.param(
+            'try: ...\nexcept concurrent.futures.TimeoutError: ...\n',
+            'try: ...\nexcept TimeoutError: ...\n',
+            (3, 11),
+            id='except concurrent.futures.TimeoutError',
+        ),
     ),
 )
 def test_fix_exceptions_versioned(s, expected, version):

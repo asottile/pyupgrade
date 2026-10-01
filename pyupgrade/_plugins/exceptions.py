@@ -36,6 +36,7 @@ _TARGETS = (
     _Target('OSError', None, 'WindowsError', (3,)),
     _Target('TimeoutError', 'socket', 'timeout', (3, 10)),
     _Target('TimeoutError', 'asyncio', 'TimeoutError', (3, 11)),
+    _Target('TimeoutError', 'concurrent.futures', 'TimeoutError', (3, 11)),
 )
 
 
@@ -52,6 +53,17 @@ def _fix_except(
         tokens[slice(*func_args[i])] = [Token('NAME', target.target)]
 
     constant_fold_tuple(start, tokens)
+
+
+def _dotted_name(node: ast.AST) -> str | None:
+    """Return the dotted name of an attribute chain, e.g. `concurrent.futures`."""
+    if isinstance(node, ast.Name):
+        return node.id
+    elif isinstance(node, ast.Attribute):
+        value = _dotted_name(node.value)
+        if value is not None:
+            return f'{value}.{node.attr}'
+    return None
 
 
 def _get_rewrite(
@@ -76,9 +88,8 @@ def _get_rewrite(
         elif (
                 target.module is not None and
                 isinstance(node, ast.Attribute) and
-                isinstance(node.value, ast.Name) and
                 node.attr == target.name and
-                node.value.id == target.module
+                _dotted_name(node.value) == target.module
         ):
             return target
     else:
