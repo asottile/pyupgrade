@@ -95,6 +95,11 @@ def test_fix_exceptions_noop(s):
             (3, 10),
             id='except asyncio.TimeoutError() is noop <3.11',
         ),
+        pytest.param(
+            'raise concurrent.futures.TimeoutError()',
+            (3, 10),
+            id='raise concurrent.futures.TimeoutError() is noop <3.11',
+        ),
     ),
 )
 def test_fix_exceptions_version_specific_noop(s, version):
@@ -269,6 +274,30 @@ def test_fix_exceptions(s, expected):
             'raise TimeoutError(1)\n',
             (3, 11),
             id='asyncio.TimeoutError',
+        ),
+        pytest.param(
+            'raise concurrent.futures.TimeoutError(1)\n',
+            'raise TimeoutError(1)\n',
+            (3, 11),
+            id='concurrent.futures.TimeoutError',
+        ),
+        pytest.param(
+            'try: ...\n'
+            'except concurrent.futures.TimeoutError: ...\n',
+            'try: ...\n'
+            'except TimeoutError: ...\n',
+            (3, 11),
+            id='except concurrent.futures.TimeoutError',
+        ),
+        pytest.param(
+            'from concurrent.futures import TimeoutError\n'
+            'try: ...\n'
+            'except (TimeoutError, concurrent.futures.TimeoutError): ...\n',
+            'from concurrent.futures import TimeoutError\n'
+            'try: ...\n'
+            'except TimeoutError: ...\n',
+            (3, 11),
+            id='concurrent.futures.TimeoutError from import',
         ),
     ),
 )

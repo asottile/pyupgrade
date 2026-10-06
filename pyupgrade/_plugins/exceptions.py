@@ -36,6 +36,7 @@ _TARGETS = (
     _Target('OSError', None, 'WindowsError', (3,)),
     _Target('TimeoutError', 'socket', 'timeout', (3, 10)),
     _Target('TimeoutError', 'asyncio', 'TimeoutError', (3, 11)),
+    _Target('TimeoutError', 'concurrent.futures', 'TimeoutError', (3, 11)),
 )
 
 
@@ -76,13 +77,21 @@ def _get_rewrite(
         elif (
                 target.module is not None and
                 isinstance(node, ast.Attribute) and
-                isinstance(node.value, ast.Name) and
                 node.attr == target.name and
-                node.value.id == target.module
+                _is_module(node.value, target.module)
         ):
             return target
     else:
         return None
+
+
+def _is_module(node: ast.expr, module: str) -> bool:
+    parts = module.split('.')
+    for part in reversed(parts[1:]):
+        if not isinstance(node, ast.Attribute) or node.attr != part:
+            return False
+        node = node.value
+    return isinstance(node, ast.Name) and node.id == parts[0]
 
 
 def _alias_cbs(
