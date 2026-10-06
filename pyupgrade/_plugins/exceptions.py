@@ -44,7 +44,22 @@ def _fix_except(
         tokens: list[Token],
         *,
         at_idx: dict[int, _Target],
+        at_offsets: dict[int, Offset],
 ) -> None:
+    if tokens[i].src != '(':
+        for idx, target in at_idx.items():
+            elt_offset = at_offsets[idx]
+            for j in range(i, len(tokens)):
+                if tokens[j].offset == elt_offset:
+                    replace_name(
+                        j,
+                        tokens,
+                        name=target.name,
+                        new=target.target,
+                    )
+                    break
+        return
+
     start = find_op(tokens, i, '(')
     func_args, end = parse_call_args(tokens, start)
 
@@ -129,13 +144,19 @@ def visit_Try(
     for handler in node.handlers:
         if isinstance(handler.type, ast.Tuple):
             at_idx = {}
+            at_offsets = {}
             for i, elt in enumerate(handler.type.elts):
                 target = _get_rewrite(elt, state, targets)
                 if target is not None:
                     at_idx[i] = target
+                    at_offsets[i] = ast_to_offset(elt)
 
             if at_idx:
-                func = functools.partial(_fix_except, at_idx=at_idx)
+                func = functools.partial(
+                    _fix_except,
+                    at_idx=at_idx,
+                    at_offsets=at_offsets,
+                )
                 yield ast_to_offset(handler.type), func
         elif handler.type is not None:
             yield from _alias_cbs(handler.type, state, targets)
