@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.16.0
+# Using reorder-python-imports==3.18.0
 REMOVALS = {
     (3,): {
         '__future__': {
@@ -39,6 +39,7 @@ REMOVALS = {
     },
     (3, 7): {'__future__': {'generator_stop'}},
     (3, 14): {'__future__': {'annotations'}},
+    (3, 15): {'typing_extensions': {'sentinel'}},
 }
 REMOVALS[(3,)]['six.moves.builtins'] = REMOVALS[(3,)]['builtins']
 REPLACE_EXACT = {
@@ -133,7 +134,6 @@ REPLACE_EXACT = {
         ('typing_extensions', 'ValuesView'): 'typing',
         ('typing_extensions', 'cast'): 'typing',
         ('typing_extensions', 'no_type_check'): 'typing',
-        ('typing_extensions', 'no_type_check_decorator'): 'typing',
     },
     (3, 7): {
         ('mypy_extensions', 'NoReturn'): 'typing',
@@ -236,7 +236,6 @@ REPLACE_EXACT = {
         ('typing_extensions', 'TypeIs'): 'typing',
         ('typing_extensions', 'TypeVar'): 'typing',
         ('typing_extensions', 'TypeVarTuple'): 'typing',
-        ('typing_extensions', 'TypedDict'): 'typing',
         ('typing_extensions', 'deprecated'): 'warnings',
         ('typing_extensions', 'get_protocol_members'): 'typing',
         ('typing_extensions', 'is_protocol'): 'typing',
@@ -244,6 +243,12 @@ REPLACE_EXACT = {
     },
     (3, 14): {
         ('typing_extensions', 'evaluate_forward_ref'): 'typing',
+    },
+    (3, 15): {
+        ('typing_extensions', 'NoExtraItems'): 'typing',
+        ('typing_extensions', 'TypeForm'): 'typing',
+        ('typing_extensions', 'TypedDict'): 'typing',
+        ('typing_extensions', 'disjoint_base'): 'typing',
     },
 }
 REPLACE_MODS = {
