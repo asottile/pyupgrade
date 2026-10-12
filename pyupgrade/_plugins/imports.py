@@ -21,7 +21,7 @@ from pyupgrade._token_helpers import has_space_before
 from pyupgrade._token_helpers import indented_amount
 
 # GENERATED VIA generate-imports
-# Using reorder-python-imports==3.18.0
+# Using reorder-python-imports==3.19.0
 REMOVALS = {
     (3,): {
         '__future__': {
