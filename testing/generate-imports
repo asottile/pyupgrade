@@ -80,36 +80,49 @@ def main() -> int:
 
     exact, mods = _replacements()
 
-    print(f'# GENERATED VIA {os.path.basename(sys.argv[0])}')
-    print(f'# Using reorder-python-imports=={version}')
-    print('REMOVALS = {')
+    lines = []
+    lines.append(f'# Using reorder-python-imports=={version}')
+    lines.append('REMOVALS = {')
     for ver, dct in sorted(_removals().items()):
         dct_inline = _dict_set_inline(ver, dct)
         if len(dct_inline) < 80:
-            print(dct_inline)
+            lines.append(dct_inline)
         else:
-            print(f'    {ver!r}: {{')
+            lines.append(f'    {ver!r}: {{')
             for k, v in sorted(dct.items()):
                 set_line = f'        {k!r}: {_set_inline(v)},'
                 if len(set_line) < 80:
-                    print(set_line)
+                    lines.append(set_line)
                 else:
-                    print(f'        {k!r}: {_set_fit(v)},')
-            print('    },')
-    print('}')
-    print("REMOVALS[(3,)]['six.moves.builtins'] = REMOVALS[(3,)]['builtins']")
-    print('REPLACE_EXACT = {')
+                    lines.append(f'        {k!r}: {_set_fit(v)},')
+            lines.append('    },')
+    lines.append('}')
+    lines.append("REMOVALS[(3,)]['six.moves.builtins'] = REMOVALS[(3,)]['builtins']")  # noqa: E501
+    lines.append('REPLACE_EXACT = {')
     for ver, replaces in sorted(exact.items()):
-        print(f'    {ver}: {{')
+        lines.append(f'    {ver}: {{')
         for replace_k, replace_v in sorted(replaces.items()):
-            print(f'        {replace_k}: {replace_v!r},')
-        print('    },')
-    print('}')
-    print('REPLACE_MODS = {')
+            lines.append(f'        {replace_k}: {replace_v!r},')
+        lines.append('    },')
+    lines.append('}')
+    lines.append('REPLACE_MODS = {')
     for mod_from, mod_to in sorted(mods.items()):
-        print(f'    {mod_from!r}: {mod_to!r},')
-    print('}')
-    print('# END GENERATED')
+        lines.append(f'    {mod_from!r}: {mod_to!r},')
+    lines.append('}')
+
+    header = f'# GENERATED VIA {os.path.basename(sys.argv[0])}\n'
+    footer = '# END GENERATED\n'
+
+    with open('pyupgrade/_plugins/imports.py') as f:
+        contents = f.read()
+
+    assert header in contents
+    before, _, rest = contents.partition(header)
+    _, _, after = rest.partition(footer)
+
+    with open('pyupgrade/_plugins/imports.py', 'w') as f:
+        f.write(before + header + '\n'.join(lines) + '\n' + footer + after)
+
     return 0
 
 
