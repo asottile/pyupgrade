@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import ast
+import functools
 from collections.abc import Iterable
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
+from tokenize_rt import tokens_to_src
 
 from pyupgrade._ast_helpers import ast_to_offset
 from pyupgrade._ast_helpers import has_starargs
@@ -17,14 +19,27 @@ from pyupgrade._token_helpers import find_call
 from pyupgrade._token_helpers import parse_call_args
 
 
-def _fix_from_iterable(i: int, tokens: list[Token]) -> None:
+def _fix_from_iterable(
+        i: int,
+        tokens: list[Token],
+        *,
+        parenthesize: bool,
+) -> None:
     j = find_call(tokens, i)
     (arg,), end = parse_call_args(tokens, j)
-    src = f'(*it for it in {arg_str(tokens, *arg)})'
+    iterable = arg_str(tokens, *arg)
+    if parenthesize:
+        iterable = f'({tokens_to_src(tokens[slice(*arg)])})'
+    src = f'(*it for it in {iterable})'
     tokens[i:end] = [Token('CODE', src)]
 
 
-def _fix_chain_starred(i: int, tokens: list[Token]) -> None:
+def _fix_chain_starred(
+        i: int,
+        tokens: list[Token],
+        *,
+        parenthesize: bool,
+) -> None:
     j = find_call(tokens, i)
     (arg,), end = parse_call_args(tokens, j)
 
@@ -36,7 +51,10 @@ def _fix_chain_starred(i: int, tokens: list[Token]) -> None:
     else:
         raise AssertionError('did not find `*`?')
 
-    src = f'(*it for it in {arg_str(tokens, *arg)})'
+    iterable = arg_str(tokens, *arg)
+    if parenthesize:
+        iterable = f'({tokens_to_src(tokens[slice(*arg)])})'
+    src = f'(*it for it in {iterable})'
     tokens[i:end] = [Token('CODE', src)]
 
 
@@ -53,6 +71,13 @@ def _fix_chain_multiple(i: int, tokens: list[Token]) -> None:
     joined = ', '.join(arg_str(tokens, *arg) for arg in args)
     src = f'(*it for it in ({joined}))'
     tokens[i:end] = [Token('CODE', src)]
+
+
+def _has_named_expr(node: ast.Call) -> bool:
+    return any(
+        isinstance(expr, ast.NamedExpr)
+        for arg in node.args for expr in ast.walk(arg)
+    )
 
 
 @register(ast.Call)
@@ -72,9 +97,16 @@ def visit_Call(
                 ('chain',),
             ) and
             not has_starargs(node) and
-            len(node.args) == 1
+            len(node.args) == 1 and
+            not _has_named_expr(node)
     ):
-        yield ast_to_offset(node), _fix_from_iterable
+        func = functools.partial(
+            _fix_from_iterable,
+            parenthesize=isinstance(
+                node.args[0], (ast.GeneratorExp, ast.IfExp),
+            ),
+        )
+        yield ast_to_offset(node), func
     elif (
             state.settings.min_version >= (3, 15) and
             is_name_attr(
@@ -83,10 +115,15 @@ def visit_Call(
                 ('itertools',),
                 ('chain',),
             ) and
-            not node.keywords
+            not node.keywords and
+            not _has_named_expr(node)
     ):
         if len(node.args) == 1 and isinstance(node.args[0], ast.Starred):
-            yield ast_to_offset(node), _fix_chain_starred
+            func = functools.partial(
+                _fix_chain_starred,
+                parenthesize=isinstance(node.args[0].value, ast.IfExp),
+            )
+            yield ast_to_offset(node), func
         elif len(node.args) == 1:
             yield ast_to_offset(node), _fix_chain_to_iter
         else:
