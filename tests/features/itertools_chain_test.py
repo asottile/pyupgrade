@@ -144,7 +144,7 @@ def test_fix(s, expected):
         'itertools.chain(*rows if flag else other)',
     ],
 )
-def test_rewrite_preserves_values(s, flag):
+def test_rewrite_preserves_values(s, flag):  # pragma: >=3.15 cover
     namespace = {
         'itertools': itertools,
         'rows': [[1, 2], [3]],
