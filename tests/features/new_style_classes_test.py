@@ -13,6 +13,11 @@ from pyupgrade._main import _fix_plugins
         'x = (',
         # does not inherit from `object`
         'class C(B): pass',
+        'type("A", (B,), {})',
+        'type("A", (object, B), {})',
+        'type("A", (B, object), {})',
+        'type("A", object, {})',
+        'not_type("A", (object,), {})',
     ),
 )
 def test_fix_classes_noop(s):
@@ -100,6 +105,34 @@ def test_fix_classes_noop(s):
         (
             'class C(object, metaclass=ABCMeta): pass',
             'class C(metaclass=ABCMeta): pass',
+        ),
+        (
+            'type("A", (object,), {})',
+            'type("A", (), {})',
+        ),
+        (
+            'type("A", (object, ), {})',
+            'type("A", (), {})',
+        ),
+        (
+            'type("A", ((object,)), {})',
+            'type("A", (), {})',
+        ),
+        (
+            'type("A", (( object , )), {})',
+            'type("A", (), {})',
+        ),
+        (
+            'type("A", (\n'
+            '    object,\n'
+            '), {})',
+            'type("A", (), {})',
+        ),
+        (
+            'type("A", (\n'
+            '    object,  # comment!\n'
+            '), {})',
+            'type("A", (), {})',
         ),
     ),
 )
