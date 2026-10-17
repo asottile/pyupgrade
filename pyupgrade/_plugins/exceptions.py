@@ -36,7 +36,25 @@ _TARGETS = (
     _Target('OSError', None, 'WindowsError', (3,)),
     _Target('TimeoutError', 'socket', 'timeout', (3, 10)),
     _Target('TimeoutError', 'asyncio', 'TimeoutError', (3, 11)),
+    _Target('TimeoutError', 'concurrent.futures', 'TimeoutError', (3, 11)),
 )
+
+
+def _matches_module(value: ast.AST, state: State, module: str) -> bool:
+    if isinstance(value, ast.Name):
+        if value.id == module:
+            return True
+        elif '.' in module:
+            parent, child = module.rsplit('.', 1)
+            if value.id == child and child in state.from_imports[parent]:
+                return True
+    elif isinstance(value, ast.Attribute) and '.' in module:
+        parent, child = module.rsplit('.', 1)
+        return (
+            child == value.attr and
+            _matches_module(value.value, state, parent)
+        )
+    return False
 
 
 def _fix_except(
@@ -76,9 +94,8 @@ def _get_rewrite(
         elif (
                 target.module is not None and
                 isinstance(node, ast.Attribute) and
-                isinstance(node.value, ast.Name) and
                 node.attr == target.name and
-                node.value.id == target.module
+                _matches_module(node.value, state, target.module)
         ):
             return target
     else:
