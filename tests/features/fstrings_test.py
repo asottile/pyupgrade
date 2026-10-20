@@ -19,6 +19,11 @@ from pyupgrade._main import _fix_plugins
         '"{}".format(\n    a,\n)',
         # starargs
         '"{} {}".format(*a)', '"{foo} {bar}".format(**b)"',
+        # `lambda` / `:=` need parens inside an f-string (too timid to add)
+        '"{}".format(lambda: 1)',
+        '"{}".format((lambda: 1))',
+        '"{v}".format(v=lambda: 1)',
+        '"{}".format(x := 1)',
         # likely makes the format longer
         '"{0} {0}".format(arg)', '"{x} {x}".format(arg)',
         '"{x.y} {x.z}".format(arg)',

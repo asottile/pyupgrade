@@ -88,6 +88,14 @@ def _format_params(call: ast.Call) -> set[str]:
     return params
 
 
+def _needs_parens(call: ast.Call) -> bool:
+    """`lambda` and `:=` are not valid unparenthesized in an f-string"""
+    return any(
+        isinstance(arg, (ast.Lambda, ast.NamedExpr))
+        for arg in (*call.args, *(kwd.value for kwd in call.keywords))
+    )
+
+
 @register(ast.Call)
 def visit_Call(
         state: State,
@@ -104,6 +112,10 @@ def visit_Call(
             node.func.attr == 'format' and
             not has_starargs(node)
     ):
+        # timid: the arguments are inlined verbatim into the f-string
+        if _needs_parens(node):
+            return
+
         try:
             parsed = parse_format(node.func.value.value)
         except ValueError:
