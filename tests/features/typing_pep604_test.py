@@ -242,6 +242,86 @@ def f(x: int | str) -> None: ...
 
             id='optional, 3.12: ignore close brace in fstring',
         ),
+        pytest.param(
+            'from typing import Optional, Union\n'
+            'def f(x: Optional[Union[int, None]]): pass\n'
+            'def g(x: Union[Optional[int], None]): pass\n'
+            'def h(x: Union[Union[int, None], None]): pass\n'
+            'def i(x: Union[int, int, None]): pass\n'
+            'def j(x: Union[Union[int, None], int]): pass\n'
+            'def k(x: Union[Union[int, None], int]): pass # comment\n'
+            'def l(x: Union[Union[Union[Union[a, b], c], d], a]): pass\n'
+            'def m(x: Union[a.b | a.c, a.b, list[str], str]): pass\n',
+
+            'from typing import Optional, Union\n'
+            'def f(x: int | None): pass\n'
+            'def g(x: int | None): pass\n'
+            'def h(x: int | None): pass\n'
+            'def i(x: int | None): pass\n'
+            'def j(x: int | None): pass\n'
+            'def k(x: int | None): pass # comment\n'
+            'def l(x: a | b | c | d): pass\n'
+            'def m(x: a.b | a.c | list[str] | str): pass\n',
+
+            id='duplicated types in nested unions or optionals',
+        ),
+        pytest.param(
+            'from typing import Optional, Union\n'
+            'f: Optional[\n'
+            '    Union[int, None]\n'
+            ']\n'
+            'g: Union[\n'
+            '    int,\n'
+            '    int,\n'
+            '    None,\n'
+            ']\n'
+            'h: Union[\n'
+            '    Union[int, None],\n'
+            '    int,\n'
+            '    None,\n'
+            '    Optional[int],\n'
+            ']\n'
+            'i: Union[\n'
+            '    Union[int, None], # comment 1\n'
+            '    int, # comment 2\n'
+            '    None, # comment 3\n'
+            '    Optional[int], # comment 4\n'
+            '    Optional[str], # comment 5\n'
+            ']\n',
+
+            'from typing import Optional, Union\n'
+            'f: (\n'
+            '    int | None\n'
+            ')\n'
+            'g: (\n'
+            '    int |\n'
+            '    None\n'
+            ')\n'
+            'h: (\n'
+            '    int | None\n'
+            ')\n'
+            'i: (\n'
+            '    int | None # comment 1\n'
+            '    # comment 2\n'
+            '    # comment 3\n'
+            '    | # comment 4\n'
+            '    str # comment 5\n'
+            ')\n',
+
+            id='duplicated types in multi-line nested unions or optionals',
+        ),
+        pytest.param(
+            'from typing import Union\n'
+            'def f(x: Union[list[Union[int, str]], list[Union[str, int]]]):\n'
+            '    pass\n',
+
+            'from typing import Union\n'
+            'def f(x: list[int | str]):\n'
+            '    pass\n',
+
+            id='general duplicated types',
+            marks=pytest.mark.xfail(reason='requires deeper type evaluation'),
+        ),
     ),
 )
 def test_fix_pep604_types(s, expected):
