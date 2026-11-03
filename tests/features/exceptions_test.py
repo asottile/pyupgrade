@@ -64,6 +64,15 @@ from pyupgrade._main import _fix_plugins
             'except (os).error: ...\n',
             id='weird parens',
         ),
+        pytest.param(
+            'try: ...\n'
+            'except foo().error: ...\n',
+            id='exception type is attribute of a call',
+        ),
+        pytest.param(
+            'raise foo().bar.error\n',
+            id='raised exception type is dotted attribute of a call',
+        ),
     ),
 )
 def test_fix_exceptions_noop(s):
